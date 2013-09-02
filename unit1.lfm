@@ -1,0 +1,2911 @@
+object Form1: TForm1
+  Left = 2
+  Height = 1000
+  Top = 0
+  Width = 1825
+  Caption = 'JT65-HF 2.0'
+  ClientHeight = 1000
+  ClientWidth = 1825
+  Constraints.MaxHeight = 1000
+  Constraints.MaxWidth = 2000
+  Constraints.MinHeight = 723
+  Constraints.MinWidth = 1000
+  Font.Height = -13
+  Font.Name = 'Arial'
+  OnClose = FormClose
+  OnCreate = FormCreate
+  LCLVersion = '1.0.10.0'
+  object Label108: TLabel
+    Left = 78
+    Height = 23
+    Top = 64
+    Width = 85
+    Caption = 'Label108'
+    Font.Height = -19
+    Font.Name = 'Arial'
+    Font.Style = [fsBold]
+    ParentColor = False
+    ParentFont = False
+  end
+  object comboQRGList: TComboBox
+    Left = 8
+    Height = 30
+    Top = 184
+    Width = 104
+    Font.Height = -19
+    Font.Name = 'Arial'
+    ItemHeight = 22
+    OnChange = comboQRGListChange
+    ParentFont = False
+    Style = csDropDownList
+    TabOrder = 30
+  end
+  object groupLogQSO: TGroupBox
+    Left = 1072
+    Height = 184
+    Top = 6
+    Width = 745
+    Caption = 'Log QSO'
+    ClientHeight = 166
+    ClientWidth = 741
+    TabOrder = 33
+    object Button12: TButton
+      Left = 662
+      Height = 25
+      Top = 135
+      Width = 75
+      Caption = 'Button12'
+      OnClick = Button12Click
+      TabOrder = 0
+    end
+    object logCallsign: TEdit
+      Left = 6
+      Height = 24
+      Top = 23
+      Width = 80
+      CharCase = ecUppercase
+      TabOrder = 1
+    end
+    object logSigReport: TEdit
+      Left = 542
+      Height = 24
+      Top = 23
+      Width = 57
+      MaxLength = 3
+      TabOrder = 2
+    end
+    object logQRG: TEdit
+      Left = 102
+      Height = 24
+      Top = 23
+      Width = 86
+      TabOrder = 3
+    end
+    object logMySig: TEdit
+      Left = 614
+      Height = 24
+      Top = 23
+      Width = 59
+      MaxLength = 3
+      TabOrder = 4
+    end
+    object logTimeOn: TEdit
+      Left = 206
+      Height = 24
+      Top = 23
+      Width = 152
+      TabOrder = 5
+    end
+    object Label99: TLabel
+      Left = 206
+      Height = 17
+      Top = 3
+      Width = 81
+      Caption = 'Date/Time On'
+      ParentColor = False
+    end
+    object Label100: TLabel
+      Left = 6
+      Height = 17
+      Top = 3
+      Width = 72
+      Caption = 'Call Worked'
+      ParentColor = False
+    end
+    object Label101: TLabel
+      Left = 102
+      Height = 17
+      Top = 3
+      Width = 86
+      Caption = 'Frequncy MHz'
+      ParentColor = False
+    end
+    object Label102: TLabel
+      Left = 542
+      Height = 17
+      Top = 3
+      Width = 57
+      Caption = 'Report TX'
+      ParentColor = False
+    end
+    object Label103: TLabel
+      Left = 614
+      Height = 17
+      Top = 3
+      Width = 59
+      Caption = 'Report RX'
+      ParentColor = False
+    end
+    object logTimeOff: TEdit
+      Left = 374
+      Height = 24
+      Top = 23
+      Width = 152
+      TabOrder = 6
+    end
+    object Label104: TLabel
+      Left = 398
+      Height = 17
+      Top = 3
+      Width = 80
+      Caption = 'Date/Time Off'
+      ParentColor = False
+    end
+    object logComments: TEdit
+      Left = 6
+      Height = 24
+      Top = 75
+      Width = 731
+      TabOrder = 7
+    end
+    object Label105: TLabel
+      Left = 6
+      Height = 17
+      Top = 55
+      Width = 64
+      Caption = 'Comments'
+      ParentColor = False
+    end
+    object logPower: TEdit
+      Left = 692
+      Height = 24
+      Top = 23
+      Width = 45
+      TabOrder = 8
+    end
+    object Label106: TLabel
+      Left = 692
+      Height = 17
+      Top = 3
+      Width = 37
+      Caption = 'Power'
+      ParentColor = False
+    end
+  end
+  object edTXMsg: TEdit
+    Left = 816
+    Height = 30
+    Top = 305
+    Width = 186
+    CharCase = ecUppercase
+    Font.Height = -19
+    Font.Name = 'Arial'
+    OnDblClick = edTXMsgDblClick
+    ParentFont = False
+    TabOrder = 1
+  end
+  object Label10: TLabel
+    Left = 704
+    Height = 17
+    Top = 312
+    Width = 105
+    Caption = 'Message To Send'
+    ParentColor = False
+  end
+  object Bevel1: TBevel
+    Left = 8
+    Height = 3
+    Top = 30
+    Width = 984
+  end
+  object Label15: TLabel
+    Left = 8
+    Height = 1
+    Top = 6
+    Width = 1
+    Font.Height = -19
+    Font.Name = 'Arial'
+    Font.Style = [fsBold]
+    ParentColor = False
+    ParentFont = False
+  end
+  object ListBox2: TListBox
+    Left = 1120
+    Height = 257
+    Top = 200
+    Width = 384
+    Font.Height = -11
+    Font.Name = 'Arial'
+    ItemHeight = 0
+    OnDblClick = ListBox2DblClick
+    ParentFont = False
+    TabOrder = 2
+  end
+  object RadioGroup1: TRadioGroup
+    Left = 704
+    Height = 49
+    Top = 432
+    Width = 208
+    AutoFill = True
+    Caption = 'TX Control'
+    ChildSizing.LeftRightSpacing = 6
+    ChildSizing.TopBottomSpacing = 6
+    ChildSizing.EnlargeHorizontal = crsHomogenousChildResize
+    ChildSizing.EnlargeVertical = crsHomogenousChildResize
+    ChildSizing.ShrinkHorizontal = crsScaleChilds
+    ChildSizing.ShrinkVertical = crsScaleChilds
+    ChildSizing.Layout = cclTopToBottomThenLeftToRight
+    ChildSizing.ControlsPerLine = 1
+    ClientHeight = 31
+    ClientWidth = 204
+    ColumnLayout = clVerticalThenHorizontal
+    Columns = 2
+    TabOrder = 3
+    object RadioButton1: TRadioButton
+      Left = 6
+      Height = 19
+      Top = 6
+      Width = 58
+      Caption = 'TX Off'
+      Checked = True
+      Enabled = False
+      TabOrder = 2
+      TabStop = True
+    end
+    object RadioButton2: TRadioButton
+      Left = 64
+      Height = 19
+      Top = 6
+      Width = 70
+      Caption = 'TX Even'
+      Enabled = False
+      TabOrder = 0
+    end
+    object RadioButton3: TRadioButton
+      Left = 134
+      Height = 19
+      Top = 6
+      Width = 64
+      Caption = 'TX Odd'
+      Enabled = False
+      TabOrder = 1
+    end
+  end
+  object Label16: TLabel
+    Left = 440
+    Height = 23
+    Top = 6
+    Width = 185
+    Caption = 'TX: TRANSMITTING'
+    Font.Height = -19
+    Font.Name = 'Arial'
+    Font.Style = [fsBold]
+    ParentColor = False
+    ParentFont = False
+    Visible = False
+  end
+  object edTXDF: TEdit
+    Left = 816
+    Height = 30
+    Top = 504
+    Width = 47
+    Font.Height = -19
+    Font.Name = 'Arial'
+    MaxLength = 5
+    ParentFont = False
+    TabOrder = 4
+    Text = '0'
+  end
+  object Label19: TLabel
+    Left = 816
+    Height = 17
+    Top = 488
+    Width = 32
+    Caption = 'TxDF'
+    ParentColor = False
+  end
+  object Bevel3: TBevel
+    Left = 8
+    Height = 3
+    Top = 260
+    Width = 984
+  end
+  object Label20: TLabel
+    Left = 657
+    Height = 23
+    Top = 6
+    Width = 329
+    Caption = 'W6CQZ HFWST V2.0.0 Alpha Build 0'
+    Font.Height = -19
+    Font.Name = 'Arial'
+    Font.Style = [fsBold]
+    ParentColor = False
+    ParentFont = False
+  end
+  object tbTXLevel: TTrackBar
+    Left = 704
+    Height = 31
+    Top = 560
+    Width = 143
+    Max = 16
+    OnChange = tbTXLevelChange
+    Position = 16
+    TickMarks = tmTopLeft
+    TabOrder = 5
+  end
+  object Label1: TLabel
+    Left = 704
+    Height = 17
+    Top = 544
+    Width = 39
+    Caption = 'Label1'
+    ParentColor = False
+  end
+  object Chart1: TChart
+    Left = 242
+    Height = 32
+    Top = 35
+    Width = 750
+    AllowZoom = False
+    AxisList = <    
+      item
+        Visible = False
+        Inverted = True
+        Minors = <>
+        Title.LabelFont.Orientation = 900
+      end    
+      item
+        Grid.Style = psSolid
+        TickLength = 1
+        Alignment = calTop
+        Minors = <>
+      end>
+    Extent.UseXMax = True
+    Extent.UseXMin = True
+    Extent.UseYMax = True
+    Extent.UseYMin = True
+    Extent.XMax = 10
+    Extent.XMin = -10
+    Extent.YMax = 1
+    Foot.Brush.Color = clBtnFace
+    Foot.Font.Color = clBlue
+    Title.Brush.Color = clBtnFace
+    Title.Font.Color = clBlue
+    Title.Text.Strings = (
+      'TAChart'
+    )
+    ParentColor = False
+  end
+  object Label3: TLabel
+    Left = 8
+    Height = 25
+    Top = 35
+    Width = 133
+    Caption = 'Audio Levels'
+    Font.Height = -21
+    Font.Name = 'Arial'
+    Font.Style = [fsBold]
+    ParentColor = False
+    ParentFont = False
+  end
+  object ListBox3: TListBox
+    Left = 8
+    Height = 25
+    Top = 296
+    Width = 680
+    Enabled = False
+    Font.Height = -19
+    Font.Name = 'Courier New'
+    Font.Style = [fsBold]
+    Items.Strings = (
+      ' UTC Sync dB  DT    DF   EC     Exchange           Frame Type'
+    )
+    ItemHeight = 22
+    ParentFont = False
+    TabOrder = 6
+  end
+  object Label8: TLabel
+    Left = 233
+    Height = 23
+    Top = 6
+    Width = 45
+    Caption = 'DE:  '
+    Font.Height = -19
+    Font.Name = 'Arial'
+    Font.Style = [fsBold]
+    ParentColor = False
+    ParentFont = False
+  end
+  object bCQ: TButton
+    Left = 704
+    Height = 25
+    Top = 368
+    Width = 63
+    Caption = 'CQ'
+    Font.Height = -13
+    Font.Name = 'Arial'
+    Font.Style = [fsBold]
+    OnClick = mgenClick
+    ParentFont = False
+    TabOrder = 7
+  end
+  object bQRZ: TButton
+    Left = 775
+    Height = 25
+    Top = 368
+    Width = 58
+    Caption = 'QRZ'
+    Font.Height = -13
+    Font.Name = 'Arial'
+    Font.Style = [fsBold]
+    OnClick = mgenClick
+    ParentFont = False
+    TabOrder = 8
+  end
+  object bDE: TButton
+    Left = 840
+    Height = 25
+    Top = 368
+    Width = 81
+    Caption = 'DE + Grid'
+    Font.Height = -13
+    Font.Name = 'Arial'
+    Font.Style = [fsBold]
+    OnClick = mgenClick
+    ParentFont = False
+    TabOrder = 9
+  end
+  object b73x: TButton
+    Left = 930
+    Height = 25
+    Top = 368
+    Width = 72
+    Caption = 'DE + 73'
+    Font.Height = -13
+    Font.Name = 'Arial'
+    Font.Style = [fsBold]
+    OnClick = mgenClick
+    ParentFont = False
+    TabOrder = 10
+  end
+  object edTXtoCall: TEdit
+    Left = 936
+    Height = 30
+    Top = 456
+    Width = 74
+    Font.Height = -19
+    Font.Name = 'Arial'
+    ParentFont = False
+    TabOrder = 11
+  end
+  object edTXReport: TEdit
+    Left = 968
+    Height = 30
+    Top = 504
+    Width = 40
+    Font.Height = -19
+    Font.Name = 'Arial'
+    ParentFont = False
+    TabOrder = 12
+  end
+  object Label5: TLabel
+    Left = 928
+    Height = 17
+    Top = 432
+    Width = 80
+    Caption = 'TX to Callsign'
+    ParentColor = False
+  end
+  object Label9: TLabel
+    Left = 968
+    Height = 17
+    Top = 488
+    Width = 39
+    Caption = 'Report'
+    ParentColor = False
+  end
+  object Label11: TLabel
+    Left = 704
+    Height = 17
+    Top = 344
+    Width = 111
+    Caption = 'Generate Message'
+    ParentColor = False
+  end
+  object Button1: TButton
+    Left = 1020
+    Height = 59
+    Top = 368
+    Width = 90
+    Caption = 'HALT TX'
+    Font.Height = -13
+    Font.Name = 'Arial'
+    Font.Style = [fsBold]
+    OnClick = Button1Click
+    ParentFont = False
+    TabOrder = 13
+  end
+  object bACQ: TButton
+    Left = 704
+    Height = 25
+    Top = 402
+    Width = 97
+    Caption = 'Answer CQ'
+    Font.Height = -13
+    Font.Name = 'Arial'
+    Font.Style = [fsBold]
+    OnClick = mgenClick
+    ParentFont = False
+    TabOrder = 14
+  end
+  object bReport: TButton
+    Left = 807
+    Height = 25
+    Top = 403
+    Width = 43
+    Caption = '-##'
+    Font.Height = -13
+    Font.Name = 'Arial'
+    Font.Style = [fsBold]
+    OnClick = mgenClick
+    ParentFont = False
+    TabOrder = 15
+  end
+  object bRRR: TButton
+    Left = 911
+    Height = 25
+    Top = 402
+    Width = 48
+    Caption = 'RRR'
+    Font.Height = -13
+    Font.Name = 'Arial'
+    Font.Style = [fsBold]
+    OnClick = mgenClick
+    ParentFont = False
+    TabOrder = 16
+  end
+  object b73: TButton
+    Left = 966
+    Height = 25
+    Top = 400
+    Width = 36
+    Caption = '73'
+    Font.Height = -13
+    Font.Name = 'Arial'
+    Font.Style = [fsBold]
+    OnClick = mgenClick
+    ParentFont = False
+    TabOrder = 17
+  end
+  object bRReport: TButton
+    Left = 856
+    Height = 25
+    Top = 402
+    Width = 48
+    Caption = 'R-##'
+    Font.Height = -13
+    Font.Name = 'Arial'
+    Font.Style = [fsBold]
+    OnClick = mgenClick
+    ParentFont = False
+    TabOrder = 18
+  end
+  object Button2: TButton
+    Left = 8
+    Height = 26
+    Top = 266
+    Width = 106
+    Caption = 'Clear Decodes'
+    OnClick = Button2Click
+    TabOrder = 19
+  end
+  object tbMultiBin: TTrackBar
+    Left = 816
+    Height = 32
+    Top = 640
+    Width = 88
+    Max = 4
+    Min = 1
+    OnChange = tbMultiBinChange
+    Position = 1
+    TickMarks = tmTopLeft
+    TabOrder = 20
+  end
+  object Label26: TLabel
+    Left = 816
+    Height = 17
+    Top = 615
+    Width = 57
+    Caption = '100 Hertz'
+    ParentColor = False
+  end
+  object Label27: TLabel
+    Left = 8
+    Height = 25
+    Top = 128
+    Width = 67
+    Caption = 'QRG:  '
+    Font.Height = -21
+    Font.Name = 'Arial'
+    Font.Style = [fsBold]
+    ParentColor = False
+    ParentFont = False
+  end
+  object buttonConfig: TButton
+    Left = 136
+    Height = 26
+    Top = 266
+    Width = 120
+    Caption = 'Configuration'
+    OnClick = buttonConfigClick
+    TabOrder = 21
+  end
+  object Label12: TLabel
+    Left = 704
+    Height = 17
+    Top = 739
+    Width = 90
+    Caption = 'PTT is disabled'
+    ParentColor = False
+  end
+  object rbOn: TCheckBox
+    Left = 313
+    Height = 26
+    Top = 266
+    Width = 243
+    Caption = 'Internet Spotting Enable'
+    Font.Height = -19
+    Font.Name = 'Arial'
+    Font.Style = [fsBold]
+    ParentFont = False
+    TabOrder = 23
+  end
+  object Label79: TLabel
+    Left = 874
+    Height = 17
+    Top = 488
+    Width = 34
+    Caption = 'RxDF'
+    ParentColor = False
+  end
+  object edRXDF: TEdit
+    Left = 874
+    Height = 30
+    Top = 504
+    Width = 47
+    Font.Height = -19
+    Font.Name = 'Arial'
+    ParentFont = False
+    TabOrder = 24
+    Text = '0'
+  end
+  object cbTXEqRXDF: TCheckBox
+    Left = 704
+    Height = 20
+    Top = 488
+    Width = 108
+    Caption = 'TX DF = RX DF'
+    Checked = True
+    Enabled = False
+    State = cbChecked
+    TabOrder = 25
+  end
+  object editQRG: TEdit
+    Left = 8
+    Height = 30
+    Hint = 'Enter as Hertz, KHz or MHz'
+    Top = 152
+    Width = 104
+    Font.Height = -19
+    Font.Name = 'Arial'
+    ParentFont = False
+    ParentShowHint = False
+    ShowHint = True
+    TabOrder = 26
+  end
+  object btnsetQRG: TButton
+    Left = 126
+    Height = 24
+    Top = 152
+    Width = 75
+    Caption = 'Set QRG'
+    OnClick = btnsetQRGClick
+    TabOrder = 27
+  end
+  object cbMultiOn: TCheckBox
+    Left = 912
+    Height = 20
+    Top = 652
+    Width = 138
+    Caption = 'Multiple Decoder On'
+    Checked = True
+    Enabled = False
+    State = cbChecked
+    TabOrder = 28
+  end
+  object tbSingleBin: TTrackBar
+    Left = 700
+    Height = 32
+    Top = 640
+    Width = 88
+    Max = 4
+    Min = 1
+    OnChange = tbSingleBinChange
+    Position = 3
+    TickMarks = tmTopLeft
+    TabOrder = 29
+  end
+  object Label87: TLabel
+    Left = 700
+    Height = 17
+    Top = 615
+    Width = 57
+    Caption = '100 Hertz'
+    ParentColor = False
+  end
+  object PageControl1: TPageControl
+    Left = 704
+    Height = 216
+    Top = 776
+    Width = 1113
+    ActivePage = TabSheet1
+    TabIndex = 0
+    TabOrder = 22
+    OnChange = PageControl1Change
+    object TabSheet1: TTabSheet
+      Caption = 'Basic'
+      ClientHeight = 187
+      ClientWidth = 1105
+      object Button4: TButton
+        Left = 451
+        Height = 40
+        Top = 143
+        Width = 129
+        Caption = 'Save'
+        Font.Height = -21
+        Font.Name = 'Arial'
+        Font.Style = [fsBold]
+        OnClick = Button4Click
+        ParentFont = False
+        TabOrder = 0
+      end
+      object comboAudioIn: TComboBox
+        Left = 4
+        Height = 24
+        Top = 88
+        Width = 282
+        ItemHeight = 16
+        OnChange = audioChange
+        Style = csDropDownList
+        TabOrder = 1
+      end
+      object Label13: TLabel
+        Left = 4
+        Height = 17
+        Top = 69
+        Width = 74
+        Caption = 'Audio Input'
+        Font.Height = -13
+        Font.Name = 'Arial'
+        Font.Style = [fsBold]
+        ParentColor = False
+        ParentFont = False
+      end
+      object Label2: TLabel
+        Left = 4
+        Height = 17
+        Top = 2
+        Width = 39
+        Caption = 'Prefix'
+        Font.Height = -13
+        Font.Name = 'Arial'
+        Font.Style = [fsBold]
+        ParentColor = False
+        ParentFont = False
+      end
+      object Label4: TLabel
+        Left = 68
+        Height = 17
+        Top = 2
+        Width = 52
+        Caption = 'Callsign'
+        Font.Height = -13
+        Font.Name = 'Arial'
+        Font.Style = [fsBold]
+        ParentColor = False
+        ParentFont = False
+      end
+      object Label6: TLabel
+        Left = 148
+        Height = 17
+        Top = 2
+        Width = 38
+        Caption = 'Suffix'
+        Font.Height = -13
+        Font.Name = 'Arial'
+        Font.Style = [fsBold]
+        ParentColor = False
+        ParentFont = False
+      end
+      object Label7: TLabel
+        Left = 292
+        Height = 17
+        Top = 2
+        Width = 28
+        Caption = 'Grid'
+        Font.Height = -13
+        Font.Name = 'Arial'
+        Font.Style = [fsBold]
+        ParentColor = False
+        ParentFont = False
+      end
+      object GroupBox13: TGroupBox
+        Left = 588
+        Height = 184
+        Top = -1
+        Width = 216
+        ClientHeight = 166
+        ClientWidth = 212
+        Enabled = False
+        TabOrder = 2
+        object Label41: TLabel
+          Left = 6
+          Height = 33
+          Top = 0
+          Width = 192
+          Caption = 'Digital Audio Gain/Attenuation.'#13#10'Do not use this unless you must!'
+          ParentColor = False
+        end
+        object GroupBox14: TGroupBox
+          Left = 6
+          Height = 129
+          Top = 35
+          Width = 96
+          Caption = 'Left'
+          ClientHeight = 111
+          ClientWidth = 92
+          TabOrder = 0
+          object RadioButton25: TRadioButton
+            Left = 6
+            Height = 20
+            Top = 0
+            Width = 75
+            Caption = '0 dB - Off'
+            Checked = True
+            OnChange = rigControlSet
+            TabOrder = 3
+            TabStop = True
+          end
+          object RadioButton26: TRadioButton
+            Left = 6
+            Height = 20
+            Top = 21
+            Width = 47
+            Caption = '3 dB'
+            OnChange = rigControlSet
+            TabOrder = 0
+          end
+          object RadioButton27: TRadioButton
+            Left = 6
+            Height = 20
+            Top = 42
+            Width = 47
+            Caption = '6 dB'
+            OnChange = rigControlSet
+            TabOrder = 1
+          end
+          object RadioButton28: TRadioButton
+            Left = 6
+            Height = 20
+            Top = 63
+            Width = 47
+            Caption = '9 dB'
+            OnChange = rigControlSet
+            TabOrder = 2
+          end
+          object cbAttenuateLeft: TCheckBox
+            Left = 6
+            Height = 20
+            Top = 88
+            Width = 76
+            Caption = 'Attenuate'
+            TabOrder = 4
+          end
+        end
+        object GroupBox15: TGroupBox
+          Left = 110
+          Height = 129
+          Top = 35
+          Width = 96
+          Caption = 'Right'
+          ClientHeight = 111
+          ClientWidth = 92
+          TabOrder = 1
+          object RadioButton29: TRadioButton
+            Left = 6
+            Height = 20
+            Top = 0
+            Width = 75
+            Caption = '0 dB - Off'
+            Checked = True
+            OnChange = rigControlSet
+            TabOrder = 3
+            TabStop = True
+          end
+          object RadioButton30: TRadioButton
+            Left = 6
+            Height = 20
+            Top = 21
+            Width = 47
+            Caption = '3 dB'
+            OnChange = rigControlSet
+            TabOrder = 0
+          end
+          object RadioButton31: TRadioButton
+            Left = 6
+            Height = 20
+            Top = 42
+            Width = 47
+            Caption = '6 dB'
+            OnChange = rigControlSet
+            TabOrder = 1
+          end
+          object RadioButton32: TRadioButton
+            Left = 6
+            Height = 20
+            Top = 63
+            Width = 47
+            Caption = '9 dB'
+            OnChange = rigControlSet
+            TabOrder = 2
+          end
+          object cbAttenuateRight: TCheckBox
+            Left = 6
+            Height = 20
+            Top = 88
+            Width = 76
+            Caption = 'Attenuate'
+            TabOrder = 4
+          end
+        end
+      end
+      object Label42: TLabel
+        Left = 4
+        Height = 17
+        Top = 49
+        Width = 251
+        Caption = 'You may set a prefix or a suffix.  NOT both.'
+        ParentColor = False
+      end
+      object Label43: TLabel
+        Left = 292
+        Height = 17
+        Top = 49
+        Width = 288
+        Caption = 'Four or six character grid.  Required to enable TX.'
+        ParentColor = False
+      end
+      object GroupBox17: TGroupBox
+        Left = 4
+        Height = 48
+        Top = 135
+        Width = 185
+        Caption = 'Audio Channel'
+        ClientHeight = 30
+        ClientWidth = 181
+        TabOrder = 3
+        object rbUseLeftAudio: TRadioButton
+          Left = 6
+          Height = 20
+          Top = 3
+          Width = 41
+          Caption = 'Left'
+          Checked = True
+          OnChange = rigControlSet
+          TabOrder = 0
+          TabStop = True
+        end
+        object rbUseRightAudio: TRadioButton
+          Left = 102
+          Height = 20
+          Top = 3
+          Width = 50
+          Caption = 'Right'
+          OnChange = rigControlSet
+          TabOrder = 1
+        end
+      end
+      object edPrefix: TEdit
+        Left = 4
+        Height = 24
+        Top = 22
+        Width = 56
+        OnChange = rigControlSet
+        TabOrder = 4
+      end
+      object edCall: TEdit
+        Left = 68
+        Height = 24
+        Top = 22
+        Width = 72
+        OnChange = rigControlSet
+        TabOrder = 5
+      end
+      object edSuffix: TEdit
+        Left = 148
+        Height = 24
+        Top = 22
+        Width = 52
+        OnChange = rigControlSet
+        TabOrder = 6
+      end
+      object edGrid: TEdit
+        Left = 292
+        Height = 24
+        Top = 22
+        Width = 72
+        OnChange = rigControlSet
+        TabOrder = 7
+      end
+      object cbUseMono: TCheckBox
+        Left = 4
+        Height = 20
+        Top = 118
+        Width = 169
+        Caption = 'Use Mono Audio Streams'
+        OnChange = rigControlSet
+        TabOrder = 8
+      end
+    end
+    object TabSheet6: TTabSheet
+      Caption = 'PTT/Rig Control'
+      ClientHeight = 187
+      ClientWidth = 1105
+      object GroupBox3: TGroupBox
+        Left = 4
+        Height = 136
+        Top = 47
+        Width = 664
+        ClientHeight = 118
+        ClientWidth = 660
+        TabOrder = 0
+        object Label18: TLabel
+          Left = 142
+          Height = 17
+          Top = 12
+          Width = 25
+          Caption = 'Port'
+          Color = clDefault
+          ParentColor = False
+          Transparent = False
+        end
+        object Label38: TLabel
+          Left = 38
+          Height = 17
+          Top = 68
+          Width = 128
+          Caption = 'Maximum identical TX'
+          ParentColor = False
+        end
+        object edTXWD: TEdit
+          Left = 6
+          Height = 24
+          Top = 64
+          Width = 24
+          OnChange = rigControlSet
+          TabOrder = 0
+          Text = '10'
+        end
+        object cbUseSerial: TCheckBox
+          Left = 6
+          Height = 20
+          Top = 9
+          Width = 107
+          Caption = 'Use Serial PTT'
+          TabOrder = 1
+        end
+        object cbUseTXWD: TCheckBox
+          Left = 6
+          Height = 20
+          Top = 40
+          Width = 158
+          Caption = 'Run away TX Watchdog'
+          Checked = True
+          State = cbChecked
+          TabOrder = 2
+        end
+      end
+      object GroupBox5: TGroupBox
+        Left = 4
+        Height = 50
+        Top = -1
+        Width = 752
+        ClientHeight = 32
+        ClientWidth = 748
+        TabOrder = 1
+        object rigNone: TRadioButton
+          Left = 6
+          Height = 20
+          Top = 0
+          Width = 104
+          Caption = 'No Rig Control'
+          Checked = True
+          OnClick = rigControlSet
+          TabOrder = 0
+          TabStop = True
+        end
+      end
+      object Button5: TButton
+        Left = 676
+        Height = 40
+        Top = 143
+        Width = 129
+        Caption = 'Save'
+        Font.Height = -21
+        Font.Name = 'Arial'
+        Font.Style = [fsBold]
+        OnClick = Button4Click
+        ParentFont = False
+        TabOrder = 2
+      end
+      object edPort: TEdit
+        Left = 180
+        Height = 24
+        Top = 71
+        Width = 35
+        OnChange = rigControlSet
+        TabOrder = 3
+      end
+    end
+    object TabSheet2: TTabSheet
+      Caption = 'Spectrum Display/GUI Options'
+      ClientHeight = 187
+      ClientWidth = 1105
+      object GroupBox1: TGroupBox
+        Left = 4
+        Height = 68
+        Top = 44
+        Width = 728
+        ClientHeight = 50
+        ClientWidth = 724
+        TabOrder = 0
+        object cbCQCOlor: TComboBox
+          Left = 254
+          Height = 24
+          Top = 19
+          Width = 102
+          Color = clLime
+          ItemHeight = 16
+          OnChange = rigControlSet
+          TabOrder = 0
+          Text = 'cbCQCOlor'
+        end
+        object Label17: TLabel
+          Left = 254
+          Height = 17
+          Top = 0
+          Width = 101
+          Caption = 'Text contains CQ'
+          ParentColor = False
+        end
+        object Label21: TLabel
+          Left = 382
+          Height = 17
+          Top = 0
+          Width = 124
+          Caption = 'Text contains my call'
+          ParentColor = False
+        end
+        object cbMyCallColor: TComboBox
+          Left = 382
+          Height = 24
+          Top = 19
+          Width = 125
+          Color = clRed
+          ItemHeight = 16
+          OnChange = rigControlSet
+          TabOrder = 1
+          Text = 'cbMyCallColor'
+        end
+        object Label23: TLabel
+          Left = 534
+          Height = 17
+          Top = 0
+          Width = 140
+          Caption = 'Text is QSO in progress'
+          ParentColor = False
+        end
+        object cbQSOColor: TComboBox
+          Left = 534
+          Height = 24
+          Top = 19
+          Width = 141
+          Color = clSilver
+          ItemHeight = 16
+          OnChange = rigControlSet
+          TabOrder = 2
+          Text = 'cbQSOColor'
+        end
+        object cbUseColor: TCheckBox
+          Left = 6
+          Height = 20
+          Top = 19
+          Width = 225
+          Caption = 'Use color coding for decoder output'
+          Checked = True
+          State = cbChecked
+          TabOrder = 3
+        end
+      end
+      object GroupBox2: TGroupBox
+        Left = 4
+        Height = 68
+        Top = 115
+        Width = 729
+        ClientHeight = 50
+        ClientWidth = 725
+        TabOrder = 1
+        object spColorMap: TComboBox
+          Left = 6
+          Height = 24
+          Top = 19
+          Width = 115
+          ItemHeight = 16
+          ItemIndex = 0
+          Items.Strings = (
+            'Blue'
+            'Linrad'
+            'Grey0'
+            'Grey1'
+            'Green'
+          )
+          OnChange = rigControlSet
+          Style = csDropDownList
+          TabOrder = 0
+          Text = 'Blue'
+        end
+        object Label28: TLabel
+          Left = 6
+          Height = 17
+          Top = 0
+          Width = 115
+          Caption = 'Waterfall Color Map'
+          ParentColor = False
+        end
+        object tbWFSpeed: TTrackBar
+          Left = 133
+          Height = 24
+          Top = 19
+          Width = 90
+          Min = -1
+          OnChange = rigControlSet
+          Position = 5
+          TabOrder = 1
+        end
+        object Label29: TLabel
+          Left = 133
+          Height = 17
+          Top = 0
+          Width = 90
+          Caption = 'Waterall Speed'
+          ParentColor = False
+        end
+        object tbWFContrast: TTrackBar
+          Left = 230
+          Height = 24
+          Top = 19
+          Width = 90
+          Min = -10
+          OnChange = rigControlSet
+          Position = 0
+          Enabled = False
+          TabOrder = 2
+        end
+        object Label30: TLabel
+          Left = 238
+          Height = 17
+          Top = 0
+          Width = 50
+          Caption = 'Contrast'
+          ParentColor = False
+        end
+        object tbWFBright: TTrackBar
+          Left = 326
+          Height = 24
+          Top = 19
+          Width = 90
+          Min = -10
+          OnChange = rigControlSet
+          Position = 0
+          Enabled = False
+          TabOrder = 3
+        end
+        object Label31: TLabel
+          Left = 326
+          Height = 17
+          Top = 0
+          Width = 63
+          Caption = 'Brightness'
+          ParentColor = False
+        end
+        object tbWFGain: TTrackBar
+          Left = 417
+          Height = 24
+          Top = 19
+          Width = 90
+          Min = -10
+          OnChange = rigControlSet
+          Position = 0
+          Enabled = False
+          TabOrder = 4
+        end
+        object Label32: TLabel
+          Left = 417
+          Height = 17
+          Top = 0
+          Width = 28
+          Caption = 'Gain'
+          ParentColor = False
+        end
+        object cbSpecSmooth: TCheckBox
+          Left = 526
+          Height = 20
+          Top = 23
+          Width = 82
+          Caption = 'Smoothing'
+          Checked = True
+          OnChange = rigControlSet
+          State = cbChecked
+          TabOrder = 5
+        end
+      end
+      object GroupBox18: TGroupBox
+        Left = 4
+        Height = 42
+        Top = -1
+        Width = 728
+        ClientHeight = 24
+        ClientWidth = 724
+        TabOrder = 2
+        object cbDivideDecodes: TCheckBox
+          Left = 6
+          Height = 20
+          Top = 0
+          Width = 227
+          Caption = 'Divide decoder output text by period'
+          Checked = True
+          State = cbChecked
+          TabOrder = 0
+        end
+        object cbCompactDivides: TCheckBox
+          Left = 278
+          Height = 20
+          Top = 0
+          Width = 183
+          Caption = 'Remove excess divider lines'
+          Checked = True
+          State = cbChecked
+          TabOrder = 1
+        end
+      end
+      object Button6: TButton
+        Left = 748
+        Height = 40
+        Top = 143
+        Width = 89
+        Caption = 'Save'
+        Font.Height = -21
+        Font.Name = 'Arial'
+        Font.Style = [fsBold]
+        OnClick = Button4Click
+        ParentFont = False
+        TabOrder = 3
+      end
+    end
+    object TabSheet3: TTabSheet
+      Caption = 'Spotting Networks'
+      ClientHeight = 187
+      ClientWidth = 1105
+      object GroupBox6: TGroupBox
+        Left = 4
+        Height = 96
+        Top = 7
+        Width = 817
+        ClientHeight = 78
+        ClientWidth = 813
+        TabOrder = 0
+        object Label33: TLabel
+          Left = 6
+          Height = 17
+          Top = 29
+          Width = 175
+          Caption = 'Callsign for Spotting Networks'
+          ParentColor = False
+        end
+        object Label34: TLabel
+          Left = 198
+          Height = 17
+          Top = 29
+          Width = 320
+          Caption = 'Station/Antenna Information (maximum 255 characters)'
+          ParentColor = False
+        end
+        object edStationInfo: TEdit
+          Left = 198
+          Height = 24
+          Top = 48
+          Width = 600
+          MaxLength = 255
+          OnChange = rigControlSet
+          TabOrder = 0
+        end
+        object edRBCall: TEdit
+          Left = 6
+          Height = 24
+          Top = 48
+          Width = 104
+          OnChange = rigControlSet
+          TabOrder = 1
+        end
+        object cbAllowRB: TCheckBox
+          Left = 6
+          Height = 20
+          Top = 0
+          Width = 177
+          Caption = 'Allow Spots to RB Network'
+          TabOrder = 2
+        end
+      end
+      object GroupBox7: TGroupBox
+        Left = 4
+        Height = 81
+        Top = 103
+        Width = 697
+        ClientHeight = 63
+        ClientWidth = 693
+        TabOrder = 1
+        object edCSVPath: TDirectoryEdit
+          Left = 6
+          Height = 24
+          Top = 32
+          Width = 576
+          ShowHidden = False
+          ButtonWidth = 23
+          NumGlyphs = 0
+          MaxLength = 0
+          TabOrder = 0
+          OnChange = rigControlSet
+        end
+        object Label35: TLabel
+          Left = 614
+          Height = 17
+          Top = 39
+          Width = 72
+          Caption = 'jt65hflog.csv'
+          ParentColor = False
+        end
+        object cbSaveToCSV: TCheckBox
+          Left = 6
+          Height = 20
+          Top = 0
+          Width = 348
+          Caption = 'Saved decoded receptions and transmissions to CSV file'
+          TabOrder = 1
+        end
+      end
+      object Button7: TButton
+        Left = 708
+        Height = 40
+        Top = 143
+        Width = 129
+        Caption = 'Save'
+        Font.Height = -21
+        Font.Name = 'Arial'
+        Font.Style = [fsBold]
+        OnClick = Button4Click
+        ParentFont = False
+        TabOrder = 2
+      end
+    end
+    object TabSheet7: TTabSheet
+      Caption = 'ADIF Logging Options'
+      ClientHeight = 187
+      ClientWidth = 1105
+      object GroupBox8: TGroupBox
+        Left = 4
+        Height = 136
+        Top = 7
+        Width = 588
+        ClientHeight = 118
+        ClientWidth = 584
+        TabOrder = 0
+        object Label36: TLabel
+          Left = 4
+          Height = 17
+          Top = 0
+          Width = 207
+          Caption = 'Path for ADIF log file -- jt65hflog.adif'
+          ParentColor = False
+        end
+        object edADIFPath: TDirectoryEdit
+          Left = 4
+          Height = 24
+          Top = 24
+          Width = 416
+          ShowHidden = False
+          ButtonWidth = 23
+          NumGlyphs = 0
+          MaxLength = 0
+          TabOrder = 0
+          OnChange = rigControlSet
+        end
+        object Label44: TLabel
+          Left = 94
+          Height = 17
+          Top = 60
+          Width = 243
+          Caption = 'Log mode as JT65 or JT65a - your choice.'
+          ParentColor = False
+        end
+        object edADIFMode: TEdit
+          Left = 4
+          Height = 24
+          Top = 56
+          Width = 80
+          OnChange = rigControlSet
+          TabOrder = 1
+        end
+        object cbRememberComments: TCheckBox
+          Left = 4
+          Height = 20
+          Top = 88
+          Width = 542
+          Caption = 'Remember comments field - if unchecked the comments field is cleared for each log entry.'
+          TabOrder = 2
+        end
+      end
+      object Button8: TButton
+        Left = 604
+        Height = 40
+        Top = 143
+        Width = 129
+        Caption = 'Save'
+        Font.Height = -21
+        Font.Name = 'Arial'
+        Font.Style = [fsBold]
+        OnClick = Button4Click
+        ParentFont = False
+        TabOrder = 1
+      end
+    end
+    object TabSheet4: TTabSheet
+      Caption = 'Other Options'
+      ClientHeight = 187
+      ClientWidth = 1105
+      object GroupBox9: TGroupBox
+        Left = 4
+        Height = 94
+        Top = 1
+        Width = 457
+        ClientHeight = 76
+        ClientWidth = 453
+        TabOrder = 0
+        object cbMultiOffQSO: TCheckBox
+          Left = 6
+          Height = 20
+          Top = -4
+          Width = 142
+          Caption = 'Multi Off During QSO'
+          TabOrder = 0
+        end
+        object cbRestoreMulti: TCheckBox
+          Left = 158
+          Height = 20
+          Top = -4
+          Width = 293
+          Caption = 'Automatic re-enable multiple decode after QSO'
+          TabOrder = 1
+        end
+        object cbHaltTXMultiOn: TCheckBox
+          Left = 6
+          Height = 20
+          Top = 22
+          Width = 167
+          Caption = 'Halt TX sets multi on if off'
+          TabOrder = 2
+        end
+        object cbDefaultsMultiOn: TCheckBox
+          Left = 6
+          Height = 20
+          Top = 46
+          Width = 287
+          Caption = 'Restore defaults sets multiple decoder on if off'
+          TabOrder = 3
+        end
+      end
+      object GroupBox10: TGroupBox
+        Left = 4
+        Height = 88
+        Top = 95
+        Width = 336
+        ClientHeight = 70
+        ClientWidth = 332
+        TabOrder = 1
+        object RadioButton19: TRadioButton
+          Left = 6
+          Height = 20
+          Top = 0
+          Width = 126
+          Caption = 'Never send CW ID'
+          Checked = True
+          OnChange = rigControlSet
+          TabOrder = 2
+          TabStop = True
+        end
+        object RadioButton20: TRadioButton
+          Left = 6
+          Height = 20
+          Top = 24
+          Width = 211
+          Caption = 'Send CW ID with 73 or Free Text'
+          OnChange = rigControlSet
+          TabOrder = 0
+        end
+        object RadioButton21: TRadioButton
+          Left = 6
+          Height = 20
+          Top = 48
+          Width = 178
+          Caption = 'Send CW ID with Free Text'
+          OnChange = rigControlSet
+          TabOrder = 1
+        end
+        object edCWID: TEdit
+          Left = 238
+          Height = 24
+          Top = 24
+          Width = 89
+          OnChange = rigControlSet
+          TabOrder = 3
+        end
+        object Label39: TLabel
+          Left = 238
+          Height = 17
+          Top = 3
+          Width = 89
+          Caption = 'CW ID Callsign'
+          ParentColor = False
+        end
+      end
+      object GroupBox11: TGroupBox
+        Left = 348
+        Height = 88
+        Top = 95
+        Width = 264
+        ClientHeight = 70
+        ClientWidth = 260
+        TabOrder = 2
+        object Label40: TLabel
+          Left = 6
+          Height = 17
+          Top = 0
+          Width = 249
+          Caption = 'Lesser used options - change with caution.'
+          ParentColor = False
+        end
+        object cbNoOptFFT: TCheckBox
+          Left = 6
+          Height = 20
+          Top = 24
+          Width = 139
+          Caption = 'Disable Optimal FFT'
+          TabOrder = 0
+        end
+        object cbNoKV: TCheckBox
+          Left = 6
+          Height = 20
+          Top = 48
+          Width = 164
+          Caption = 'Disable KVASD Decoder'
+          TabOrder = 1
+        end
+      end
+      object GroupBox12: TGroupBox
+        Left = 468
+        Height = 94
+        Top = -1
+        Width = 321
+        ClientHeight = 76
+        ClientWidth = 317
+        TabOrder = 3
+        object useDeciAmerican: TRadioButton
+          Left = 14
+          Height = 20
+          Top = -2
+          Width = 240
+          Caption = 'Decimal point as . and thousands as ,'
+          OnChange = rigControlSet
+          TabOrder = 0
+        end
+        object useDeciEuro: TRadioButton
+          Left = 14
+          Height = 20
+          Top = 22
+          Width = 240
+          Caption = 'Decimal point as , and thousands as .'
+          OnChange = rigControlSet
+          TabOrder = 1
+        end
+        object useDeciAuto: TRadioButton
+          Left = 14
+          Height = 20
+          Top = 46
+          Width = 297
+          Caption = 'Use System Default (decimal = . thousands = ,)'
+          Checked = True
+          OnChange = rigControlSet
+          TabOrder = 2
+          TabStop = True
+        end
+      end
+      object updateConfig: TButton
+        Left = 628
+        Height = 40
+        Top = 143
+        Width = 129
+        Caption = 'Save'
+        Font.Height = -21
+        Font.Name = 'Arial'
+        Font.Style = [fsBold]
+        OnClick = Button4Click
+        ParentFont = False
+        TabOrder = 4
+      end
+    end
+    object TabSheet5: TTabSheet
+      Caption = 'Macros'
+      ClientHeight = 187
+      ClientWidth = 1105
+      object Button10: TButton
+        Left = 676
+        Height = 40
+        Top = 143
+        Width = 129
+        Caption = 'Save'
+        Font.Height = -21
+        Font.Name = 'Arial'
+        Font.Style = [fsBold]
+        OnClick = Button4Click
+        ParentFont = False
+        TabOrder = 0
+      end
+      object Label89: TLabel
+        Left = 4
+        Height = 33
+        Top = 7
+        Width = 365
+        Caption = 'Macros may be up to 13 characters (but no more) consisting of'#13#10'the letters A to Z, digits 0 to 9 and characters Space . + - / ?'
+        ParentColor = False
+      end
+    end
+    object TabSheet8: TTabSheet
+      Caption = 'QRG List'
+      ClientHeight = 187
+      ClientWidth = 1105
+      object Button11: TButton
+        Left = 708
+        Height = 40
+        Top = 143
+        Width = 129
+        Caption = 'Save'
+        Font.Height = -21
+        Font.Name = 'Arial'
+        Font.Style = [fsBold]
+        OnClick = Button4Click
+        ParentFont = False
+        TabOrder = 0
+      end
+      object Label88: TLabel
+        Left = 4
+        Height = 161
+        Top = 7
+        Width = 469
+        Caption = 'It is YOUR responsibility to insure the frequencies you use are valid for your'#13#10'region of operation.  The following are generally agreed upon/commonly used'#13#10'frequencies for JT65 on HF.'#13#10#13#10'1836     3576     7076     14076     21076     28076'#13#10#13#10'The following are known to be used for JT65, but, are not agreed to as suitable'#13#10'for all regions.'#13#10#13#10'7039     10139     10146     18102     18106     24917     24920     24922     50276'
+        ParentColor = False
+      end
+    end
+    object TabSheet10: TTabSheet
+      Caption = 'Automatic QRG'
+      TabVisible = False
+    end
+    object TabSheet9: TTabSheet
+      Caption = 'TabSheet9'
+      ClientHeight = 187
+      ClientWidth = 1105
+      object Label22: TLabel
+        Left = 524
+        Height = 17
+        Top = 7
+        Width = 78
+        Caption = 'Instance ID:  '
+        ParentColor = False
+      end
+      object xDBText1: TDBText
+        Left = 772
+        Height = 1
+        Top = 95
+        Width = 1
+        DataField = 'INSTANCE'
+        ParentColor = False
+      end
+      object xdbpttrtsdtr: TDBCheckBox
+        Left = 436
+        Height = 21
+        Top = 27
+        Width = 82
+        Caption = 'ptt_rts_dtr'
+        DataField = 'PTTDTRRTS'
+        TabOrder = 0
+        ValueChecked = 'True'
+        ValueUnchecked = 'False'
+      end
+      object xdbpttrts: TDBCheckBox
+        Left = 436
+        Height = 21
+        Top = 47
+        Width = 65
+        Caption = 'ptt_rts'
+        DataField = 'PTTRTS'
+        TabOrder = 1
+        ValueChecked = 'True'
+        ValueUnchecked = 'False'
+      end
+      object xdbpttdtr: TDBCheckBox
+        Left = 436
+        Height = 21
+        Top = 67
+        Width = 64
+        Caption = 'ptt_dtr'
+        DataField = 'PTTDTR'
+        TabOrder = 2
+        ValueChecked = 'True'
+        ValueUnchecked = 'False'
+      end
+      object Label25: TLabel
+        Left = 212
+        Height = 17
+        Top = 31
+        Width = 18
+        Caption = 'dgl'
+        ParentColor = False
+      end
+      object Label45: TLabel
+        Left = 252
+        Height = 17
+        Top = 31
+        Width = 19
+        Caption = 'dgr'
+        ParentColor = False
+      end
+      object Label46: TLabel
+        Left = 292
+        Height = 17
+        Top = 31
+        Width = 34
+        Caption = 'wfspd'
+        ParentColor = False
+      end
+      object Label47: TLabel
+        Left = 332
+        Height = 17
+        Top = 31
+        Width = 29
+        Caption = 'cqco'
+        ParentColor = False
+      end
+      object Label48: TLabel
+        Left = 372
+        Height = 17
+        Top = 31
+        Width = 34
+        Caption = 'wfcon'
+        ParentColor = False
+      end
+      object Label49: TLabel
+        Left = 372
+        Height = 17
+        Top = 71
+        Width = 28
+        Caption = 'wfbrt'
+        ParentColor = False
+      end
+      object Label50: TLabel
+        Left = 332
+        Height = 17
+        Top = 71
+        Width = 27
+        Caption = 'wfgn'
+        ParentColor = False
+      end
+      object Label51: TLabel
+        Left = 12
+        Height = 17
+        Top = 115
+        Width = 36
+        Caption = 'mccol'
+        ParentColor = False
+      end
+      object Label52: TLabel
+        Left = 52
+        Height = 17
+        Top = 115
+        Width = 36
+        Caption = 'qsoco'
+        ParentColor = False
+      end
+      object Label53: TLabel
+        Left = 92
+        Height = 17
+        Top = 115
+        Width = 31
+        Caption = 'wfcm'
+        ParentColor = False
+      end
+      object Label54: TLabel
+        Left = 292
+        Height = 17
+        Top = 115
+        Width = 16
+        Caption = 'prt'
+        ParentColor = False
+      end
+      object Label55: TLabel
+        Left = 332
+        Height = 17
+        Top = 116
+        Width = 31
+        Caption = 'wdcn'
+        ParentColor = False
+      end
+      object Label56: TLabel
+        Left = 372
+        Height = 17
+        Top = 116
+        Width = 27
+        Caption = 'csvp'
+        ParentColor = False
+      end
+      object Label57: TLabel
+        Left = 92
+        Height = 17
+        Top = 159
+        Width = 21
+        Caption = 'info'
+        ParentColor = False
+      end
+      object Label58: TLabel
+        Left = 12
+        Height = 17
+        Top = 161
+        Width = 22
+        Caption = 'rbcl'
+        ParentColor = False
+      end
+      object Label59: TLabel
+        Left = 12
+        Height = 17
+        Top = 71
+        Width = 25
+        Caption = 'adfp'
+        ParentColor = False
+      end
+      object Label60: TLabel
+        Left = 52
+        Height = 17
+        Top = 71
+        Width = 26
+        Caption = 'jtmd'
+        ParentColor = False
+      end
+      object Label61: TLabel
+        Left = 12
+        Height = 17
+        Top = 31
+        Width = 25
+        Caption = 'iadc'
+        ParentColor = False
+      end
+      object Label62: TLabel
+        Left = 52
+        Height = 17
+        Top = 31
+        Width = 25
+        Caption = 'idac'
+        ParentColor = False
+      end
+      object Label63: TLabel
+        Left = 92
+        Height = 17
+        Top = 31
+        Width = 26
+        Caption = 'tadc'
+        ParentColor = False
+      end
+      object Label64: TLabel
+        Left = 132
+        Height = 17
+        Top = 31
+        Width = 26
+        Caption = 'tdac'
+        ParentColor = False
+      end
+      object Label65: TLabel
+        Left = 172
+        Height = 17
+        Top = 31
+        Width = 19
+        Caption = 'cat'
+        ParentColor = False
+      end
+      object Label66: TLabel
+        Left = 132
+        Height = 17
+        Top = 115
+        Width = 18
+        Caption = 'pfx'
+        ParentColor = False
+      end
+      object Label67: TLabel
+        Left = 172
+        Height = 17
+        Top = 115
+        Width = 21
+        Caption = 'call'
+        ParentColor = False
+      end
+      object Label68: TLabel
+        Left = 212
+        Height = 17
+        Top = 115
+        Width = 18
+        Caption = 'sfx'
+        ParentColor = False
+      end
+      object Label69: TLabel
+        Left = 252
+        Height = 17
+        Top = 115
+        Width = 19
+        Caption = 'grd'
+        ParentColor = False
+      end
+      object Label70: TLabel
+        Left = 92
+        Height = 17
+        Top = 71
+        Width = 25
+        Caption = 'deci'
+        ParentColor = False
+      end
+      object Label71: TLabel
+        Left = 132
+        Height = 17
+        Top = 71
+        Width = 27
+        Caption = 'cwid'
+        ParentColor = False
+      end
+      object Label72: TLabel
+        Left = 172
+        Height = 17
+        Top = 71
+        Width = 27
+        Caption = 'cwcl'
+        ParentColor = False
+      end
+      object xdbUseRightaudio: TDBCheckBox
+        Left = 436
+        Height = 21
+        Top = 87
+        Width = 48
+        Caption = 'Right'
+        DataField = 'RIGHT'
+        TabOrder = 3
+        ValueChecked = 'True'
+        ValueUnchecked = 'False'
+      end
+      object xdbUseLeftAudio: TDBCheckBox
+        Left = 436
+        Height = 21
+        Top = 106
+        Width = 48
+        Caption = 'Left'
+        DataField = 'LEFT'
+        TabOrder = 4
+        ValueChecked = 'True'
+        ValueUnchecked = 'False'
+      end
+      object Label73: TLabel
+        Left = 212
+        Height = 17
+        Top = 71
+        Width = 17
+        Caption = 'ver'
+        ParentColor = False
+      end
+      object Label74: TLabel
+        Left = 252
+        Height = 17
+        Top = 71
+        Width = 29
+        Caption = 'mbin'
+        ParentColor = False
+      end
+      object Label75: TLabel
+        Left = 52
+        Height = 17
+        Top = 159
+        Width = 25
+        Caption = 'sbin'
+        ParentColor = False
+      end
+      object Label76: TLabel
+        Left = 292
+        Height = 17
+        Top = 71
+        Width = 23
+        Caption = 'txlvl'
+        ParentColor = False
+      end
+      object Label77: TLabel
+        Left = 132
+        Height = 17
+        Top = 158
+        Width = 22
+        Caption = 'lqrg'
+        ParentColor = False
+      end
+      object edDialQRG: TEdit
+        Left = 172
+        Height = 24
+        Top = 135
+        Width = 72
+        OnChange = rigControlSet
+        TabOrder = 5
+        Text = '7076200'
+      end
+      object Button14: TButton
+        Left = 524
+        Height = 40
+        Top = 143
+        Width = 129
+        Caption = 'Save'
+        Font.Height = -21
+        Font.Name = 'Arial'
+        Font.Style = [fsBold]
+        OnClick = Button4Click
+        ParentFont = False
+        TabOrder = 6
+      end
+      object cbSpecAGC: TCheckBox
+        Left = 436
+        Height = 20
+        Top = 127
+        Width = 48
+        Caption = 'AGC'
+        Checked = True
+        State = cbChecked
+        TabOrder = 7
+      end
+      object WFSpeed: TEdit
+        Left = 292
+        Height = 24
+        Top = 7
+        Width = 32
+        TabOrder = 8
+      end
+      object wfColorMap: TEdit
+        Left = 92
+        Height = 24
+        Top = 92
+        Width = 32
+        TabOrder = 9
+      end
+      object iADC: TEdit
+        Left = 12
+        Height = 24
+        Top = 7
+        Width = 32
+        TabOrder = 10
+      end
+      object iDAC: TEdit
+        Left = 52
+        Height = 24
+        Top = 7
+        Width = 32
+        TabOrder = 11
+      end
+      object tADC: TEdit
+        Left = 92
+        Height = 24
+        Top = 7
+        Width = 32
+        TabOrder = 12
+      end
+      object tDAC: TEdit
+        Left = 132
+        Height = 24
+        Top = 7
+        Width = 32
+        TabOrder = 13
+      end
+      object rigController: TEdit
+        Left = 172
+        Height = 24
+        Top = 7
+        Width = 32
+        TabOrder = 14
+      end
+      object dgainL: TEdit
+        Left = 212
+        Height = 24
+        Top = 7
+        Width = 32
+        TabOrder = 15
+      end
+      object dgainR: TEdit
+        Left = 252
+        Height = 24
+        Top = 7
+        Width = 32
+        TabOrder = 16
+      end
+      object CQColor: TEdit
+        Left = 332
+        Height = 24
+        Top = 7
+        Width = 32
+        TabOrder = 17
+      end
+      object wfContrast: TEdit
+        Left = 374
+        Height = 24
+        Top = 7
+        Width = 32
+        TabOrder = 18
+      end
+      object adifPath: TEdit
+        Left = 12
+        Height = 24
+        Top = 47
+        Width = 32
+        TabOrder = 19
+      end
+      object adifMode: TEdit
+        Left = 52
+        Height = 24
+        Top = 47
+        Width = 32
+        TabOrder = 20
+      end
+      object deci: TEdit
+        Left = 92
+        Height = 24
+        Top = 47
+        Width = 32
+        TabOrder = 21
+      end
+      object cwID: TEdit
+        Left = 132
+        Height = 24
+        Top = 47
+        Width = 32
+        TabOrder = 22
+      end
+      object cwCall: TEdit
+        Left = 172
+        Height = 24
+        Top = 47
+        Width = 32
+        TabOrder = 23
+      end
+      object version: TEdit
+        Left = 212
+        Height = 24
+        Top = 47
+        Width = 32
+        TabOrder = 24
+      end
+      object mBin: TEdit
+        Left = 252
+        Height = 24
+        Top = 47
+        Width = 32
+        TabOrder = 25
+      end
+      object txLevel: TEdit
+        Left = 292
+        Height = 24
+        Top = 47
+        Width = 32
+        TabOrder = 26
+      end
+      object wfGain: TEdit
+        Left = 332
+        Height = 24
+        Top = 47
+        Width = 32
+        TabOrder = 27
+      end
+      object wfBright: TEdit
+        Left = 374
+        Height = 24
+        Top = 47
+        Width = 32
+        TabOrder = 28
+      end
+      object myCallColor: TEdit
+        Left = 12
+        Height = 24
+        Top = 92
+        Width = 32
+        TabOrder = 29
+      end
+      object qsoColor: TEdit
+        Left = 52
+        Height = 24
+        Top = 92
+        Width = 32
+        TabOrder = 30
+      end
+      object savePrefix: TEdit
+        Left = 132
+        Height = 24
+        Top = 92
+        Width = 32
+        TabOrder = 31
+      end
+      object saveCall: TEdit
+        Left = 172
+        Height = 24
+        Top = 92
+        Width = 32
+        TabOrder = 32
+      end
+      object saveSuffix: TEdit
+        Left = 212
+        Height = 24
+        Top = 92
+        Width = 32
+        TabOrder = 33
+      end
+      object saveGrid: TEdit
+        Left = 252
+        Height = 24
+        Top = 92
+        Width = 32
+        TabOrder = 34
+      end
+      object port: TEdit
+        Left = 292
+        Height = 24
+        Top = 92
+        Width = 32
+        TabOrder = 35
+      end
+      object txWD: TEdit
+        Left = 332
+        Height = 24
+        Top = 92
+        Width = 32
+        TabOrder = 36
+      end
+      object csvPath: TEdit
+        Left = 374
+        Height = 24
+        Top = 92
+        Width = 32
+        TabOrder = 37
+      end
+      object rbCall: TEdit
+        Left = 12
+        Height = 24
+        Top = 135
+        Width = 32
+        TabOrder = 38
+      end
+      object sBin: TEdit
+        Left = 52
+        Height = 24
+        Top = 135
+        Width = 32
+        TabOrder = 39
+      end
+      object rbInfo: TEdit
+        Left = 92
+        Height = 24
+        Top = 135
+        Width = 31
+        TabOrder = 40
+      end
+      object lastQRG: TEdit
+        Left = 132
+        Height = 24
+        Top = 135
+        Width = 32
+        TabOrder = 41
+      end
+      object Label123: TLabel
+        Left = 172
+        Height = 17
+        Top = 158
+        Width = 63
+        Caption = 'current qrg'
+        ParentColor = False
+      end
+    end
+  end
+  object Label91: TLabel
+    Left = 126
+    Height = 17
+    Top = 184
+    Width = 55
+    Caption = 'QRG List'
+    ParentColor = False
+  end
+  object Label90: TLabel
+    Left = 704
+    Height = 17
+    Top = 712
+    Width = 70
+    Caption = 'CAT QRG:  '
+    ParentColor = False
+    Visible = False
+  end
+  object doLogQSO: TButton
+    Left = 1028
+    Height = 33
+    Top = 560
+    Width = 82
+    Caption = 'Log QSO'
+    Enabled = False
+    Font.Height = -13
+    Font.Name = 'Arial'
+    Font.Style = [fsBold]
+    OnClick = doLogQSOClick
+    ParentFont = False
+    TabOrder = 31
+  end
+  object comboMacroList: TComboBox
+    Left = 816
+    Height = 30
+    Top = 268
+    Width = 186
+    Font.Height = -19
+    Font.Name = 'Arial'
+    ItemHeight = 22
+    OnChange = comboMacroListChange
+    ParentFont = False
+    Style = csDropDownList
+    TabOrder = 34
+  end
+  object Label92: TLabel
+    Left = 765
+    Height = 17
+    Top = 275
+    Width = 44
+    Caption = 'Macros'
+    ParentColor = False
+  end
+  object ListBox1: TListBox
+    Left = 8
+    Height = 672
+    Top = 320
+    Width = 680
+    Font.Height = -19
+    Font.Name = 'Courier New'
+    Font.Style = [fsBold]
+    ItemHeight = 26
+    OnDrawItem = ListBox1DrawItem
+    ParentShowHint = False
+    ParentFont = False
+    Style = lbOwnerDrawFixed
+    TabOrder = 0
+  end
+  object Label78: TLabel
+    Left = 21
+    Height = 23
+    Top = 64
+    Width = 43
+    Caption = 'Left:'
+    Font.Height = -19
+    Font.Name = 'Arial'
+    Font.Style = [fsBold]
+    ParentColor = False
+    ParentFont = False
+  end
+  object Label107: TLabel
+    Left = 8
+    Height = 23
+    Top = 90
+    Width = 56
+    Caption = 'Right:'
+    Font.Height = -19
+    Font.Name = 'Arial'
+    Font.Style = [fsBold]
+    ParentColor = False
+    ParentFont = False
+  end
+  object Label109: TLabel
+    Left = 78
+    Height = 23
+    Top = 90
+    Width = 85
+    Caption = 'Label109'
+    Font.Height = -19
+    Font.Name = 'Arial'
+    Font.Style = [fsBold]
+    ParentColor = False
+    ParentFont = False
+  end
+  object GroupBox16: TGroupBox
+    Left = 1513
+    Height = 542
+    Top = 200
+    Width = 304
+    Caption = 'Decoder Statistics'
+    ClientHeight = 524
+    ClientWidth = 300
+    Font.Height = -13
+    Font.Name = 'Arial'
+    ParentFont = False
+    TabOrder = 35
+    object Label24: TLabel
+      Left = 35
+      Height = 17
+      Top = 8
+      Width = 129
+      Caption = 'Last decode time'
+      Font.Height = -13
+      Font.Name = 'Courier New'
+      ParentColor = False
+      ParentFont = False
+    end
+    object Label80: TLabel
+      Left = 11
+      Height = 17
+      Top = 56
+      Width = 153
+      Caption = 'Longest decode time'
+      Font.Height = -13
+      Font.Name = 'Courier New'
+      ParentColor = False
+      ParentFont = False
+    end
+    object Label81: TLabel
+      Left = 3
+      Height = 17
+      Top = 32
+      Width = 161
+      Caption = 'Shortest decode time'
+      Font.Height = -13
+      Font.Name = 'Courier New'
+      ParentColor = False
+      ParentFont = False
+    end
+    object Label82: TLabel
+      Left = 176
+      Height = 17
+      Top = 8
+      Width = 41
+      Caption = '    0'
+      Font.Height = -13
+      Font.Name = 'Courier New'
+      ParentColor = False
+      ParentFont = False
+    end
+    object Label83: TLabel
+      Left = 176
+      Height = 17
+      Top = 56
+      Width = 41
+      Caption = '    0'
+      Font.Height = -13
+      Font.Name = 'Courier New'
+      ParentColor = False
+      ParentFont = False
+    end
+    object Label84: TLabel
+      Left = 176
+      Height = 17
+      Top = 32
+      Width = 41
+      Caption = '    0'
+      Font.Height = -13
+      Font.Name = 'Courier New'
+      ParentColor = False
+      ParentFont = False
+    end
+    object Label85: TLabel
+      Left = 11
+      Height = 17
+      Top = 80
+      Width = 153
+      Caption = 'Average decode time'
+      Font.Height = -13
+      Font.Name = 'Courier New'
+      ParentColor = False
+      ParentFont = False
+    end
+    object Label86: TLabel
+      Left = 176
+      Height = 17
+      Top = 80
+      Width = 41
+      Caption = '    0'
+      Font.Height = -13
+      Font.Name = 'Courier New'
+      ParentColor = False
+      ParentFont = False
+    end
+    object Label93: TLabel
+      Left = 101
+      Height = 17
+      Top = 128
+      Width = 65
+      Caption = 'KV Count'
+      Font.Height = -13
+      Font.Name = 'Courier New'
+      ParentColor = False
+      ParentFont = False
+    end
+    object Label94: TLabel
+      Left = 101
+      Height = 17
+      Top = 104
+      Width = 65
+      Caption = 'BM Count'
+      Font.Height = -13
+      Font.Name = 'Courier New'
+      ParentColor = False
+      ParentFont = False
+    end
+    object Label95: TLabel
+      Left = 176
+      Height = 17
+      Top = 128
+      Width = 41
+      Caption = '    0'
+      Font.Height = -13
+      Font.Name = 'Courier New'
+      ParentColor = False
+      ParentFont = False
+    end
+    object Label96: TLabel
+      Left = 176
+      Height = 17
+      Top = 104
+      Width = 41
+      Caption = '    0'
+      Font.Height = -13
+      Font.Name = 'Courier New'
+      ParentColor = False
+      ParentFont = False
+    end
+    object Label97: TLabel
+      Left = 85
+      Height = 17
+      Top = 272
+      Width = 81
+      Caption = 'Average DT'
+      Font.Height = -13
+      Font.Name = 'Courier New'
+      ParentColor = False
+      ParentFont = False
+    end
+    object Label98: TLabel
+      Left = 176
+      Height = 17
+      Top = 272
+      Width = 41
+      Caption = '    0'
+      Font.Height = -13
+      Font.Name = 'Courier New'
+      ParentColor = False
+      ParentFont = False
+    end
+    object Label110: TLabel
+      Left = 11
+      Height = 17
+      Top = 150
+      Width = 153
+      Caption = 'Structured Messages'
+      Font.Height = -13
+      Font.Name = 'Courier New'
+      ParentColor = False
+      ParentFont = False
+    end
+    object Label111: TLabel
+      Left = 61
+      Height = 17
+      Top = 176
+      Width = 105
+      Caption = 'Text Messages'
+      Font.Height = -13
+      Font.Name = 'Courier New'
+      ParentColor = False
+      ParentFont = False
+    end
+    object Label112: TLabel
+      Left = 176
+      Height = 17
+      Top = 152
+      Width = 41
+      Caption = '    0'
+      Font.Height = -13
+      Font.Name = 'Courier New'
+      ParentColor = False
+      ParentFont = False
+    end
+    object Label113: TLabel
+      Left = 176
+      Height = 17
+      Top = 176
+      Width = 41
+      Caption = '    0'
+      Font.Height = -13
+      Font.Name = 'Courier New'
+      ParentColor = False
+      ParentFont = False
+    end
+    object Label114: TLabel
+      Left = 107
+      Height = 17
+      Top = 200
+      Width = 57
+      Caption = 'JT65 V1'
+      Font.Height = -13
+      Font.Name = 'Courier New'
+      ParentColor = False
+      ParentFont = False
+    end
+    object Label115: TLabel
+      Left = 107
+      Height = 17
+      Top = 224
+      Width = 57
+      Caption = 'JT65 V2'
+      Font.Height = -13
+      Font.Name = 'Courier New'
+      ParentColor = False
+      ParentFont = False
+    end
+    object Label116: TLabel
+      Left = 176
+      Height = 17
+      Top = 201
+      Width = 41
+      Caption = '    0'
+      Font.Height = -13
+      Font.Name = 'Courier New'
+      ParentColor = False
+      ParentFont = False
+    end
+    object Label117: TLabel
+      Left = 176
+      Height = 17
+      Top = 224
+      Width = 41
+      Caption = '    0'
+      Font.Height = -13
+      Font.Name = 'Courier New'
+      ParentColor = False
+      ParentFont = False
+    end
+    object Label118: TLabel
+      Left = 43
+      Height = 17
+      Top = 248
+      Width = 121
+      Caption = 'Parser Failures'
+      Font.Height = -13
+      Font.Name = 'Courier New'
+      ParentColor = False
+      ParentFont = False
+    end
+    object Label119: TLabel
+      Left = 176
+      Height = 17
+      Top = 248
+      Width = 41
+      Caption = '    0'
+      Font.Height = -13
+      Font.Name = 'Courier New'
+      ParentColor = False
+      ParentFont = False
+    end
+    object Label120: TLabel
+      Left = 11
+      Height = 136
+      Top = 296
+      Width = 232
+      Caption = 'Frame types C1, C2, U1, U2, S1'#13#10'C = Compressed/structured message'#13#10'U = Free format text/uncompressed'#13#10'S = Shorthand'#13#10'# = JT65 Protocol version 1 or 2'#13#10#13#10'EC (Error Correction) B, K'#13#10'B = Basic RS Decoder'#13#10'K = Advanced KVASD RS Decoder'
+      Font.Height = -12
+      Font.Name = 'Courier New'
+      ParentColor = False
+      ParentFont = False
+    end
+  end
+  object Label121: TLabel
+    Left = 8
+    Height = 17
+    Top = 240
+    Width = 167
+    Caption = 'Decoder Resolution:  200 Hz'
+    ParentColor = False
+  end
+  object Label122: TLabel
+    Left = 8
+    Height = 17
+    Top = 218
+    Width = 159
+    Caption = 'RB QRG Not Synchronized'
+    ParentColor = False
+  end
+  object Memo1: TMemo
+    Left = 1120
+    Height = 304
+    Top = 464
+    Width = 384
+    OnDblClick = Memo1DblClick
+    ScrollBars = ssAutoBoth
+    TabOrder = 36
+  end
+  object Timer1: TTimer
+    Enabled = False
+    Interval = 100
+    OnTimer = Timer1Timer
+    left = 16
+    top = 328
+  end
+  object sqlite3: TSQLite3Connection
+    Connected = False
+    LoginPrompt = False
+    KeepConnection = False
+    Transaction = transaction
+    HostName = 'localhost'
+    LogEvents = []
+    Options = []
+    left = 16
+    top = 392
+  end
+  object query: TSQLQuery
+    PacketRecords = 65536
+    FieldDefs = <>
+    Database = sqlite3
+    Transaction = transaction
+    SQL.Strings = (
+      'SELECT * FROM ngdb'
+    )
+    Params = <>
+    left = 16
+    top = 448
+  end
+  object transaction: TSQLTransaction
+    Active = False
+    Action = caNone
+    Database = sqlite3
+    left = 16
+    top = 504
+  end
+end
