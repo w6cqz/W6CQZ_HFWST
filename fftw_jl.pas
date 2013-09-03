@@ -20,6 +20,7 @@ unit fftw_jl;
    and can therefore not be used in non-GPL software.
 
    Modified by Joe Large - W6CQZ 20/Feb/2010
+            Added thread functions 02/SEP/2013
 }
 
 {*****************************************************************************}
@@ -119,6 +120,16 @@ function fftwf_import_wisdom_from_string(wisdom : PChar) : Pointer;
 
 procedure fftwf_forget_wisdom();
           external FFT_DLL name 'fftwf_forget_wisdom';
+
+{Thread stuffs}
+function  fftwf_init_threads() : Pointer;
+          external FFT_DLL name 'fftwf_init_threads';
+
+procedure fftwf_plan_with_nthreads(n:cardinal);
+          external FFT_DLL name 'fftwf_plan_with_nthreads';
+
+procedure fftwf_cleanup_threads;
+          external FFT_DLL name 'fftwf_cleanup_threads';
 
 {$calling register} {Back to normal!}
 

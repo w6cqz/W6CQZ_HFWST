@@ -276,7 +276,6 @@ type
     Label1: TLabel;
     Label10: TLabel;
     Label11: TLabel;
-    Label12: TLabel;
     Label13: TLabel;
     Label15: TLabel;
     Label16: TLabel;
@@ -602,6 +601,11 @@ Var
    mustcfg   : Boolean;
 Begin
      // This runs on first timer interrupt once per run session
+
+     // DEBUG - Playing with fftw threads - this may be a huge mistake.
+     //fftw_jl.fftwf_init_threads();
+     //fftw_jl.fftwf_plan_with_nthreads(4);
+     // End playing :)
      mustcfg := False;
      catError := TStringList.Create;
      catError.Clear;
@@ -842,12 +846,12 @@ Begin
           rigNone.Checked := True;
           spectrum.specSmooth := True;
           spectrum.specuseagc := True;
-          spectrum.specColorMap := spColorMap.ItemIndex;
+          spColorMap.ItemIndex := 3;
+          spectrum.specColorMap := 3;
           cbCQCOlor.ItemIndex := 0;
           cbMyCallColor.ItemIndex := 0;
           cbQSOColor.ItemIndex := 0;
-          spColorMap.ItemIndex := 0;
-          tbWFSpeed.Position := 0;
+          tbWFSpeed.Position := 5;
           tbWFContrast.Position := 0;
           tbWFBright.Position := 0;
           tbWFGain.Position := 0;
@@ -896,6 +900,10 @@ Begin
 
           // Update the DB
           updateDB;
+          buttonConfig.Visible := False;
+          Label3.Visible       := False;
+          Button4.Visible      := True;
+          PageControl1.Visible := True;
      end;
 
      // Read the data from config
@@ -931,10 +939,10 @@ Begin
      qsoColor.Text := query.FieldByName('qsocolor').AsString;
 
      wfColorMap.Text := query.FieldByName('wfcmap').AsString;
-     if TryStrToInt(wfColormap.Text,i) Then spColorMap.ItemIndex := i else spColorMap.ItemIndex := 0;
+     if TryStrToInt(wfColormap.Text,i) Then spColorMap.ItemIndex := i else spColorMap.ItemIndex := 3;
 
      wfSpeed.Text := query.FieldByName('wfspeed').AsString;
-     if TryStrToInt(wfSpeed.Text,i) Then tbWFSpeed.Position := i else tbWFSpeed.Position := 0;
+     if TryStrToInt(wfSpeed.Text,i) Then tbWFSpeed.Position := i else tbWFSpeed.Position := 5;
 
      wfContrast.Text := query.FieldByName('wfcontrast').AsString;
      if TryStrToInt(wfContrast.Text,i) Then tbWFContrast.Position := i else tbWFContrast.Position := 0;
@@ -1049,7 +1057,6 @@ Begin
      If not TryStrToInt(iadc.Text,inDev) Then inDev := -1;
      If not TryStrToInt(port.Text,pttDev) Then pttDev := -1;
 
-     { TODO : Fix ical values - need this to be set according to optfft enabeld/disabled and need to compute new metrics or not. }
      if cbNoOptFFT.Checked Then
      Begin
           inIcal := 0;
@@ -1059,7 +1066,7 @@ Begin
           if not fileExists(cfgPath + 'wisdom2.dat') Then
           Begin
                inIcal := 21;
-               ShowMessage('First decode cycle will be delayed - computing optimal FFT values.');
+               ShowMessage('First decode cycle will be delayed and will fail to decode - computing optimal FFT values. A one time thing!');
           end
           else
           begin
@@ -1077,8 +1084,8 @@ Begin
      If TryStrToInt(CQColor.Text,i) Then cbCQCOlor.ItemIndex := i else cbCQCOlor.ItemIndex := 0;
      If TryStrToInt(MyCallColor.Text,i) Then cbMyCallColor.ItemIndex := i else cbMyCallColor.ItemIndex := 0;
      If TryStrToInt(QSOColor.Text,i) Then cbQSOColor.ItemIndex := i else cbQSOColor.ItemIndex := 0;
-     If TryStrToInt(WFColorMap.Text,i) Then spColorMap.ItemIndex := i else spColorMap.ItemIndex := 0;
-     If TryStrToInt(WFSpeed.Text,i) Then tbWFSpeed.Position := i else tbWFSpeed.Position := 0;
+     If TryStrToInt(WFColorMap.Text,i) Then spColorMap.ItemIndex := i else spColorMap.ItemIndex := 3;
+     If TryStrToInt(WFSpeed.Text,i) Then tbWFSpeed.Position := i else tbWFSpeed.Position := 5;
      If TryStrToInt(WFContrast.Text,i) Then tbWFContrast.Position := i else tbWFContrast.Position := 0;
      If TryStrToInt(WFBright.Text,i) Then tbWFBright.Position := i else tbWFBright.Position := 0;
 
@@ -1230,6 +1237,7 @@ Begin
      Waterfall1.Parent := Self;
      //Waterfall1.OnMouseDown := waterfallMouseDown;
      Waterfall1.DoubleBuffered := True;
+     If mustcfg Then Waterfall1.Visible := False;
 
      // Setup RB (thread)
      //rbtick  := 0;
@@ -1665,9 +1673,9 @@ Begin
           if Length(thisTXGrid)>4 Then thisTXGrid := thisTXGrid[1..4];
           Label8.Caption := 'DE ' + thisTXCall + ' ' + saveGrid.Text;
      end;
-
-     If txOn Then Label12.Caption := 'PTT:  ON' else Label12.Caption := 'PTT:  OFF';
-     If txOn Then Label12.Font.Color := clRed else Label12.Font.Color := clBlack;
+     { TODO Fix }
+     //If txOn Then Label12.Caption := 'PTT:  ON' else Label12.Caption := 'PTT:  OFF';
+     //If txOn Then Label12.Font.Color := clRed else Label12.Font.Color := clBlack;
 
      If globalData.txInProgress Then
      Begin
@@ -1732,14 +1740,15 @@ Begin
                     sleep(100);
                end;
           end;
-          if not txOn Then Label12.Caption := 'PTT is OFF';
-          if not txON Then Label12.Font.Color := clBlack;
+          {TODO Fix}
+          //if not txOn Then Label12.Caption := 'PTT is OFF';
+          //if not txON Then Label12.Font.Color := clBlack;
 
-          if not cbUseSerial.Checked Then
-          Begin
-               Label12.Caption := 'PTT is disabled';
-               Label12.Font.Color := clBlack;
-          end;
+          //if not cbUseSerial.Checked Then
+          //Begin
+               //Label12.Caption := 'PTT is disabled';
+               //Label12.Font.Color := clBlack;
+          //end;
      end;
 
      //if inSync and paActive Then RadioGroup1.Visible := True else RadioGroup1.Visible := False;
@@ -4673,7 +4682,8 @@ end;
 
 procedure TForm1.CheckBox2Change(Sender: TObject);
 begin
-     If cbUseSerial.Checked Then Label12.Caption := 'PTT is enabled' else Label12.Caption := 'PTT is disabled';
+     {TODO Fix}
+     //If cbUseSerial.Checked Then Label12.Caption := 'PTT is enabled' else Label12.Caption := 'PTT is disabled';
 end;
 
 procedure TForm1.Memo1DblClick(Sender: TObject);
@@ -4896,20 +4906,22 @@ end;
 
 procedure TForm1.buttonConfigClick(Sender: TObject);
 begin
-     //Waterfall1.Visible   := False;
-     //Chart1.Visible       := False;
-     //buttonConfig.Visible := False;
-     //Label3.Visible       := False;
-     //Button4.Visible      := True;
-     //PageControl1.Visible := True;
+     Waterfall1.Visible   := False;
+     Chart1.Visible       := False;
+     buttonConfig.Visible := False;
+     Label3.Visible       := False;
+     Button4.Visible      := True;
+     PageControl1.Visible := True;
 end;
 
 procedure TForm1.Button4Click(Sender: TObject);
 begin
-     Label3.Visible        := True;
-     buttonConfig.Visible  := True;
-     Chart1.Visible        := True;
-     Waterfall1.Visible    := True;
+     Waterfall1.Visible   := True;
+     Chart1.Visible       := True;
+     buttonConfig.Visible := True;
+     Label3.Visible       := True;
+     Button4.Visible      := False;
+     PageControl1.Visible := False;
      updateDB;
 end;
 

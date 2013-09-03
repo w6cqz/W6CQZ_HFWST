@@ -1188,6 +1188,7 @@ begin
           End;
           if dmical = 21 Then
           Begin
+               // Testing fftw patient optimization. DEBUG
                if dmfirstPass Then lical := 21 else lical := 11;
           End;
      End;

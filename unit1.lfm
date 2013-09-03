@@ -1,11 +1,11 @@
 object Form1: TForm1
-  Left = 2
-  Height = 1000
-  Top = 0
-  Width = 1825
+  Left = 11
+  Height = 728
+  Top = 4
+  Width = 1000
   Caption = 'JT65-HF 2.0'
-  ClientHeight = 1000
-  ClientWidth = 1825
+  ClientHeight = 728
+  ClientWidth = 1000
   Constraints.MaxHeight = 1000
   Constraints.MaxWidth = 2000
   Constraints.MinHeight = 723
@@ -49,6 +49,7 @@ object Form1: TForm1
     ClientHeight = 166
     ClientWidth = 741
     TabOrder = 33
+    Visible = False
     object Button12: TButton
       Left = 662
       Height = 25
@@ -193,6 +194,7 @@ object Form1: TForm1
     OnDblClick = edTXMsgDblClick
     ParentFont = False
     TabOrder = 1
+    Visible = False
   end
   object Label10: TLabel
     Left = 704
@@ -201,6 +203,7 @@ object Form1: TForm1
     Width = 105
     Caption = 'Message To Send'
     ParentColor = False
+    Visible = False
   end
   object Bevel1: TBevel
     Left = 8
@@ -220,9 +223,9 @@ object Form1: TForm1
     ParentFont = False
   end
   object ListBox2: TListBox
-    Left = 1120
+    Left = 1000
     Height = 257
-    Top = 200
+    Top = 6
     Width = 384
     Font.Height = -11
     Font.Name = 'Arial'
@@ -251,6 +254,7 @@ object Form1: TForm1
     ColumnLayout = clVerticalThenHorizontal
     Columns = 2
     TabOrder = 3
+    Visible = False
     object RadioButton1: TRadioButton
       Left = 6
       Height = 19
@@ -305,6 +309,7 @@ object Form1: TForm1
     ParentFont = False
     TabOrder = 4
     Text = '0'
+    Visible = False
   end
   object Label19: TLabel
     Left = 816
@@ -313,6 +318,7 @@ object Form1: TForm1
     Width = 32
     Caption = 'TxDF'
     ParentColor = False
+    Visible = False
   end
   object Bevel3: TBevel
     Left = 8
@@ -342,6 +348,7 @@ object Form1: TForm1
     Position = 16
     TickMarks = tmTopLeft
     TabOrder = 5
+    Visible = False
   end
   object Label1: TLabel
     Left = 704
@@ -350,6 +357,7 @@ object Form1: TForm1
     Width = 39
     Caption = 'Label1'
     ParentColor = False
+    Visible = False
   end
   object Chart1: TChart
     Left = 242
@@ -438,6 +446,7 @@ object Form1: TForm1
     OnClick = mgenClick
     ParentFont = False
     TabOrder = 7
+    Visible = False
   end
   object bQRZ: TButton
     Left = 775
@@ -451,6 +460,7 @@ object Form1: TForm1
     OnClick = mgenClick
     ParentFont = False
     TabOrder = 8
+    Visible = False
   end
   object bDE: TButton
     Left = 840
@@ -464,6 +474,7 @@ object Form1: TForm1
     OnClick = mgenClick
     ParentFont = False
     TabOrder = 9
+    Visible = False
   end
   object b73x: TButton
     Left = 930
@@ -477,6 +488,7 @@ object Form1: TForm1
     OnClick = mgenClick
     ParentFont = False
     TabOrder = 10
+    Visible = False
   end
   object edTXtoCall: TEdit
     Left = 936
@@ -487,6 +499,7 @@ object Form1: TForm1
     Font.Name = 'Arial'
     ParentFont = False
     TabOrder = 11
+    Visible = False
   end
   object edTXReport: TEdit
     Left = 968
@@ -497,6 +510,7 @@ object Form1: TForm1
     Font.Name = 'Arial'
     ParentFont = False
     TabOrder = 12
+    Visible = False
   end
   object Label5: TLabel
     Left = 928
@@ -505,6 +519,7 @@ object Form1: TForm1
     Width = 80
     Caption = 'TX to Callsign'
     ParentColor = False
+    Visible = False
   end
   object Label9: TLabel
     Left = 968
@@ -513,6 +528,7 @@ object Form1: TForm1
     Width = 39
     Caption = 'Report'
     ParentColor = False
+    Visible = False
   end
   object Label11: TLabel
     Left = 704
@@ -521,9 +537,10 @@ object Form1: TForm1
     Width = 111
     Caption = 'Generate Message'
     ParentColor = False
+    Visible = False
   end
   object Button1: TButton
-    Left = 1020
+    Left = 1016
     Height = 59
     Top = 368
     Width = 90
@@ -534,6 +551,7 @@ object Form1: TForm1
     OnClick = Button1Click
     ParentFont = False
     TabOrder = 13
+    Visible = False
   end
   object bACQ: TButton
     Left = 704
@@ -547,6 +565,7 @@ object Form1: TForm1
     OnClick = mgenClick
     ParentFont = False
     TabOrder = 14
+    Visible = False
   end
   object bReport: TButton
     Left = 807
@@ -560,6 +579,7 @@ object Form1: TForm1
     OnClick = mgenClick
     ParentFont = False
     TabOrder = 15
+    Visible = False
   end
   object bRRR: TButton
     Left = 911
@@ -573,6 +593,7 @@ object Form1: TForm1
     OnClick = mgenClick
     ParentFont = False
     TabOrder = 16
+    Visible = False
   end
   object b73: TButton
     Left = 966
@@ -586,6 +607,7 @@ object Form1: TForm1
     OnClick = mgenClick
     ParentFont = False
     TabOrder = 17
+    Visible = False
   end
   object bRReport: TButton
     Left = 856
@@ -599,6 +621,7 @@ object Form1: TForm1
     OnClick = mgenClick
     ParentFont = False
     TabOrder = 18
+    Visible = False
   end
   object Button2: TButton
     Left = 8
@@ -610,9 +633,9 @@ object Form1: TForm1
     TabOrder = 19
   end
   object tbMultiBin: TTrackBar
-    Left = 816
+    Left = 1000
     Height = 32
-    Top = 640
+    Top = 641
     Width = 88
     Max = 4
     Min = 1
@@ -622,9 +645,9 @@ object Form1: TForm1
     TabOrder = 20
   end
   object Label26: TLabel
-    Left = 816
+    Left = 1000
     Height = 17
-    Top = 615
+    Top = 616
     Width = 57
     Caption = '100 Hertz'
     ParentColor = False
@@ -650,14 +673,6 @@ object Form1: TForm1
     OnClick = buttonConfigClick
     TabOrder = 21
   end
-  object Label12: TLabel
-    Left = 704
-    Height = 17
-    Top = 739
-    Width = 90
-    Caption = 'PTT is disabled'
-    ParentColor = False
-  end
   object rbOn: TCheckBox
     Left = 313
     Height = 26
@@ -677,6 +692,7 @@ object Form1: TForm1
     Width = 34
     Caption = 'RxDF'
     ParentColor = False
+    Visible = False
   end
   object edRXDF: TEdit
     Left = 874
@@ -688,6 +704,7 @@ object Form1: TForm1
     ParentFont = False
     TabOrder = 24
     Text = '0'
+    Visible = False
   end
   object cbTXEqRXDF: TCheckBox
     Left = 704
@@ -699,6 +716,7 @@ object Form1: TForm1
     Enabled = False
     State = cbChecked
     TabOrder = 25
+    Visible = False
   end
   object editQRG: TEdit
     Left = 8
@@ -723,9 +741,9 @@ object Form1: TForm1
     TabOrder = 27
   end
   object cbMultiOn: TCheckBox
-    Left = 912
+    Left = 1096
     Height = 20
-    Top = 652
+    Top = 653
     Width = 138
     Caption = 'Multiple Decoder On'
     Checked = True
@@ -754,20 +772,21 @@ object Form1: TForm1
     ParentColor = False
   end
   object PageControl1: TPageControl
-    Left = 704
+    Left = 208
     Height = 216
-    Top = 776
-    Width = 1113
+    Top = 40
+    Width = 778
     ActivePage = TabSheet1
     TabIndex = 0
     TabOrder = 22
+    Visible = False
     OnChange = PageControl1Change
     object TabSheet1: TTabSheet
       Caption = 'Basic'
       ClientHeight = 187
-      ClientWidth = 1105
+      ClientWidth = 770
       object Button4: TButton
-        Left = 451
+        Left = 204
         Height = 40
         Top = 143
         Width = 129
@@ -858,6 +877,7 @@ object Form1: TForm1
         ClientWidth = 212
         Enabled = False
         TabOrder = 2
+        Visible = False
         object Label41: TLabel
           Left = 6
           Height = 33
@@ -1070,7 +1090,8 @@ object Form1: TForm1
     object TabSheet6: TTabSheet
       Caption = 'PTT/Rig Control'
       ClientHeight = 187
-      ClientWidth = 1105
+      ClientWidth = 770
+      TabVisible = False
       object GroupBox3: TGroupBox
         Left = 4
         Height = 136
@@ -1170,7 +1191,7 @@ object Form1: TForm1
     object TabSheet2: TTabSheet
       Caption = 'Spectrum Display/GUI Options'
       ClientHeight = 187
-      ClientWidth = 1105
+      ClientWidth = 770
       object GroupBox1: TGroupBox
         Left = 4
         Height = 68
@@ -1179,6 +1200,7 @@ object Form1: TForm1
         ClientHeight = 50
         ClientWidth = 724
         TabOrder = 0
+        Visible = False
         object cbCQCOlor: TComboBox
           Left = 254
           Height = 24
@@ -1251,9 +1273,9 @@ object Form1: TForm1
         Left = 4
         Height = 68
         Top = 115
-        Width = 729
+        Width = 617
         ClientHeight = 50
-        ClientWidth = 725
+        ClientWidth = 613
         TabOrder = 1
         object spColorMap: TComboBox
           Left = 6
@@ -1261,7 +1283,7 @@ object Form1: TForm1
           Top = 19
           Width = 115
           ItemHeight = 16
-          ItemIndex = 0
+          ItemIndex = 3
           Items.Strings = (
             'Blue'
             'Linrad'
@@ -1272,7 +1294,7 @@ object Form1: TForm1
           OnChange = rigControlSet
           Style = csDropDownList
           TabOrder = 0
-          Text = 'Blue'
+          Text = 'Grey1'
         end
         object Label28: TLabel
           Left = 6
@@ -1399,7 +1421,7 @@ object Form1: TForm1
         end
       end
       object Button6: TButton
-        Left = 748
+        Left = 628
         Height = 40
         Top = 143
         Width = 89
@@ -1415,14 +1437,14 @@ object Form1: TForm1
     object TabSheet3: TTabSheet
       Caption = 'Spotting Networks'
       ClientHeight = 187
-      ClientWidth = 1105
+      ClientWidth = 770
       object GroupBox6: TGroupBox
         Left = 4
         Height = 96
         Top = 7
-        Width = 817
+        Width = 537
         ClientHeight = 78
-        ClientWidth = 813
+        ClientWidth = 533
         TabOrder = 0
         object Label33: TLabel
           Left = 6
@@ -1444,7 +1466,7 @@ object Form1: TForm1
           Left = 198
           Height = 24
           Top = 48
-          Width = 600
+          Width = 320
           MaxLength = 255
           OnChange = rigControlSet
           TabOrder = 0
@@ -1469,16 +1491,16 @@ object Form1: TForm1
       object GroupBox7: TGroupBox
         Left = 4
         Height = 81
-        Top = 103
-        Width = 697
+        Top = 102
+        Width = 537
         ClientHeight = 63
-        ClientWidth = 693
+        ClientWidth = 533
         TabOrder = 1
         object edCSVPath: TDirectoryEdit
           Left = 6
           Height = 24
           Top = 32
-          Width = 576
+          Width = 464
           ShowHidden = False
           ButtonWidth = 23
           NumGlyphs = 0
@@ -1487,9 +1509,9 @@ object Form1: TForm1
           OnChange = rigControlSet
         end
         object Label35: TLabel
-          Left = 614
+          Left = 414
           Height = 17
-          Top = 39
+          Top = 8
           Width = 72
           Caption = 'jt65hflog.csv'
           ParentColor = False
@@ -1504,7 +1526,7 @@ object Form1: TForm1
         end
       end
       object Button7: TButton
-        Left = 708
+        Left = 556
         Height = 40
         Top = 143
         Width = 129
@@ -1520,7 +1542,8 @@ object Form1: TForm1
     object TabSheet7: TTabSheet
       Caption = 'ADIF Logging Options'
       ClientHeight = 187
-      ClientWidth = 1105
+      ClientWidth = 840
+      TabVisible = False
       object GroupBox8: TGroupBox
         Left = 4
         Height = 136
@@ -1591,7 +1614,8 @@ object Form1: TForm1
     object TabSheet4: TTabSheet
       Caption = 'Other Options'
       ClientHeight = 187
-      ClientWidth = 1105
+      ClientWidth = 840
+      TabVisible = False
       object GroupBox9: TGroupBox
         Left = 4
         Height = 94
@@ -1775,7 +1799,8 @@ object Form1: TForm1
     object TabSheet5: TTabSheet
       Caption = 'Macros'
       ClientHeight = 187
-      ClientWidth = 1105
+      ClientWidth = 840
+      TabVisible = False
       object Button10: TButton
         Left = 676
         Height = 40
@@ -1801,7 +1826,8 @@ object Form1: TForm1
     object TabSheet8: TTabSheet
       Caption = 'QRG List'
       ClientHeight = 187
-      ClientWidth = 1105
+      ClientWidth = 840
+      TabVisible = False
       object Button11: TButton
         Left = 708
         Height = 40
@@ -1831,7 +1857,8 @@ object Form1: TForm1
     object TabSheet9: TTabSheet
       Caption = 'TabSheet9'
       ClientHeight = 187
-      ClientWidth = 1105
+      ClientWidth = 840
+      TabVisible = False
       object Label22: TLabel
         Left = 524
         Height = 17
@@ -2485,6 +2512,7 @@ object Form1: TForm1
     OnClick = doLogQSOClick
     ParentFont = False
     TabOrder = 31
+    Visible = False
   end
   object comboMacroList: TComboBox
     Left = 816
@@ -2498,6 +2526,7 @@ object Form1: TForm1
     ParentFont = False
     Style = csDropDownList
     TabOrder = 34
+    Visible = False
   end
   object Label92: TLabel
     Left = 765
@@ -2509,7 +2538,7 @@ object Form1: TForm1
   end
   object ListBox1: TListBox
     Left = 8
-    Height = 672
+    Height = 402
     Top = 320
     Width = 680
     Font.Height = -19
@@ -2559,13 +2588,13 @@ object Form1: TForm1
     ParentFont = False
   end
   object GroupBox16: TGroupBox
-    Left = 1513
-    Height = 542
-    Top = 200
-    Width = 304
+    Left = 696
+    Height = 456
+    Top = 266
+    Width = 296
     Caption = 'Decoder Statistics'
-    ClientHeight = 524
-    ClientWidth = 300
+    ClientHeight = 438
+    ClientWidth = 292
     Font.Height = -13
     Font.Name = 'Arial'
     ParentFont = False
@@ -2670,7 +2699,7 @@ object Form1: TForm1
       ParentFont = False
     end
     object Label94: TLabel
-      Left = 101
+      Left = 99
       Height = 17
       Top = 104
       Width = 65
@@ -2863,9 +2892,9 @@ object Form1: TForm1
     ParentColor = False
   end
   object Memo1: TMemo
-    Left = 1120
+    Left = 1000
     Height = 304
-    Top = 464
+    Top = 270
     Width = 384
     OnDblClick = Memo1DblClick
     ScrollBars = ssAutoBoth
