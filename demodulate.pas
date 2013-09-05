@@ -100,6 +100,149 @@ procedure cqz65(dat         : CTypes.pcfloat;
 
 procedure rsdecode(Pcsyms : CTypes.pcint; Pera : CTypes.pcint; Pnera : CTypes.pcint; Pdsyms : CTypes.pcint; Pcount : CTypes.pcint); cdecl; external JT_DLL name 'rs_decode_';
 
+//procedure plpf1(dat : CTypes.pcfloat; jz : CTypes.pcint; nz : CTypes.pcint; mousedf : CTypes.pcint; mousedf2 : CTypes.pcint; ical : CTypes.pcint; wisfile : PChar);
+//Begin
+     // Attempting to get this into pascal code.  FORTRAN Follows :)
+{
+     C      Copyright (c) 2001-2009 by Joseph H. Taylor, Jr., K1JT, with
+     C      contributions from additional authors.  WSJT is Open Source
+     C      software, licensed under the GNU General Public License V2 (GPL).
+     C      Source code and programming information may be found at
+     C      http://developer.berlios.de/projects/wsjt/.
+           subroutine lpf1(dat,jz,nz,mousedf,mousedf2,ical,wisfile)
+
+           parameter (NMAX=1024*1024) 1048576
+           parameter (NMAXH=NMAX) 1048576
+           real dat(jz),x(NMAX)
+           integer jz,nz,mousedf,mousedf2,ical
+           complex c(0:NMAXH)
+           character*255 wisfile
+           equivalence (x,c) Places x,c as an overlayed structure - basically replaces x with c or c with x - hate it.
+     jz comes in at 524287
+     C  Find FFT length
+           xn=log(float(jz))/log(2.0) -- seems to be 19
+           n=xn
+           if((xn-n).gt.0.) n=n+1
+           nfft=2**n
+           nh=nfft/2
+
+Screw all that.  The data buffer is 524288 in length [0...524287] so I need a 524288 point FFT with nh = 262144
+The input buffer is not variable length.
+
+     C  Load data into real array x; pad with zeros up to nfft.
+           do i=1,jz
+              x(i)=dat(i)
+           enddo
+           if(nfft.gt.jz) call zero(x(jz+1),nfft-jz)
+     C  Do the FFT
+Do a 524288 point real to complex FFT
+           call xfft(x,nfft,ical,wisfile)
+           df=11025.0/nfft
+df = 0.0210285186767578125
+           ia=70/df
+ia = 3328 (? 3329 as it's ~3328.813)
+           do i=0,ia
+              c(i)=0.
+           enddo
+now he's zeroed the first 3328 data points or DC to 70 Hz
+
+           ia=5000.0/df
+ia = 237772 nh = 262144
+           do i=ia,nh
+              c(i)=0.
+           enddo
+now he's zeroed 5KHz to 5.5125 KHz
+
+So - the intent is to do a BPF with 70 Hz to 5KHz passband.
+
+In my first use of this mousedf = 0
+     C  See if frequency needs to be shifted:
+           ndf=0
+           if(mousedf.lt.-600) ndf=-670
+           if(mousedf.gt.600) ndf=1000
+           if(mousedf.gt.1600) ndf=2000
+           if(mousedf.gt.2600) ndf=3000
+soooo ndf = 0 none of the following happens.
+           if(ndf.ne.0) then
+     C  Shift frequency up or down by ndf Hz:
+              i0=nint(ndf/df)
+              if(i0.lt.0) then
+                 do i=nh,-i0,-1
+                    c(i)=c(i+i0)
+                 enddo
+                 do i=0,-i0-1
+                    c(i)=0.
+                 enddo
+              else
+                 do i=0,nh-i0
+                    c(i)=c(i+i0)
+                 enddo
+              endif
+           endif
+
+           mousedf2=mousedf-ndf            !Adjust mousedf
+
+The intent here is to shift the relative frequency.
+
+Now.  Everything in the literature says zeroing FFT bins to "filter" is a bad bad bad thing.  It works for the case here, but,
+I'm left wondering if it's where a lot of the bin spreading and other annoyances with JT65 demod comes from.  If I built a
+real filter I'd want the passband to be about 200 Hz to 5K or so.  Reading the following leads me to feel this is where all
+those damnable artifacts come from that lead to phantoms in the signal.
+
+"Zeroing bins in the frequency domain is the same as multiplying by a rectangular window in the frequency domain. Multiplying
+by a window in the frequency domain is the same as circular convolution by the transform of that window in the time domain.
+The transform of a rectangular window in the Sinc function (sin(wt)/wt). Note that the Sync function has lots of large ripples
+and ripples that extend the full width of time domain aperture. If a time-domain filter that can output all those ripples"
+(ringing) is a "bad idea", then so is zeroing bins.
+
+READ THIS PARAGRAPH OVER AND OVER AND OVER - jl
+
+"These ripples will be largest for any spectral content that is "between bins" or non-periodic in the FFT aperture width. So if
+your original FFT input data is a window on any data that is somewhat non-periodic in that window (e.g. most non-synchronously
+sampled "real world" signals), then those particular artifacts will be produced by zero-ing bins."
+
+The previous seems to be EXACTLY what's happening with multiple images of the real signal appearing in the data. Years of
+watching JT65 signals on HF and a feeling/empirical data seems to indicate much grief coming from those Zero the bin
+filters. Looking at it makes me wonder if just NOT doing the zero bins passes would be a good thing? One way to find out. :)
+Also - I belieive the DC component of the signal has already been removed by subtraction of mean method. - jl
+
+"Another way to look at it is that each FFT result bin represents a certain frequency of sine wave in the time domain. Thus
+zeroing a bin will produce the same result as subtracting that sine wave, or, equivalently, adding a sine wave of an exact FFT
+bin center frequency but with the opposite phase. Note that if the frequency of some content in the time domain is not purely
+periodic in the FFT width, then trying to cancel it by adding the inverse of an exactly periodic sine wave will produce, not
+silence, but something that looks more like a "beat" note (AM modulated sine wave of a different frequency). Again, probably
+not what is wanted.
+
+Conversely, if your original time domain signal is just a few pure unmodulated sinusoids that are exactly periodic in the FFT
+aperture width, then zero-ing FFT bins will remove the designated ones without artifacts."
+
+The shifting of the bins to translate the signal to a "happy" range doesn't seem to carry a lot of DO NOT DO THIS warnings.
+
+I tried simply not doing the zero bins in the library fortran code and it seems to be fine - may be that I can simply ignore
+this filtering issue totally.  What I really want to see is a side by side comparison of decoding with the bin zero in place
+and without it to see if it's generating phantoms.  Some of it is going to be spectral leakage to adjoining bins - but I'm
+curious if the zero bin filter is "enhancing" any of that.
+
+mousedf2 will still be 0 on this for the first time I use.
+calling a complex to real fft.  c is the complex data array nh = 262144
+           call four2a(c,nh,1,1,-1,ical,wisfile)   !Return to time domain
+           fac=1.0/nfft
+fac = 0.0000019073486328125
+           nz=jz/2
+nz = 524287 div 2 = 262143
+           do i=1,nz ZERO BASE this 0 to 262143 :)
+              dat(i)=fac*x(i)
+           enddo
+
+     C      print *,'Leaving lpf1'
+     C      print *,''
+
+           return
+           end
+
+}
+//end;
+
 function isControlb(c : String) : Boolean;
 Var
    i : Integer;
@@ -160,6 +303,8 @@ end;
 procedure populateBins(const dfxa : Array of CTypes.cfloat; const syncount : CTypes.cint; const binspace : CTypes.cint; Var bins : Array of CTypes.cint);
 Var
    i,passtest : Integer;
+   bl,bm,bh   : Integer;
+   hl,hm,hh   : Boolean;
 Begin
      for i := 0 to syncount-1 do
      begin
@@ -367,6 +512,42 @@ Begin
      for i := 0 to 100 do
      begin
           if bins[i] > 0 then bins[i] := 1 else bins[i] := 0;
+     end;
+     if binspace = 20 Then
+     Begin
+          // Looking for clusters of 3 consecutive bins - these will likely be
+          // dupes (spectral leakage) - if things go wrong DEBUG this :)
+          // So far so good on this - not seeing any immediate meltdown and it
+          // has certainly killed the true dupes.
+          bl := 0;
+          bm := 1;
+          bh := 2;
+          hl := False;
+          hm := False;
+          hh := False;
+          While bh < 101 Do
+          Begin
+               if bins[bl] > 0 Then hl := True;
+               if bins[bm] > 0 Then hm := True;
+               if bins[bh] > 0 Then hh := True;
+               if (hl And hm) Or (hm And hh) Then
+               Begin
+                    bins[bl] := 0;
+                    bins[bh] := 0;
+                    bl := bm;
+                    bm := bh;
+                    inc(bh);
+               end
+               else
+               begin
+                    inc(bl);
+                    inc(bm);
+                    inc(bh);
+               end;
+               hl := False;
+               hm := False;
+               hh := False;
+          end;
      end;
 End;
 
@@ -1107,6 +1288,7 @@ Var
    snrsynca      : Array[0..254] Of CTypes.cfloat;
    snrxa         : Array[0..254] Of CTypes.cfloat;
    dtxa          : Array[0..254] Of CTypes.cfloat;
+   fffoo         : CTypes.cfloat;
    decsyms       : Array[0..11] Of Ctypes.cint;
    lsym1,lsym2   : Array[0..62] Of CTypes.cint;
    lsym1p,lsym2p : Array[0..62] Of CTypes.cint;
@@ -1239,7 +1421,7 @@ begin
      // Convert samps to f1buffer (int16 to float)
      fsum := 0.0;
      nave := 0;
-     jz := 524288;
+     jz := 524287;  // This truncates the last symbol to get a POT transform - otherwise I have to move up to 1048575 - can't see a problem with that so far
 
      for i := 0 to jz do fsum := fsum + samps[i];
      nave := Round(fsum/(jz+1));
@@ -1280,6 +1462,7 @@ begin
           jz2 := 0;
           mousedf2 := 0;
           for i := 0 to jz do gllpfM[i] := glf1Buffer[i];
+          // lpf1 downsamples from 11025 S/S to 5512.5 S/S
           lpf1(CTypes.pcfloat(@gllpfM[0]),CTypes.pcint(@jz),CTypes.pcint(@jz2),CTypes.pcint(@lmousedf),CTypes.pcint(@mousedf2),CTypes.pcint(@lical),PChar(wif));
           // msync will want a downsampled and lpf version of data.
           // Copy lpfM to f3Buffer
@@ -1292,8 +1475,53 @@ begin
                snrxa[i]    := 0.0;
                snrsynca[i] := 0.0;
           end;
+
+          {
+            TODO Think about squashing doing a decode at x then x+20 hz or x then x+50 hz
+            for those 2 resolutions.  Tho I would like to do this by picking the strongest
+            bin for the points.  This would effectively give a dynamic decoder resolution
+            where I look for sync at a fine resolution then "decide" if it's likely I'm
+            seeing leakage to bins adjacent.  Might be a good thing.
+
+            So I have dt,df,? and snr of sync - right now I'm just doing a decode anywhere I see a potential
+            and not looking at the snr... maybeeeeee if I look at that I can shave some needless decode passes
+            on the 20/50 Hz resolutions.
+
+            Say I have a hit at x-20, x, x+20 - that may well be two signals overlapping or spectral leakage
+            amongst the bins on strong signals.  The trick will be in squashing images of strong ones without
+            killing ability to pull out a weak one that may be intermixed.
+
+            I think - maybe the way will be to say I have a strong hit at X - do not do a pass at X-20 (or 50) or at
+            X+20 (or 50).  Once I move to 100+ spacing there's little advantage to thinking about any of this.
+
+            So - if I walk the bins and look for clusters of x-20 x x+20 (or -/+ 50) where x is strongest I should
+            likely not do a decode at -x or +x since that seems pretty clearly to be leakage.  And if it's not -
+            probably wouldn't get a decode anyways.  Gut tells me this might be a (very) good thing for 20 less so
+            on 50 hz spacing.
+
+            First deal with above then research next.
+
+            Now wait - there's another thing.  It's not 20,50,100,200 Hz etc spacing - let me (later) think about
+            what the bins actually space to in terms of the FFT resolution - I can still call it 20,50 and etc but....
+            it may be more grief is caused pushing these integer centers to the decoder since it may be splitting
+            bins or, worse, missing some.
+
+            }
+
           syncount := 0;
           msync(CTypes.pcfloat(@glf3Buffer[0]),CTypes.pcint(@jz2),CTypes.pcint(@syncount),CTypes.pcfloat(@dtxa[0]),CTypes.pcfloat(@dfxa[0]),CTypes.pcfloat(@snrxa[0]),CTypes.pcfloat(@snrsynca[0]),CTypes.pcint(@lical),PChar(wif));
+
+          // Time to start USING the data I'm getting from msync.
+          // 1 - If snrx < -29 kill it.
+          // 2 - if dtx > 5 or < -5 kill it.
+          // snrsync not needed
+          // 3 - if dfx < -1100 or > 1100 kill it.
+          // Just set dfx to -9999 then populate bins will ignore it.
+
+          for i := 0 to 254 do
+          begin
+               if (dtxa[i] < -5.5) Or (dtxa[i] > 5.5) Or (snrxa[i] < -29.6) Or (dfxa[i] < -1100.0) Or (dfxa[i] > 1100.0) Then dfxa[i] := -9999.0;
+          end;
 
           populateBins(dfxa, syncount, bw, bins);
 
@@ -1307,6 +1535,7 @@ begin
           // bins[0...100] has been set for bins needing a decode
           // Bin space = 100 steps = (2000/100)+1 = 21
           // Bin space =  50 steps = (2000/50)+1  = 41
+
           while i < 1001 do
           begin
                if bins[j] > 0 Then

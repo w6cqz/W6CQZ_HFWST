@@ -2090,12 +2090,15 @@ Begin
      if demodulate.dmhaveDecode Then
      Begin
           //ListBox2.Items.Insert(0,'Enter display decodes');
+          {
+          DEBUG removing dupe killer for a bit - I want to see if my code to
+          kill them at the decoder level helps.
+
           dstrings := TStringList.Create;
           dstrings.Clear;
           dstrings.CaseSensitive := False;
           dstrings.Sorted := False;
           dstrings.Duplicates := Types.dupAccept;
-
           // Remove any duplicates and/or image decodes.
           j := 0;
           for i := 0 to 499 do
@@ -2122,6 +2125,7 @@ Begin
                End;
           end;
           SetLength(removes,0);
+          }
 
           // Have decode results - display them.
           // Delete any impossible decodes like signal < -30
