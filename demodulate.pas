@@ -534,9 +534,9 @@ Begin
                Begin
                     bins[bl] := 0;
                     bins[bh] := 0;
-                    bl := bm;
-                    bm := bh;
-                    inc(bh);
+                    bl := bh+1;
+                    bm := bh+2;
+                    bh := bh+3;
                end
                else
                begin

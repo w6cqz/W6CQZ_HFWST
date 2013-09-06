@@ -46,7 +46,7 @@
         <PackageName Value="LCL"/>
       </Item4>
     </RequiredPackages>
-    <Units Count="16">
+    <Units Count="15">
       <Unit0>
         <Filename Value="project1.lpr"/>
         <IsPartOfProject Value="True"/>
@@ -130,7 +130,7 @@
         <WindowIndex Value="0"/>
         <TopLine Value="1"/>
         <CursorPos X="31" Y="49"/>
-        <UsageCount Value="83"/>
+        <UsageCount Value="79"/>
       </Unit6>
       <Unit7>
         <Filename Value="spectrum.pas"/>
@@ -186,8 +186,8 @@
         <IsVisibleTab Value="True"/>
         <EditorIndex Value="3"/>
         <WindowIndex Value="0"/>
-        <TopLine Value="511"/>
-        <CursorPos X="50" Y="521"/>
+        <TopLine Value="517"/>
+        <CursorPos X="1" Y="540"/>
         <UsageCount Value="252"/>
         <Bookmarks Count="1">
           <Item0 X="52" Y="158" ID="0"/>
@@ -195,14 +195,6 @@
         <Loaded Value="True"/>
       </Unit11>
       <Unit12>
-        <Filename Value="C:\lazarus\fpc\2.4.4\source\packages\fcl-db\src\base\db.pas"/>
-        <UnitName Value="db"/>
-        <WindowIndex Value="0"/>
-        <TopLine Value="1560"/>
-        <CursorPos X="14" Y="1519"/>
-        <UsageCount Value="3"/>
-      </Unit12>
-      <Unit13>
         <Filename Value="valobject.pas"/>
         <IsPartOfProject Value="True"/>
         <UnitName Value="valobject"/>
@@ -212,8 +204,8 @@
         <CursorPos X="1" Y="554"/>
         <UsageCount Value="201"/>
         <Loaded Value="True"/>
-      </Unit13>
-      <Unit14>
+      </Unit12>
+      <Unit13>
         <Filename Value="waterfall1.pas"/>
         <IsPartOfProject Value="True"/>
         <UnitName Value="waterfall1"/>
@@ -223,15 +215,15 @@
         <CursorPos X="1" Y="2"/>
         <UsageCount Value="201"/>
         <Loaded Value="True"/>
-      </Unit14>
-      <Unit15>
+      </Unit13>
+      <Unit14>
         <Filename Value="C:\lazarus\fpc\2.6.2\source\packages\fcl-process\src\process.pp"/>
         <UnitName Value="process"/>
         <WindowIndex Value="0"/>
         <TopLine Value="435"/>
         <CursorPos X="38" Y="448"/>
-        <UsageCount Value="1"/>
-      </Unit15>
+        <UsageCount Value="7"/>
+      </Unit14>
     </Units>
     <JumpHistory Count="30" HistoryIndex="29">
       <Position1>
