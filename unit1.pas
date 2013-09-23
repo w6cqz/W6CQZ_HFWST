@@ -62,16 +62,13 @@ type
     Button10: TButton;
     Button11: TButton;
     Button12: TButton;
-    Button14: TButton;
     cbUseSerial: TCheckBox;
     cbAttenuateRight: TCheckBox;
     cbSpecSmooth: TCheckBox;
-    cbSpecAGC: TCheckBox;
     cbUseMono: TCheckBox;
     cbUseColor: TCheckBox;
     cbDivideDecodes: TCheckBox;
     cbCompactDivides: TCheckBox;
-    cbAllowRB: TCheckBox;
     cbSaveToCSV: TCheckBox;
     cbNoOptFFT: TCheckBox;
     cbAttenuateLeft: TCheckBox;
@@ -83,42 +80,12 @@ type
     cbDefaultsMultiOn: TCheckBox;
     cbNoKV: TCheckBox;
     comboMacroList: TComboBox;
-    dgainL: TEdit;
-    dgainR: TEdit;
-    CQColor: TEdit;
-    adifPath: TEdit;
-    adifMode: TEdit;
-    deci: TEdit;
-    cwID: TEdit;
-    cwCall: TEdit;
-    iDAC: TEdit;
     Label123: TLabel;
     Memo1: TMemo;
-    rbCall: TEdit;
-    sBin: TEdit;
-    rbInfo: TEdit;
+    rigRebel: TRadioButton;
     lastQRG: TEdit;
-    saveGrid: TEdit;
-    port: TEdit;
-    tDAC: TEdit;
-    txWD: TEdit;
-    csvPath: TEdit;
-    myCallColor: TEdit;
-    qsoColor: TEdit;
-    savePrefix: TEdit;
-    saveCall: TEdit;
-    saveSuffix: TEdit;
-    wfBright: TEdit;
-    wfGain: TEdit;
     txLevel: TEdit;
-    mBin: TEdit;
     version: TEdit;
-    wfContrast: TEdit;
-    rigController: TEdit;
-    tADC: TEdit;
-    iADC: TEdit;
-    wfColorMap: TEdit;
-    WFSpeed: TEdit;
     doLogQSO: TButton;
     comboQRGList: TComboBox;
     GroupBox16: TGroupBox;
@@ -197,39 +164,7 @@ type
     edPrefix: TEdit;
     edCall: TEdit;
     edSuffix: TEdit;
-    Label22: TLabel;
-    Label25: TLabel;
-    Label45: TLabel;
-    Label46: TLabel;
-    Label47: TLabel;
-    Label48: TLabel;
-    Label49: TLabel;
-    Label50: TLabel;
-    Label51: TLabel;
-    Label52: TLabel;
-    Label53: TLabel;
-    Label54: TLabel;
-    Label55: TLabel;
-    Label56: TLabel;
-    Label57: TLabel;
-    Label58: TLabel;
-    Label59: TLabel;
-    Label60: TLabel;
-    Label61: TLabel;
-    Label62: TLabel;
-    Label63: TLabel;
-    Label64: TLabel;
-    Label65: TLabel;
-    Label66: TLabel;
-    Label67: TLabel;
-    Label68: TLabel;
-    Label69: TLabel;
-    Label70: TLabel;
-    Label71: TLabel;
-    Label72: TLabel;
     Label73: TLabel;
-    Label74: TLabel;
-    Label75: TLabel;
     Label76: TLabel;
     Label77: TLabel;
     Label79: TLabel;
@@ -316,23 +251,23 @@ type
     PageControl1: TPageControl;
     RadioButton1: TRadioButton;
     rigNone: TRadioButton;
-    RadioButton19: TRadioButton;
+    rbNoCWID: TRadioButton;
     RadioButton2: TRadioButton;
-    RadioButton20: TRadioButton;
-    RadioButton21: TRadioButton;
+    rbCWID73: TRadioButton;
+    rbCWIDFree: TRadioButton;
     tbSingleBin: TTrackBar;
     useDeciAmerican: TRadioButton;
     useDeciEuro: TRadioButton;
     useDeciAuto: TRadioButton;
-    RadioButton25: TRadioButton;
-    RadioButton26: TRadioButton;
-    RadioButton27: TRadioButton;
-    RadioButton28: TRadioButton;
-    RadioButton29: TRadioButton;
+    dgainL0: TRadioButton;
+    dgainL3: TRadioButton;
+    dgainL6: TRadioButton;
+    dgainL9: TRadioButton;
+    dgainR0: TRadioButton;
     RadioButton3: TRadioButton;
-    RadioButton30: TRadioButton;
-    RadioButton31: TRadioButton;
-    RadioButton32: TRadioButton;
+    dgainR3: TRadioButton;
+    dgainR6: TRadioButton;
+    dgainR9: TRadioButton;
     RadioGroup1: TRadioGroup;
     TabSheet1: TTabSheet;
     TabSheet2: TTabSheet;
@@ -351,12 +286,7 @@ type
     tbWFBright: TTrackBar;
     tbWFGain: TTrackBar;
     Waterfall1: TWaterfallControl1;
-    xdbpttdtr: TDBCheckBox;
-    xdbpttrts: TDBCheckBox;
-    xdbpttrtsdtr: TDBCheckBox;
     xDBText1: TDBText;
-    xdbUseLeftAudio: TDBCheckBox;
-    xdbUseRightaudio: TDBCheckBox;
     procedure audioChange(Sender: TObject);
     procedure Button12Click(Sender: TObject);
     procedure Button13Click(Sender: TObject);
@@ -541,6 +471,8 @@ var
   pttState       : Boolean;
   cfgDir         : String;
   catError       : TStringList;
+  savedTADC      : String;
+  savedIADC      : Integer;
 
 implementation
 
@@ -818,80 +750,82 @@ Begin
      if mustcfg Then
      Begin
           // Need to set sane defaults.
+          // Tabsheet 1
+          edPrefix.Text := '';
+          edCall.Text := '';
+          edSuffix.Text :='';
+          edGrid.Text := '';
+          comboAudioIn.ItemIndex:=0;
           cbUseMono.Checked := False;
+          rbUseLeftAudio.Checked := True;
+          dgainL0.Checked := True;
+          dgainR0.Checked := True;
           cbAttenuateLeft.Checked := False;
           cbAttenuateRight.Checked := False;
-          cbUseSerial.Checked := False;
+          // Tabsheet 2
+          rigNone.Checked := True;
+          cbUseSerial.Checked := True;
+          edPort.Text := '-1';
           cbUseTXWD.Checked := True;
+          edTXWD.Text := '10';
+          // Tabsheet 3
           cbDivideDecodes.Checked := True;
           cbCompactDivides.Checked := True;
           cbUseColor.Checked := True;
-          cbSpecSmooth.Checked := True;
-          cbAllowRB.Checked := False;
-          cbSaveToCSV.Checked := False;
-          cbRememberComments.Checked := False;
-          cbMultiOffQSO.Checked := False;
-          cbRestoreMulti.Checked := False;
-          //??
-          //xDBCheckBox2.Checked := False;
-          cbHaltTXMultiOn.Checked := False;
-          cbNoOptFFT.Checked := False;
-          cbDefaultsMultiOn.Checked := False;
-          tbMultiBin.Position := 1;
-          tbMultiBinChange(tbMultiBin);
-          inDev  := -1;
-          //outDev := -1;
-          pttDev := -1;
-          inIcal := 0;
-          rigNone.Checked := True;
-          spectrum.specSmooth := True;
-          spectrum.specuseagc := True;
-          spColorMap.ItemIndex := 3;
-          spectrum.specColorMap := 3;
-          cbCQCOlor.ItemIndex := 0;
+          cbCQColor.ItemIndex := 0;
           cbMyCallColor.ItemIndex := 0;
           cbQSOColor.ItemIndex := 0;
+          spColorMap.ItemIndex := 2;
           tbWFSpeed.Position := 5;
           tbWFContrast.Position := 0;
           tbWFBright.Position := 0;
           tbWFGain.Position := 0;
-          tbMultiBin.Position := 3;
-          tbSingleBin.Position := 3;
+          cbSpecSmooth.Checked := True;
+          // Tabsheet 4
+          edRBCall.Text := '';
+          edStationInfo.Text := '';
+          cbSaveToCSV.Checked := False;
+          edCSVPath.Text := cfgDir;
+          // Tabsheet 5
+          edADIFPath.Text := cfgDir;
+          edADIFMode.Text := 'JT65';
+          cbRememberComments.Checked := False;
+          // Tabsheet 6
+          cbMultiOffQSO.Checked := True;
+          cbRestoreMulti.Checked := True;
+          cbHaltTXMultiOn.Checked := False;
+          cbDefaultsMultiOn.Checked := True;
+          useDeciAuto.Checked := True;
+          rbNoCWID.Checked := True;
+          edCWID.Text := '';
+          cbNoOptFFT.Checked := False;
+          cbNoKV.Checked := False;
+
+          // Set main GUI variable controls
+          tbMultiBin.Position := 1; // 20 Hz
+          tbMultiBinChange(tbMultiBin);
+          inDev  := -1;
+          pttDev := -1;
+          inIcal := 0;
           edDialQRG.Text := '0';
           editQRG.Text := '0';
           tbTXLevel.Position := 16;
-          edPrefix.Text   := '';
-          edCall.Text     := '';
-          edSuffix.Text   := '';
-          edGrid.Text     := '';
-          edPort.Text     := '';
-          edTXWD.Text     := '10';
-          edADIFMode.Text := 'JT65';
-          edADIFPath.Text := cfgDir;
-          edCSVPath.Text  := cfgDir;
-          edStationInfo.Text := '';
-          edRBCall.Text := '';
-          edCWID.Text := '';
-          RadioButton19.Checked := True;
-          Deci.Text := 'Auto';
 
-          if Deci.Text = 'American' then
+
+          if useDeciAmerican.Checked then
           begin
-               useDeciAmerican.Checked := True;
                dChar := '.';
                kChar := ',';
           end;
 
-          if Deci.Text = 'Euro' then
+          if useDeciEuro.Checked then
           begin
-               useDeciEuro.Checked := True;
                dChar := ',';
                kChar := '.';
           end;
 
-          if Deci.Text = 'Auto' then
+          if useDeciAuto.Checked then
           begin
-               useDeciAuto.Checked := True;
                dChar := DecimalSeparator;
                kChar := ThousandSeparator;
                if dChar = '.' Then useDeciAuto.Caption := 'Use System Default (decimal = . thousands = ,)';
@@ -911,51 +845,46 @@ Begin
      query.SQL.Clear;
      query.SQL.Add('SELECT * FROM config WHERE instance=1;');
      query.Active := True;
-     savePrefix.Text := query.FieldByName('prefix').AsString;
-     saveCall.Text   := query.FieldByName('call').AsString;
-     saveSuffix.Text := query.FieldByName('suffix').AsString;
-     saveGrid.Text   := query.FieldByName('grid').AsString;
-     tadc.Text       := query.FieldByName('tadc').AsString;
-     iadc.Text       := query.FieldByName('iadc').AsString;
-     //tdac.Text       := query.FieldByName('tdac').AsString;
-     //idac.Text       := query.FieldByName('idac').AsString;
+     edPrefix.Text := query.FieldByName('prefix').AsString;
+     edCall.Text   := query.FieldByName('call').AsString;
+     edSuffix.Text := query.FieldByName('suffix').AsString;
+     edGrid.Text   := query.FieldByName('grid').AsString;
+     // Need to handle these in audio selector code! DEBUG
+     savedTADC := query.FieldByName('tadc').AsString;
+     savedIADC := query.FieldByName('iadc').AsInteger;
      cbUseMono.Checked       := query.FieldByName('mono').AsBoolean;
      rbUseLeftAudio.Checked  := query.FieldByName('left').AsBoolean;
      rbUseRightAudio.Checked := query.FieldByName('right').AsBoolean;
-     dgainL.Text     := query.FieldByName('dgainl').AsString;
-     dgainR.Text     := query.FieldByName('dgainr').AsString;
+     foo := query.FieldByName('dgainl').AsString;
+     if foo='0' Then dgainL0.Checked := True;
+     if foo='3' Then dgainL3.Checked := True;
+     if foo='6' Then dgainL6.Checked := True;
+     if foo='9' Then dgainL9.Checked := True;
+     foo := query.FieldByName('dgainr').AsString;
+     if foo='0' Then dgainR0.Checked := True;
+     if foo='3' Then dgainR3.Checked := True;
+     if foo='6' Then dgainR6.Checked := True;
+     if foo='9' Then dgainR9.Checked := True;
      cbAttenuateLeft.Checked := query.FieldByName('dgainla').AsBoolean;
      cbAttenuateRight.Checked := query.FieldByName('dgainra').AsBoolean;
      cbUseSerial.Checked := query.FieldByName('useserial').AsBoolean;
-     port.Text := query.FieldByName('port').AsString;
+     edPort.Text := query.FieldByName('port').AsString;
      cbUseTXWD.Checked := query.FieldByName('txwatchdog').AsBoolean;
      edTXWD.Text := query.FieldByName('txwatchdogcount').AsString;
-     rigController.Text := query.FieldByName('rigcontrol').AsString;
+     If query.FieldByName('rigcontrol').AsString = 'Rebel' Then rigRebel.Checked := True else rigNone.Checked := True;
      cbDivideDecodes.Checked := query.FieldByName('perioddivide').AsBoolean;
      cbCompactDivides.Checked := query.FieldByName('periodcompact').AsBoolean;
      cbUseColor.Checked := query.FieldByName('usecolor').AsBoolean;
-     cqColor.Text := query.FieldByName('cqcolor').AsString;
-     myCallColor.Text := query.FieldByName('mycallcolor').AsString;
-     qsoColor.Text := query.FieldByName('qsocolor').AsString;
-
-     wfColorMap.Text := query.FieldByName('wfcmap').AsString;
-     if TryStrToInt(wfColormap.Text,i) Then spColorMap.ItemIndex := i else spColorMap.ItemIndex := 3;
-
-     wfSpeed.Text := query.FieldByName('wfspeed').AsString;
-     if TryStrToInt(wfSpeed.Text,i) Then tbWFSpeed.Position := i else tbWFSpeed.Position := 5;
-
-     wfContrast.Text := query.FieldByName('wfcontrast').AsString;
-     if TryStrToInt(wfContrast.Text,i) Then tbWFContrast.Position := i else tbWFContrast.Position := 0;
-
-     wfBright.Text := query.FieldByName('wfbright').AsString;
-     if TryStrToInt(wfBright.Text,i) Then tbWFBright.Position := i else tbWFBright.Position := 0;
-
-     wfGain.Text := query.FieldByName('wfgain').AsString;
-     if TryStrToInt(wfGain.Text,i) Then tbWFGain.Position := i else tbWFGain.Position := 0;
-
+     cbCQColor.ItemIndex := query.FieldByName('cqcolor').AsInteger;
+     cbMyCallColor.ItemIndex := query.FieldByName('mycallcolor').AsInteger;
+     cbQSOColor.ItemIndex := query.FieldByName('qsocolor').AsInteger;
+     spColorMap.ItemIndex := query.FieldByName('wfcmap').AsInteger;
+     tbWFSpeed.Position := query.FieldByName('wfspeed').AsInteger;
+     tbWFContrast.Position := query.FieldByName('wfcontrast').AsInteger;
+     tbWFBright.Position := query.FieldByName('wfbright').AsInteger;
+     tbWFGain.Position := query.FieldByName('wfgain').AsInteger;
      cbSpecSmooth.Checked := query.FieldByName('wfsmooth').AsBoolean;
-     cbSpecAGC.Checked := query.FieldByName('wfsmooth').AsBoolean; // this is correct ;)
-     cbAllowRB.Checked := query.FieldByName('userb').AsBoolean;
+     //cbWFAutoAGC.Checked := query.FieldByName('wfsmooth').AsBoolean; // this is correct ;) NOT using this now - smooth impies AGC
      edRBCall.Text := query.FieldByName('spotcall').AsString;
      edStationInfo.Text := query.FieldByName('spotinfo').AsString;
      cbSaveToCSV.Checked := query.FieldByName('usecsv').AsBoolean;
@@ -967,15 +896,20 @@ Begin
      cbRestoreMulti.Checked := query.FieldByName('automultion').AsBoolean;
      cbHaltTXMultiOn.Checked := query.FieldByName('halttxsetsmulti').AsBoolean;
      cbDefaultsMultiOn.Checked := query.FieldByName('defaultsetsmulti').AsBoolean;
-     deci.Text := query.FieldByName('decimal').AsString;
-     cwid.Text := query.FieldByName('cwid').AsString;
-     cwcall.Text := query.FieldByName('cwidcall').AsString;
+     if query.FieldByName('decimal').AsString = 'USA' then useDeciAmerican.Checked := True;
+     if query.FieldByName('decimal').AsString = 'Euro' then useDeciEuro.Checked := True;
+     if query.FieldByName('decimal').AsString = 'Auto' then useDeciAuto.Checked := True;
+     foo := query.FieldByName('cwid').AsString;
+     if foo = 'None' Then rbNoCWID.Checked := True;
+     if foo = '73' Then rbCWID73.Checked := True;
+     if foo = 'Free' Then rbCWIDFree.Checked := True;
+     edCWID.Text := query.FieldByName('cwidcall').AsString;
      cbNoOptFFT.Checked := query.FieldByName('disableoptfft').AsBoolean;
      cbNoKV.Checked := query.FieldByName('disablekv').AsBoolean;
      lastQRG.Text := query.FieldByName('lastqrg').AsString;
-     sbin.Text := query.FieldByName('sbinspace').AsString;
-     mbin.Text := query.FieldByName('mbinspace').AsString;
-     txLevel.Text := query.FieldByName('txlevel').AsString;
+     tbSingleBin.Position := query.FieldByName('sbinspace').AsInteger;
+     tbMultiBin.Position := query.FieldByName('mbinspace').AsInteger;
+     tbTXLevel.Position := query.FieldByName('txlevel').AsInteger;
      version.Text := query.FieldByName('version').AsString;
      cbMultiOn.Checked := query.FieldByName('multion').AsBoolean;
      cbTXEqRXDF.Checked := query.FieldByName('txeqrxdf').AsBoolean;
@@ -988,8 +922,8 @@ Begin
      rigControlSet(tbWFBright);
      rigControlSet(tbWFGain);
      rigControlSet(spColorMap);
-     rigControlSet(RadioButton25);
-     rigControlSet(RadioButton29);
+     rigControlSet(dgainL0);
+     rigControlSet(dgainR0);
      rigControlSet(rbUseLeftAudio);
      rigControlSet(rigNone);
 
@@ -1052,10 +986,9 @@ Begin
      query.Active := False;
 
      // Lets read some config
-     inDev  := -1;
+     inDev  := savedIADC;
      pttDev := -1;
-     If not TryStrToInt(iadc.Text,inDev) Then inDev := -1;
-     If not TryStrToInt(port.Text,pttDev) Then pttDev := -1;
+     If not TryStrToInt(edPort.Text,pttDev) Then pttDev := -1;
 
      if cbNoOptFFT.Checked Then
      Begin
@@ -1074,25 +1007,10 @@ Begin
           end;
      end;
 
-     rigNone.Checked := True;
 
      if cbSpecSmooth.Checked then spectrum.specSmooth := True else spectrum.specSmooth := False;
      if cbSpecSmooth.Checked then spectrum.specuseagc := True else spectrum.specuseagc := False;
-
      spectrum.specColorMap := spColorMap.ItemIndex;
-     i := 0;
-     If TryStrToInt(CQColor.Text,i) Then cbCQCOlor.ItemIndex := i else cbCQCOlor.ItemIndex := 0;
-     If TryStrToInt(MyCallColor.Text,i) Then cbMyCallColor.ItemIndex := i else cbMyCallColor.ItemIndex := 0;
-     If TryStrToInt(QSOColor.Text,i) Then cbQSOColor.ItemIndex := i else cbQSOColor.ItemIndex := 0;
-     If TryStrToInt(WFColorMap.Text,i) Then spColorMap.ItemIndex := i else spColorMap.ItemIndex := 3;
-     If TryStrToInt(WFSpeed.Text,i) Then tbWFSpeed.Position := i else tbWFSpeed.Position := 5;
-     If TryStrToInt(WFContrast.Text,i) Then tbWFContrast.Position := i else tbWFContrast.Position := 0;
-     If TryStrToInt(WFBright.Text,i) Then tbWFBright.Position := i else tbWFBright.Position := 0;
-
-     If TryStrToInt(WFBright.Text,i) Then tbWFGain.Position := i else tbWFGain.Position := 0;
-     If TryStrToInt(Mbin.Text,i) Then tbMultiBin.Position := i else tbMultiBin.Position := 3;
-     If TryStrToInt(Sbin.Text,i) Then tbSingleBin.Position := i else tbSingleBin.Position := 3;
-
      edDialQRG.Text := lastQRG.Text;
      fs  := '';
      ff  := 0.0;
@@ -1104,42 +1022,23 @@ Begin
      if mval.evalQRG(fs,'STRICT',ff,fi,fsc) Then qrgValid := True else qrgValid := False;
      If TryStrToInt(TXLevel.Text,i) Then tbTXLevel.Position := i else tbTXLevel.Position := 16;
 
-     edPrefix.Text   := savePrefix.Text;
-     edCall.Text     := saveCall.Text;
-     edSuffix.Text   := saveSuffix.Text;
-     edGrid.Text     := saveGrid.Text;
-     edPort.Text     := port.Text;
-     edTXWD.Text     := TXWD.Text;
-     edADIFMode.Text := ADIFMode.Text;
-     edADIFPath.Text := ADIFPath.Text;
-     edCSVPath.Text  := CSVPath.Text;
-     edStationInfo.Text := rbInfo.Text;
-     edRBCall.Text := RBCall.Text;
-     edCWID.Text := CWCall.Text;
-     if Deci.Text = 'American' then
+     if useDeciAmerican.Checked then
      begin
-          useDeciAmerican.Checked := True;
           dChar := '.';
           kChar := ',';
      end;
-     if Deci.Text = 'Euro' then
+     if useDeciEuro.Checked then
      begin
-          useDeciEuro.Checked := True;
           dChar := ',';
           kChar := '.';
      end;
-     if Deci.Text = 'Auto' then
+     if useDeciAuto.Checked then
      begin
-          useDeciAuto.Checked := True;
           dChar := DecimalSeparator;
           kChar := ThousandSeparator;
           if dChar = '.' Then useDeciAuto.Caption := 'Use System Default (decimal = . thousands = ,)';
           if dChar = ',' Then useDeciAuto.Caption := 'Use System Default (decimal = , thousands = .)';
      end;
-
-     if CWID.Text = 'IDNever' Then RadioButton19.Checked := True;
-     if CWID.Text = 'IDAll' Then RadioButton20.Checked := True;
-     if CWID.Text = 'IDFree' Then RadioButton21.Checked := True;
 
      // Intitialize to startup points
      forceCAT := False;
@@ -1193,12 +1092,6 @@ Begin
      spectrum.specuseagc   := False;
      spectrum.specSmooth   := False;
 
-     i := 0;
-     if tryStrToInt(WFSpeed.Text,i) Then spectrum.specSpeed2 := i else spectrum.specSpeed2 := 0;
-     if cbSpecSmooth.Checked Then spectrum.specSmooth := True else spectrum.specSmooth := False;
-     if cbSpecAGC.Checked And cbSpecSmooth.Checked then spectrum.specuseagc := True else spectrum.specuseagc := False;
-     if tryStrToInt(WFColorMap.Text,i) Then spectrum.specColorMap := i else spectrum.specColorMap := 0;
-
      // Todo tie these to db vars
      spectrum.specVGain    := 7;  // 7 is "normal" can range from 1 to 13
      spectrum.specContrast := 1;
@@ -1246,21 +1139,20 @@ Begin
      rbThread  := rbcThread.Create(False);
      if rbOn.Checked Then
      Begin
-          rb.myCall := TrimLeft(TrimRight(UpCase(RBCall.Text)));
-          rb.myGrid := TrimLeft(TrimRight(saveGrid.Text));
-          rb.rbInfo := TrimLeft(TrimRight(rbInfo.Text));
+          rb.myCall := TrimLeft(TrimRight(UpCase(edRBCall.Text)));
+          rb.myGrid := TrimLeft(TrimRight(edGrid.Text));
+          rb.rbInfo := TrimLeft(TrimRight(edStationInfo.Text));
           rb.myQRG  := StrToInt(edDialQRG.Text);
           sopQRG    := StrToInt(edDialQRG.Text);
-          if cbAllowRB.Checked then rb.useRB := True else rb.useRB := False;
           rb.useRB := True;
           rb.useDBF := False;
           rbping    := True;
      end
      else
      begin
-          rb.myCall := TrimLeft(TrimRight(UpCase(RBCall.Text)));
-          rb.myGrid := TrimLeft(TrimRight(saveGrid.Text));
-          rb.rbInfo := TrimLeft(TrimRight(rbInfo.Text));
+          rb.myCall := TrimLeft(TrimRight(UpCase(edRBCall.Text)));
+          rb.myGrid := TrimLeft(TrimRight(edGrid.Text));
+          rb.rbInfo := TrimLeft(TrimRight(edStationInfo.Text));
           rb.myQRG  := StrToInt(edDialQRG.Text);
           sopQRG    := StrToInt(edDialQRG.Text);
           rb.useRB  := False;
@@ -1483,7 +1375,7 @@ Begin
 
           for i := 0 to comboAudioIn.Items.Count-1 do
           begin
-               if comboAudioIn.Items.Strings[i] = tadc.Text Then
+               if comboAudioIn.Items.Strings[i] = savedTADC Then
                Begin
                     comboAudioIn.ItemIndex := i;
                     break;
@@ -1627,11 +1519,11 @@ Begin
      If tbSingleBin.Position = 2 then demodulate.dmbws := 50;
      If tbSingleBin.Position = 3 then demodulate.dmbws := 100;
      If tbSingleBin.Position = 4 then demodulate.dmbws := 200;
-
-     if tryStrToInt(WFSpeed.Text,i) Then spectrum.specSpeed2 := i else spectrum.specSpeed2 := 0;
+// DEBUG FIX THESE NOW!!!!
+//     if tryStrToInt(WFSpeed.Text,i) Then spectrum.specSpeed2 := i else spectrum.specSpeed2 := 0;
      if cbSpecSmooth.Checked Then spectrum.specSmooth := True else spectrum.specSmooth := False;
-     if cbSpecAGC.Checked And cbSpecSmooth.Checked then spectrum.specuseagc := True else spectrum.specuseagc := False;
-     if tryStrToInt(WFColorMap.Text,i) Then spectrum.specColorMap := i else spectrum.specColorMap := 0;
+     if cbSpecSmooth.Checked Then spectrum.specuseagc := True else spectrum.specuseagc := False;
+//     if tryStrToInt(WFColorMap.Text,i) Then spectrum.specColorMap := i else spectrum.specColorMap := 0;
 
      if rbUseLeftAudio.Checked Then adc.adcChan  := 1;
      if rbUseRightaudio.Checked Then adc.adcChan := 2;
@@ -1650,28 +1542,28 @@ Begin
 
      If RadioButton2.Checked or RadioButton3.Checked Then Button1.Visible := True else Button1.Visible := False;
 
-     If (Length(savePrefix.Text)>0) And (Length(saveSuffix.Text)=0) And ((Length(saveCall.Text)>2) And (Length(saveCall.Text)<7)) And ((Length(getLocalGrid)=4) Or (Length(getLocalGrid)=6)) Then
+     If (Length(edPrefix.Text)>0) And (Length(edSuffix.Text)=0) And ((Length(edCall.Text)>2) And (Length(edCall.Text)<7)) And ((Length(getLocalGrid)=4) Or (Length(getLocalGrid)=6)) Then
      Begin
-          thisTXcall := TrimLeft(TrimRight(UpCase(savePrefix.Text))) + '/' + TrimLeft(Trimright(UpCase(saveCall.Text)));
+          thisTXcall := TrimLeft(TrimRight(UpCase(edPrefix.Text))) + '/' + TrimLeft(Trimright(UpCase(edCall.Text)));
           thisTXgrid := TrimLeft(TrimRight(UpCase(getLocalGrid)));
           if Length(thisTXGrid)>4 Then thisTXGrid := thisTXGrid[1..4];
-          Label8.Caption := 'DE ' + thisTXCall + ' in ' + saveGrid.Text;
+          Label8.Caption := 'DE ' + thisTXCall + ' in ' + edGrid.Text;
      end;
 
-     If (Length(savePrefix.Text)=0) And (Length(saveSuffix.Text)>0) And ((Length(saveCall.Text)>2) And (Length(saveCall.Text)<7)) And ((Length(getLocalGrid)=4) Or (Length(getLocalGrid)=6)) Then
+     If (Length(edPrefix.Text)=0) And (Length(edSuffix.Text)>0) And ((Length(edCall.Text)>2) And (Length(edCall.Text)<7)) And ((Length(getLocalGrid)=4) Or (Length(getLocalGrid)=6)) Then
      Begin
-          thisTXcall := TrimLeft(Trimright(UpCase(saveCall.Text))) + '/' + TrimLeft(TrimRight(UpCase(saveSuffix.Text)));
+          thisTXcall := TrimLeft(Trimright(UpCase(edCall.Text))) + '/' + TrimLeft(TrimRight(UpCase(edSuffix.Text)));
           thisTXgrid := TrimLeft(TrimRight(UpCase(getLocalGrid)));
           if Length(thisTXGrid)>4 Then thisTXGrid := thisTXGrid[1..4];
-          Label8.Caption := 'DE ' + thisTXCall + ' ' + saveGrid.Text;
+          Label8.Caption := 'DE ' + thisTXCall + ' ' + edGrid.Text;
      end;
 
-     If (Length(savePrefix.Text)=0) And (Length(saveSuffix.Text)=0) And ((Length(saveCall.Text)>2) And (Length(saveCall.Text)<7)) And ((Length(getLocalGrid)=4) Or (Length(getLocalGrid)=6)) Then
+     If (Length(edPrefix.Text)=0) And (Length(edSuffix.Text)=0) And ((Length(edCall.Text)>2) And (Length(edCall.Text)<7)) And ((Length(getLocalGrid)=4) Or (Length(getLocalGrid)=6)) Then
      Begin
-          thisTXcall := TrimLeft(Trimright(UpCase(saveCall.Text)));
+          thisTXcall := TrimLeft(Trimright(UpCase(edCall.Text)));
           thisTXgrid := TrimLeft(TrimRight(UpCase(getLocalGrid)));
           if Length(thisTXGrid)>4 Then thisTXGrid := thisTXGrid[1..4];
-          Label8.Caption := 'DE ' + thisTXCall + ' ' + saveGrid.Text;
+          Label8.Caption := 'DE ' + thisTXCall + ' ' + edGrid.Text;
      end;
      { TODO Fix }
      //If txOn Then Label12.Caption := 'PTT:  ON' else Label12.Caption := 'PTT:  OFF';
@@ -1698,7 +1590,7 @@ Begin
 
      // Enable PTT if necessary
      i := -1;
-     If (cbUseSerial.Checked And TryStrToInt(TrimLeft(TrimRight(port.Text)),i)) And globalData.txInProgress And (not txOn) Then
+     If (cbUseSerial.Checked And TryStrToInt(TrimLeft(TrimRight(edPort.Text)),i)) And globalData.txInProgress And (not txOn) Then
      Begin
           // Need to assert PTT
           if (i > 0) And (i<256) Then
@@ -1721,7 +1613,7 @@ Begin
 
      // Unkey PTT if on and should not be.
      i := -1;
-     If (TryStrToInt(TrimLeft(TrimRight(port.Text)),i)) And txOn And (not globalData.txInProgress) Then
+     If (TryStrToInt(TrimLeft(TrimRight(edPort.Text)),i)) And txOn And (not globalData.txInProgress) Then
      Begin
           // Need to de-assert PTT
           if (i > 0) And (i<256) Then
@@ -1761,38 +1653,25 @@ Begin
           rb.myGrid := TrimLeft(TrimRight(edGrid.Text));
           rb.rbInfo := TrimLeft(TrimRight(edStationInfo.Text));
           rb.myQRG  := StrToInt(edDialQRG.Text);
-          if cbAllowRB.Checked then
-          Begin
-               rb.useRB := True;
-               rbping    := True;
-          end
-          else
-          begin
-               rb.useRB := False;
-          end;
+          rb.useRB := True;
+          rbping    := True;
      end;
 
-     if deci.Text = 'American' then
+     if useDeciAmerican.Checked then
      begin
-          useDeciAmerican.Checked := True;
           dChar := '.';
           kChar := ',';
      end;
-     if deci.Text = 'Euro' then
+     if useDeciEuro.Checked then
      begin
-          useDeciEuro.Checked := True;
           dChar := ',';
           kChar := '.';
      end;
-     if deci.Text = 'Auto' then
+     if useDeciAuto.Checked then
      begin
-          useDeciAuto.Checked := True;
           dChar := DecimalSeparator;
           kChar := ThousandSeparator;
      end;
-
-     dChar := '.';
-     kChar := ',';
 end;
 
 procedure TForm1.OncePerSecond;
@@ -1866,7 +1745,6 @@ Begin
                rb.myGrid := TrimLeft(TrimRight(edGrid.Text));
                rb.rbInfo := TrimLeft(TrimRight(edStationInfo.Text));
                rb.myQRG  := StrToInt(edDialQRG.Text);
-               if cbAllowRB.Checked then rb.useRB := True else rb.useRB := False;
                rb.useRB := True;
                rbping    := True;
           end
@@ -2090,10 +1968,6 @@ Begin
      if demodulate.dmhaveDecode Then
      Begin
           //ListBox2.Items.Insert(0,'Enter display decodes');
-          {
-          DEBUG removing dupe killer for a bit - I want to see if my code to
-          kill them at the decoder level helps.
-
           dstrings := TStringList.Create;
           dstrings.Clear;
           dstrings.CaseSensitive := False;
@@ -2125,7 +1999,6 @@ Begin
                End;
           end;
           SetLength(removes,0);
-          }
 
           // Have decode results - display them.
           // Delete any impossible decodes like signal < -30
@@ -2177,13 +2050,6 @@ Begin
                                if demodulate.dmdecodes[i].sf = 'S' Then
                                Begin
                                     ListBox1.Items.Insert(0, demodulate.dmdecodes[i].utc + ' ' + demodulate.dmdecodes[i].sync + ' ' + demodulate.dmdecodes[i].db + ' ' + afoo + ' ' + demodulate.dmdecodes[i].df + '  ' + demodulate.dmdecodes[i].ec + '  ' + PadRight(demodulate.dmdecodes[i].dec,28) + 'C' + demodulate.dmdecodes[i].ver);
-                               end
-                               else
-                               begin
-                                    ListBox1.Items.Insert(0, demodulate.dmdecodes[i].utc + ' ' + demodulate.dmdecodes[i].sync + ' ' + demodulate.dmdecodes[i].db + ' ' + afoo + ' ' + demodulate.dmdecodes[i].df + '  ' + demodulate.dmdecodes[i].ec + '  ' + PadRight(demodulate.dmdecodes[i].dec,28) + 'U' + demodulate.dmdecodes[i].ver);
-                               end;
-                               if demodulate.dmdecodes[i].sf = 'S' Then
-                               begin
                                     tvalid := False;
                                     breakOutFields(demodulate.dmdecodes[i].utc + ' ' + demodulate.dmdecodes[i].sync + ' ' + demodulate.dmdecodes[i].db + ' ' + afoo + ' ' + demodulate.dmdecodes[i].df + '  ' + demodulate.dmdecodes[i].ec + '  ' + demodulate.dmdecodes[i].dec, tvalid);
                                     if not tvalid then inc(pfails);
@@ -2193,6 +2059,15 @@ Begin
                                          ListBox2.Items.Insert(0,'Failed to build - input:  ' + demodulate.dmdecodes[i].utc + ' ' + demodulate.dmdecodes[i].sync + ' ' + demodulate.dmdecodes[i].db + ' ' + afoo + ' ' + demodulate.dmdecodes[i].df + '  ' + demodulate.dmdecodes[i].ec + '  ' + demodulate.dmdecodes[i].dec);
                                          //halt;
                                     end;
+                                    if demodulate.dmdecodes[i].ver = '2' Then
+                                    Begin
+                                         // Diag dump the V2 string so I can track who's using V2! :)
+                                         ListBox2.Items.Insert(0,'V2 Frame:  ' + demodulate.dmdecodes[i].utc + ' ' + demodulate.dmdecodes[i].sync + ' ' + demodulate.dmdecodes[i].db + ' ' + afoo + ' ' + demodulate.dmdecodes[i].df + '  ' + demodulate.dmdecodes[i].ec + '  ' + demodulate.dmdecodes[i].dec);
+                                    end;
+                               end
+                               else
+                               begin
+                                    ListBox1.Items.Insert(0, demodulate.dmdecodes[i].utc + ' ' + demodulate.dmdecodes[i].sync + ' ' + demodulate.dmdecodes[i].db + ' ' + afoo + ' ' + demodulate.dmdecodes[i].df + '  ' + demodulate.dmdecodes[i].ec + '  ' + PadRight(demodulate.dmdecodes[i].dec,28) + 'U' + demodulate.dmdecodes[i].ver);
                                end;
 
                                if (rbOn.Checked) And (sopQRG = eopQRG) And (StrToInt(edDialQRG.Text) > 0) Then
@@ -2262,7 +2137,6 @@ begin
      If tbMultiBin.Position = 3 then demodulate.dmbw := 100;
      If tbMultiBin.Position = 4 then demodulate.dmbw := 200;
      Label26.Caption := 'Multi Resolution:  ' + IntToStr(demodulate.dmbw) + ' Hz';
-     mBin.Text := IntToStr(tbMultiBin.Position);
 end;
 
 procedure TForm1.tbSingleBinChange(Sender: TObject);
@@ -2272,7 +2146,6 @@ begin
      If tbSingleBin.Position = 3 then demodulate.dmbws := 100;
      If tbSingleBin.Position = 4 then demodulate.dmbws := 200;
      Label87.Caption := 'Single:  ' + IntToStr(demodulate.dmbws) + ' Hz';
-     sBin.Text := IntToStr(tbSingleBin.Position);
 end;
 
 procedure TForm1.tbTXLevelChange(Sender: TObject);
@@ -2814,12 +2687,12 @@ Begin
      fullcall := '';
      hisGrid := '';
 
-     If Length(TrimLeft(TrimRight(saveSuffix.Text))) > 0 Then myCall := TrimLeft(TrimRight(UpCase(saveCall.Text))) + '/' + TrimLeft(TrimRight(UpCase(saveSuffix.Text)));
-     If Length(TrimLeft(TrimRight(savePrefix.Text))) > 0 Then myCall := TrimLeft(TrimRight(UpCase(savePrefix.Text))) + '/' + TrimLeft(TrimRight(UpCase(saveCall.Text)));
-     If (Length(TrimLeft(TrimRight(saveSuffix.Text))) > 0) And (Length(TrimLeft(TrimRight(savePrefix.Text))) > 0) Then myCall := TrimLeft(TrimRight(UpCase(saveCall.Text)));
-     myscall := TrimLeft(TrimRight(UpCase(saveCall.Text)));
+     If Length(TrimLeft(TrimRight(edSuffix.Text))) > 0 Then myCall := TrimLeft(TrimRight(UpCase(edCall.Text))) + '/' + TrimLeft(TrimRight(UpCase(edSuffix.Text)));
+     If Length(TrimLeft(TrimRight(edPrefix.Text))) > 0 Then myCall := TrimLeft(TrimRight(UpCase(edPrefix.Text))) + '/' + TrimLeft(TrimRight(UpCase(edCall.Text)));
+     If (Length(TrimLeft(TrimRight(edSuffix.Text))) > 0) And (Length(TrimLeft(TrimRight(edPrefix.Text))) > 0) Then myCall := TrimLeft(TrimRight(UpCase(edCall.Text)));
+     myscall := TrimLeft(TrimRight(UpCase(edCall.Text)));
      siglevel := TrimLeft(TrimRight(edTXReport.Text));
-     myGrid4 := TrimLeft(TrimRight(UpCase(saveGrid.Text)));
+     myGrid4 := TrimLeft(TrimRight(UpCase(edGrid.Text)));
      if Length(myGrid4)>4 Then myGrid4 := myGrid4[1..4];
 
      if wc = 2 Then
@@ -3592,7 +3465,7 @@ begin
           if IsWordPresent('WARNING:', foo, [' ']) Then lineWarn := True else lineWarn := False;
           if IsWordPresent('CQ', foo, [' ']) Then lineCQ := True;
           if IsWordPresent('QRZ', foo, [' ']) Then lineCQ := True;
-          if IsWordPresent(TrimLeft(TrimRight(UpCase(saveCall.Text))), foo, [' ']) Then lineMyCall := True else lineMyCall := False;
+          if IsWordPresent(TrimLeft(TrimRight(UpCase(edCall.Text))), foo, [' ']) Then lineMyCall := True else lineMyCall := False;
           myBrush := TBrush.Create;
           with (Control as TListBox).Canvas do
           begin
@@ -3630,91 +3503,28 @@ begin
           if cbUseMono.Checked Then adc.adcMono := True else adc.adcMono := False;
           audioChange(TObject(comboAudioIn));
      end;
+     // DEBUG Maybe not on these now....????
+     //If Sender = edPrefix     Then edPrefix.Text  := TrimLeft(TrimRight(UpCase(edPrefix.Text)));
+     //If Sender = edCall       Then edCall.Text  := TrimLeft(TrimRight(UpCase(edCall.Text)));
+     //If Sender = edSuffix     Then edSuffix.Text  := TrimLeft(TrimRight(UpCase(edSuffix.Text)));
+     //If Sender = edGrid       Then edGrid.Text  := TrimLeft(TrimRight(UpCase(edGrid.Text)));
+     //If Sender = edPort       Then edPort.Text := TrimLeft(TrimRight(UpCase(edPort.Text)));
+     //If Sender = edTXWD       Then edTXWD.Text  := TrimLeft(TrimRight(UpCase(edTXWD.Text)));
+     //If Sender = edADIFMode   Then edADIFMode.Text := edADIFMode.Text;
+     //If Sender = edRBCall     Then edRBCall.Text := TrimLeft(TrimRight(UpCase(edRBCall.Text)));
+     //If Sender = edStationInfo Then edStationInfo.Text := edStationInfo.Text;
+     //if Sender = rigNone      Then rigController.Text := 'None';
+     //if Sender = rigRebel     Then rigController.Text := 'Rebel';
 
-     If Sender = edPrefix     Then savePrefix.Text  := TrimLeft(TrimRight(UpCase(edPrefix.Text)));
-     If Sender = edCall       Then saveCall.Text  := TrimLeft(TrimRight(UpCase(edCall.Text)));
-     If Sender = edSuffix     Then saveSuffix.Text  := TrimLeft(TrimRight(UpCase(edSuffix.Text)));
-     If Sender = edGrid       Then saveGrid.Text  := TrimLeft(TrimRight(UpCase(edGrid.Text)));
-     If Sender = edPort       Then port.Text := TrimLeft(TrimRight(UpCase(edPort.Text)));
-     If Sender = edTXWD       Then TXWD.Text  := TrimLeft(TrimRight(UpCase(edTXWD.Text)));
-     If Sender = edADIFMode   Then ADIFMode.Text := edADIFMode.Text;
-     If Sender = edRBCall     Then RBCall.Text := TrimLeft(TrimRight(UpCase(edRBCall.Text)));
-     If Sender = edStationInfo Then rbInfo.Text := edStationInfo.Text;
-     if Sender = rigNone      Then rigController.Text := 'None';
-     if (Sender = useDeciAmerican) or (Sender = useDeciEuro) or (Sender = useDeciAuto) Then
-     Begin
-          if useDeciAmerican.Checked Then Deci.Text := 'American';
-          if useDeciEuro.Checked Then Deci.Text := 'Euro';
-          if useDeciAuto.Checked Then Deci.Text := 'Auto';
-     end;
-     if Sender = edCWID then CWCall.Text := edCWID.Text;
+     //if Sender = edCWID then CWCall.Text := edCWID.Text;
      if Sender = edDialQRG then LastQRG.Text := edDialQRG.Text;
 
-     If (Sender = RadioButton19) or (Sender = RadioButton20) or (Sender = RadioButton21) Then
-     Begin
-          if RadioButton19.Checked Then CWID.Text := 'IDNever';
-          if RadioButton20.Checked Then CWID.Text := 'IDAll';
-          if RadioButton21.Checked Then CWID.Text := 'IDFree';
-     end;
      If (Sender = rbUseLeftAudio) or (Sender = rbUseRightAudio) Then
      Begin
           if rbUseLeftAudio.Checked Then adc.adcChan  := 1;
           if rbUseRightaudio.Checked Then adc.adcChan := 2;
      end;
 
-     If Sender = RadioButton25 Then DGainl.Text := '0';
-     If Sender = RadioButton26 Then DGainl.Text := '3';
-     If Sender = RadioButton27 Then DGainl.Text := '6';
-     If Sender = RadioButton28 Then DGainl.Text := '9';
-     If Sender = RadioButton29 Then DGainr.Text := '0';
-     If Sender = RadioButton30 Then DGainr.Text := '3';
-     If Sender = RadioButton31 Then DGainr.Text := '6';
-     If Sender = RadioButton32 Then DGainr.Text := '9';
-
-     If Sender = cbSpecSmooth Then
-     Begin
-          if cbSpecSmooth.Checked Then cbSpecAGC.Checked := True else cbSpecAGC.Checked := False;
-     end;
-     If Sender = cbCQCOlor Then
-     Begin
-          CQColor.Text := IntToStr(cbCQCOlor.ItemIndex);
-     end;
-     If Sender = cbMyCallColor Then
-     Begin
-          MyCallColor.Text := IntToStr(cbMyCallColor.ItemIndex);
-     end;
-     If Sender = cbQSOColor Then
-     Begin
-          QSOColor.Text := IntToStr(cbQSOColor.ItemIndex);
-     end;
-     If Sender = spColorMap Then
-     Begin
-          wfColorMap.Text := IntToStr(spColorMap.ItemIndex);
-     end;
-     If Sender = tbWFSpeed Then
-     Begin
-          WFSpeed.Text := IntToStr(tbWFSpeed.Position);
-     end;
-     If Sender = tbWFContrast Then
-     Begin
-          WFContrast.Text := IntToStr(tbWFContrast.Position);
-     end;
-     If Sender = tbWFBright Then
-     Begin
-          WFBright.Text := IntToStr(tbWFBright.Position);
-     end;
-     If Sender = tbWFGain Then
-     Begin
-          WFGain.Text := IntToStr(tbWFGain.Position);
-     end;
-     If Sender = edCSVPath Then
-     Begin
-          CSVPath.Text := edCSVPath.Text;
-     end;
-     If Sender = edADIFPath Then
-     Begin
-          ADIFPath.Text := edADIFPath.Text;
-     end;
 end;
 
 function TForm1.isCallsign(c : String) : Boolean;
@@ -4654,27 +4464,27 @@ begin
      Begin
           foo := getLocalGrid;
           if length(foo)>4 then foo := foo[1..4];
-          thisTXmsg := TrimLeft(TrimRight(UpCase(edTXtoCall.Text))) + ' ' + TrimLeft(TrimRight(UpCase(saveCall.Text))) + ' ' + TrimLeft(TrimRight(UpCase(foo)));
+          thisTXmsg := TrimLeft(TrimRight(UpCase(edTXtoCall.Text))) + ' ' + TrimLeft(TrimRight(UpCase(edCall.Text))) + ' ' + TrimLeft(TrimRight(UpCase(foo)));
           edTXMsg.Text := thisTXmsg;
      end;
      if Sender = bReport Then
      Begin
-          thisTXmsg := TrimLeft(TrimRight(UpCase(edTXtoCall.Text))) + ' ' + TrimLeft(TrimRight(UpCase(saveCall.Text))) + ' ' + TrimLeft(TrimRight(UpCase(edTXReport.Text)));
+          thisTXmsg := TrimLeft(TrimRight(UpCase(edTXtoCall.Text))) + ' ' + TrimLeft(TrimRight(UpCase(edCall.Text))) + ' ' + TrimLeft(TrimRight(UpCase(edTXReport.Text)));
           edTXMsg.Text := thisTXmsg;
      end;
      if Sender = bRReport Then
      Begin
-          thisTXmsg := TrimLeft(TrimRight(UpCase(edTXtoCall.Text))) + ' ' + TrimLeft(TrimRight(UpCase(saveCall.Text))) + ' R' + TrimLeft(TrimRight(UpCase(edTXReport.Text)));
+          thisTXmsg := TrimLeft(TrimRight(UpCase(edTXtoCall.Text))) + ' ' + TrimLeft(TrimRight(UpCase(edCall.Text))) + ' R' + TrimLeft(TrimRight(UpCase(edTXReport.Text)));
           edTXMsg.Text := thisTXmsg;
      end;
      if Sender = bRRR Then
      Begin
-          thisTXmsg := TrimLeft(TrimRight(UpCase(edTXtoCall.Text))) + ' ' + TrimLeft(TrimRight(UpCase(saveCall.Text))) + ' RRR';
+          thisTXmsg := TrimLeft(TrimRight(UpCase(edTXtoCall.Text))) + ' ' + TrimLeft(TrimRight(UpCase(edCall.Text))) + ' RRR';
           edTXMsg.Text := thisTXmsg;
      end;
      if Sender = b73 Then
      Begin
-          thisTXmsg := TrimLeft(TrimRight(UpCase(edTXtoCall.Text))) + ' ' + TrimLeft(TrimRight(UpCase(saveCall.Text))) + ' 73';
+          thisTXmsg := TrimLeft(TrimRight(UpCase(edTXtoCall.Text))) + ' ' + TrimLeft(TrimRight(UpCase(edCall.Text))) + ' 73';
           edTXMsg.Text := thisTXmsg;
      end;
 end;
@@ -4731,8 +4541,9 @@ end;
 
 procedure TForm1.audioChange(Sender: TObject);
 Var
-   foo       : String;
+   foo,ttadc  : String;
    paResult  : TPaError;
+   iadcText  : String;
 begin
      // Handle change to and saving of audio device setting
      If Sender = comboAudioIn Then
@@ -4740,8 +4551,8 @@ begin
           // Audio Input device change.  Set PA to new device and update DB
           ListBox2.Items.Insert(0,'Changing PortAudio input device');
           foo := comboAudioIn.Items.Strings[comboAudioIn.ItemIndex];
-          tadc.Text := foo;
-          if foo[1] = '0' Then iadc.Text := foo[2] else iadc.Text := foo[1..2];
+          ttadc := foo;
+          if foo[1] = '0' Then iadcText := foo[2] else iadcText := foo[1..2];
           portAudio.Pa_AbortStream(paInStream);
           portAudio.Pa_CloseStream(paInStream);
           ListBox2.Items.Insert(0,'Closed former stream');
@@ -4761,7 +4572,7 @@ begin
                adc.adcMono := False;
                ListBox2.Items.Insert(0,'Using Stereo');
           end;
-          paInParams.device := StrToInt(iadc.Text);
+          paInParams.device := StrToInt(iadcText);
           paInParams.sampleFormat := paInt16;
           paInParams.suggestedLatency := 1;
           paInParams.hostApiSpecificStreamInfo := Nil;
@@ -5311,7 +5122,7 @@ Function TForm1.getLocalGrid : String;
 Var
   foo : String;
 Begin
-     foo := saveGrid.Text;
+     foo := edGrid.Text;
      if length(foo)>4 then foo := foo[1..4];
      if isGrid(foo) Then result := TrimLeft(TrimRight(UpCase(foo))) Else Result := '';
 end;
@@ -7669,8 +7480,9 @@ end;
 
 procedure TForm1.updateDB;
 var
-   foo    : string;
-   i      : Integer;
+   foo  : string;
+   foo2 : String;
+   i    : Integer;
 begin
      transaction.EndTransaction;
      query.Active:=False;
@@ -7694,56 +7506,54 @@ begin
 
      query.SQL.Text := foo;
 
-     Query.Params.ParamByName('PREFIX').AsString     := t(savePrefix.Text);
-     Query.Params.ParamByName('CALL').AsString       := t(saveCall.Text);
-     Query.Params.ParamByName('SUFFIX').AsString     := t(saveSuffix.Text);
-     Query.Params.ParamByName('GRID').AsString       := t(saveGrid.Text);
-     Query.Params.ParamByName('TADC').AsString       := t(tadc.Text);
-     If not TryStrToInt(t(iadc.Text),i) then i := -1;
-     Query.Params.ParamByName('IADC').AsInteger      := i;
+     Query.Params.ParamByName('PREFIX').AsString     := t(edPrefix.Text);
+     Query.Params.ParamByName('CALL').AsString       := t(edCall.Text);
+     Query.Params.ParamByName('SUFFIX').AsString     := t(edSuffix.Text);
+     Query.Params.ParamByName('GRID').AsString       := t(edGrid.Text);
+     Query.Params.ParamByName('TADC').AsString       := t(savedTADC);
+     Query.Params.ParamByName('IADC').AsInteger      := savedIADC;
      //Query.Params.ParamByName('TDAC').AsString       := t(tdac.Text);
      //If not TryStrToInt(t(idac.Text),i) then i := -1;
-     Query.Params.ParamByName('IDAC').AsInteger      := i;
-     Query.Params.ParamByName('TADC').AsString       := t(tadc.Text);
+     //Query.Params.ParamByName('IDAC').AsInteger      := i;
      Query.Params.ParamByName('MONO').AsBoolean      := cbUseMono.Checked;
      Query.Params.ParamByName('LEFT').AsBoolean      := rbUseLeftAudio.Checked;
      Query.Params.ParamByName('RIGHT').AsBoolean     := rbUseRightAudio.Checked;
-     If not TryStrToInt(t(dgainL.Text),i) then i := -1;
+     if dgainL0.Checked then i := 0;
+     if dgainL3.Checked then i := 3;
+     if dgainL6.Checked then i := 6;
+     if dgainL9.Checked then i := 9;
      Query.Params.ParamByName('DGAINL').AsInteger    := i;
      Query.Params.ParamByName('DGAINLA').AsBoolean   := cbAttenuateLeft.Checked;
-     If not TryStrToInt(t(dgainR.Text),i) then i := -1;
+     if dgainR0.Checked then i := 0;
+     if dgainR3.Checked then i := 3;
+     if dgainR6.Checked then i := 6;
+     if dgainR9.Checked then i := 9;
      Query.Params.ParamByName('DGAINR').AsInteger    := i;
      Query.Params.ParamByName('DGAINRA').AsBoolean   := cbAttenuateRight.Checked;
      Query.Params.ParamByName('USESERIAL').AsBoolean := cbUseSerial.Checked;
      //Query.Params.ParamByName('USEALT').AsBoolean    := cbUseAltPTT.Checked;
-     If not TryStrToInt(t(port.Text),i) then i := -1;
+     If not TryStrToInt(t(edPort.Text),i) then i := -1;
      Query.Params.ParamByName('PORT').AsInteger      := i;
      Query.Params.ParamByName('TXWD').AsBoolean      := cbUseTXWD.Checked;
      If not TryStrToInt(t(edTXWD.Text),i) then i := -1;
      Query.Params.ParamByName('TXWDCOUNT').AsInteger := i;
-     Query.Params.ParamByName('RIGCONTROL').AsString := t(rigController.Text);
+     if rigNone.Checked then foo2 := 'None';
+     if rigRebel.Checked then foo2 := 'Rebel';
+     Query.Params.ParamByName('RIGCONTROL').AsString := t(foo2);
      Query.Params.ParamByName('PDIVIDE').AsBoolean   := cbDivideDecodes.Checked;
      Query.Params.ParamByName('PCOMPACT').AsBoolean  := cbCompactDivides.Checked;
      Query.Params.ParamByName('USECOLOR').AsBoolean  := cbUseColor.Checked;
-     If not TryStrToInt(t(CQColor.Text),i) then i := -1;
-     Query.Params.ParamByName('CQCOLOR').AsInteger      := i;
-     If not TryStrToInt(t(myCallColor.Text),i) then i := -1;
-     Query.Params.ParamByName('MYCOLOR').AsInteger      := i;
-     If not TryStrToInt(t(qsoColor.Text),i) then i := -1;
-     Query.Params.ParamByName('QSOCOLOR').AsInteger      := i;
-     If not TryStrToInt(t(wfColorMap.Text),i) then i := -1;
-     Query.Params.ParamByName('WFCMAP').AsInteger      := i;
-     If not TryStrToInt(t(wfSpeed.Text),i) then i := -1;
-     Query.Params.ParamByName('WFSPEED').AsInteger      := i;
-     If not TryStrToInt(t(wfContrast.Text),i) then i := -1;
-     Query.Params.ParamByName('WFCONTRAST').AsInteger      := i;
-     If not TryStrToInt(t(wfBright.Text),i) then i := -1;
-     Query.Params.ParamByName('WFBRIGHT').AsInteger      := i;
-     If not TryStrToInt(t(wfGain.Text),i) then i := -1;
-     Query.Params.ParamByName('WFGAIN').AsInteger      := i;
+     Query.Params.ParamByName('CQCOLOR').AsInteger   := cbCQColor.ItemIndex;
+     Query.Params.ParamByName('MYCOLOR').AsInteger   := cbMyCallColor.ItemIndex;
+     Query.Params.ParamByName('QSOCOLOR').AsInteger  := cbQSOColor.ItemIndex;
+     Query.Params.ParamByName('WFCMAP').AsInteger    := spColorMap.ItemIndex;
+     Query.Params.ParamByName('WFSPEED').AsInteger   := tbWFSpeed.Position;
+     Query.Params.ParamByName('WFCONTRAST').AsInteger := tbWFContrast.Position;
+     Query.Params.ParamByName('WFBRIGHT').AsInteger   := tbWFBright.Position;
+     Query.Params.ParamByName('WFGAIN').AsInteger     := tbWFGain.Position;
      Query.Params.ParamByName('WFSMOOTH').AsBoolean  := cbSpecSmooth.Checked;
-     Query.Params.ParamByName('WFAGC').AsBoolean     := cbSpecSmooth.Checked; // Yes this is right ;)
-     Query.Params.ParamByName('USERB').AsBoolean     := cbAllowRB.Checked;
+     Query.Params.ParamByName('WFAGC').AsBoolean     := cbSpecSmooth.Checked;
+     Query.Params.ParamByName('USERB').AsBoolean     := True;
      Query.Params.ParamByName('RBCALL').AsString     := t(edRBCall.Text);
      Query.Params.ParamByName('RBINFO').AsString     := t(edStationInfo.Text);
      Query.Params.ParamByName('USECSV').AsBoolean    := cbSaveToCSV.Checked;
@@ -7755,18 +7565,23 @@ begin
      Query.Params.ParamByName('MAUTOON').AsBoolean   := cbRestoreMulti.Checked;
      Query.Params.ParamByName('MHALTMON').AsBoolean  := cbHaltTXMultiOn.Checked;
      Query.Params.ParamByName('MDEFMON').AsBoolean   := cbDefaultsMultiOn.Checked;
-     Query.Params.ParamByName('DECI').AsString      := t(deci.Text);
-     Query.Params.ParamByName('CWID').AsString      := t(cwid.Text);
-     Query.Params.ParamByName('CWCALL').AsString    := t(cwCall.Text);
+     foo2 := 'Auto';
+     if useDeciAmerican.Checked then foo2 := 'USA';
+     if useDeciEuro.Checked then foo2 := 'Euro';
+     if useDeciAuto.Checked then foo2 := 'Auto';
+     Query.Params.ParamByName('DECI').AsString      := t(foo2);
+     foo2 := 'Never';
+     if rbNoCWID.Checked then foo2 := 'Never';
+     if rbCWID73.Checked then foo2 := '73';
+     if rbCWIDFree.Checked then foo2 := 'Free';
+     Query.Params.ParamByName('CWID').AsString      := t(foo2);
+     Query.Params.ParamByName('CWCALL').AsString    := t(edCWID.Text);
      Query.Params.ParamByName('NOOPTFFT').AsBoolean := cbNoOptFFT.Checked;
      Query.Params.ParamByName('NOKV').AsBoolean     := cbNoKV.Checked;
      Query.Params.ParamByName('LASTQRG').AsString   := t(lastQRG.Text);
-     If not TryStrToInt(t(sbin.Text),i) then i := -1;
-     Query.Params.ParamByName('SBIN').AsInteger    := i;
-     If not TryStrToInt(t(mbin.Text),i) then i := -1;
-     Query.Params.ParamByName('MBIN').AsInteger    := i;
-     If not TryStrToInt(t(txlevel.Text),i) then i := -1;
-     Query.Params.ParamByName('TXLEVEL').AsInteger    := i;
+     Query.Params.ParamByName('SBIN').AsInteger    := tbSingleBin.Position;
+     Query.Params.ParamByName('MBIN').AsInteger    := tbMultiBin.Position;
+     Query.Params.ParamByName('TXLEVEL').AsInteger    := tbTXLevel.Position;
      If not TryStrToInt(t(version.Text),i) then i := -1;
      Query.Params.ParamByName('VER').AsInteger    := i;
      Query.Params.ParamByName('MON').AsBoolean    := cbMultiOn.Checked;

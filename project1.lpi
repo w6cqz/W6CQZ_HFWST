@@ -46,7 +46,7 @@
         <PackageName Value="LCL"/>
       </Item4>
     </RequiredPackages>
-    <Units Count="15">
+    <Units Count="14">
       <Unit0>
         <Filename Value="project1.lpr"/>
         <IsPartOfProject Value="True"/>
@@ -65,19 +65,21 @@
         <HasResources Value="True"/>
         <ResourceBaseClass Value="Form"/>
         <UnitName Value="Unit1"/>
+        <IsVisibleTab Value="True"/>
         <EditorIndex Value="0"/>
         <WindowIndex Value="0"/>
-        <TopLine Value="2082"/>
-        <CursorPos X="11" Y="2096"/>
+        <TopLine Value="7469"/>
+        <CursorPos X="1" Y="7487"/>
         <UsageCount Value="200"/>
-        <Bookmarks Count="7">
-          <Item0 X="1" Y="4456" ID="6"/>
-          <Item1 X="1" Y="397" ID="8"/>
-          <Item2 X="1" Y="3520" ID="4"/>
-          <Item3 X="1" Y="3777" ID="5"/>
-          <Item4 X="11" Y="4905" ID="3"/>
-          <Item5 X="1" Y="1818" ID="2"/>
-          <Item6 X="1" Y="1231" ID="1"/>
+        <Bookmarks Count="8">
+          <Item0 X="1" Y="4266" ID="6"/>
+          <Item1 X="1" Y="327" ID="8"/>
+          <Item2 X="1" Y="3393" ID="4"/>
+          <Item3 X="1" Y="3587" ID="5"/>
+          <Item4 X="11" Y="4716" ID="3"/>
+          <Item5 X="1" Y="1697" ID="2"/>
+          <Item6 X="1" Y="1124" ID="1"/>
+          <Item7 X="1" Y="5280" ID="0"/>
         </Bookmarks>
         <Loaded Value="True"/>
         <LoadedDesigner Value="True"/>
@@ -130,7 +132,7 @@
         <WindowIndex Value="0"/>
         <TopLine Value="1"/>
         <CursorPos X="31" Y="49"/>
-        <UsageCount Value="79"/>
+        <UsageCount Value="67"/>
       </Unit6>
       <Unit7>
         <Filename Value="spectrum.pas"/>
@@ -183,15 +185,11 @@
         <Filename Value="demodulate.pas"/>
         <IsPartOfProject Value="True"/>
         <UnitName Value="demodulate"/>
-        <IsVisibleTab Value="True"/>
         <EditorIndex Value="3"/>
         <WindowIndex Value="0"/>
-        <TopLine Value="517"/>
+        <TopLine Value="528"/>
         <CursorPos X="1" Y="540"/>
         <UsageCount Value="252"/>
-        <Bookmarks Count="1">
-          <Item0 X="52" Y="158" ID="0"/>
-        </Bookmarks>
         <Loaded Value="True"/>
       </Unit11>
       <Unit12>
@@ -216,135 +214,127 @@
         <UsageCount Value="201"/>
         <Loaded Value="True"/>
       </Unit13>
-      <Unit14>
-        <Filename Value="C:\lazarus\fpc\2.6.2\source\packages\fcl-process\src\process.pp"/>
-        <UnitName Value="process"/>
-        <WindowIndex Value="0"/>
-        <TopLine Value="435"/>
-        <CursorPos X="38" Y="448"/>
-        <UsageCount Value="7"/>
-      </Unit14>
     </Units>
     <JumpHistory Count="30" HistoryIndex="29">
       <Position1>
         <Filename Value="unit1.pas"/>
-        <Caret Line="427" Column="26" TopLine="397"/>
+        <Caret Line="3932" Column="41" TopLine="3902"/>
       </Position1>
       <Position2>
-        <Filename Value="demodulate.pas"/>
-        <Caret Line="1500" Column="23" TopLine="1464"/>
+        <Filename Value="unit1.pas"/>
+        <Caret Line="3933" Column="41" TopLine="3903"/>
       </Position2>
       <Position3>
-        <Filename Value="demodulate.pas"/>
-        <Caret Line="1486" Column="38" TopLine="1468"/>
+        <Filename Value="unit1.pas"/>
+        <Caret Line="3934" Column="41" TopLine="3904"/>
       </Position3>
       <Position4>
-        <Filename Value="demodulate.pas"/>
-        <Caret Line="1482" Column="1" TopLine="1468"/>
+        <Filename Value="unit1.pas"/>
+        <Caret Line="3935" Column="41" TopLine="3905"/>
       </Position4>
       <Position5>
-        <Filename Value="demodulate.pas"/>
-        <Caret Line="1487" Column="1" TopLine="1468"/>
+        <Filename Value="unit1.pas"/>
+        <Caret Line="3936" Column="41" TopLine="3906"/>
       </Position5>
       <Position6>
-        <Filename Value="demodulate.pas"/>
-        <Caret Line="1492" Column="1" TopLine="1468"/>
+        <Filename Value="unit1.pas"/>
+        <Caret Line="3937" Column="41" TopLine="3907"/>
       </Position6>
       <Position7>
-        <Filename Value="demodulate.pas"/>
-        <Caret Line="1497" Column="1" TopLine="1468"/>
+        <Filename Value="unit1.pas"/>
+        <Caret Line="3941" Column="144" TopLine="3911"/>
       </Position7>
       <Position8>
-        <Filename Value="demodulate.pas"/>
-        <Caret Line="1474" Column="1" TopLine="1468"/>
+        <Filename Value="unit1.pas"/>
+        <Caret Line="3953" Column="58" TopLine="3923"/>
       </Position8>
       <Position9>
-        <Filename Value="demodulate.pas"/>
-        <Caret Line="1501" Column="19" TopLine="1471"/>
+        <Filename Value="unit1.pas"/>
+        <Caret Line="4455" Column="26" TopLine="4444"/>
       </Position9>
       <Position10>
-        <Filename Value="demodulate.pas"/>
-        <Caret Line="1480" Column="38" TopLine="1461"/>
+        <Filename Value="unit1.pas"/>
+        <Caret Line="4474" Column="109" TopLine="4444"/>
       </Position10>
       <Position11>
-        <Filename Value="demodulate.pas"/>
-        <Caret Line="1492" Column="1" TopLine="1466"/>
+        <Filename Value="unit1.pas"/>
+        <Caret Line="4479" Column="109" TopLine="4449"/>
       </Position11>
       <Position12>
-        <Filename Value="demodulate.pas"/>
-        <Caret Line="1486" Column="59" TopLine="1469"/>
+        <Filename Value="unit1.pas"/>
+        <Caret Line="4484" Column="109" TopLine="4454"/>
       </Position12>
       <Position13>
-        <Filename Value="demodulate.pas"/>
-        <Caret Line="1488" Column="26" TopLine="1470"/>
+        <Filename Value="unit1.pas"/>
+        <Caret Line="4489" Column="109" TopLine="4459"/>
       </Position13>
       <Position14>
-        <Filename Value="demodulate.pas"/>
-        <Caret Line="1503" Column="18" TopLine="1470"/>
+        <Filename Value="unit1.pas"/>
+        <Caret Line="5288" Column="12" TopLine="5257"/>
       </Position14>
       <Position15>
-        <Filename Value="demodulate.pas"/>
-        <Caret Line="1491" Column="1" TopLine="1470"/>
+        <Filename Value="unit1.pas"/>
+        <Caret Line="5281" Column="1" TopLine="5259"/>
       </Position15>
       <Position16>
-        <Filename Value="demodulate.pas"/>
-        <Caret Line="1495" Column="1" TopLine="1470"/>
+        <Filename Value="unit1.pas"/>
+        <Caret Line="4573" Column="15" TopLine="4536"/>
       </Position16>
       <Position17>
-        <Filename Value="demodulate.pas"/>
-        <Caret Line="1491" Column="1" TopLine="1470"/>
+        <Filename Value="unit1.pas"/>
+        <Caret Line="4548" Column="24" TopLine="4540"/>
       </Position17>
       <Position18>
-        <Filename Value="demodulate.pas"/>
-        <Caret Line="1495" Column="1" TopLine="1470"/>
+        <Filename Value="unit1.pas"/>
+        <Caret Line="4557" Column="60" TopLine="4538"/>
       </Position18>
       <Position19>
-        <Filename Value="demodulate.pas"/>
-        <Caret Line="1491" Column="1" TopLine="1470"/>
+        <Filename Value="unit1.pas"/>
+        <Caret Line="4577" Column="45" TopLine="4559"/>
       </Position19>
       <Position20>
-        <Filename Value="demodulate.pas"/>
-        <Caret Line="1495" Column="1" TopLine="1470"/>
+        <Filename Value="unit1.pas"/>
+        <Caret Line="5127" Column="14" TopLine="5109"/>
       </Position20>
       <Position21>
-        <Filename Value="demodulate.pas"/>
-        <Caret Line="1491" Column="1" TopLine="1470"/>
+        <Filename Value="unit1.pas"/>
+        <Caret Line="7521" Column="1" TopLine="7490"/>
       </Position21>
       <Position22>
-        <Filename Value="demodulate.pas"/>
-        <Caret Line="1495" Column="1" TopLine="1470"/>
+        <Filename Value="unit1.pas"/>
+        <Caret Line="7515" Column="68" TopLine="7497"/>
       </Position22>
       <Position23>
-        <Filename Value="demodulate.pas"/>
-        <Caret Line="1491" Column="1" TopLine="1470"/>
+        <Filename Value="unit1.pas"/>
+        <Caret Line="7522" Column="72" TopLine="7502"/>
       </Position23>
       <Position24>
-        <Filename Value="demodulate.pas"/>
-        <Caret Line="1495" Column="1" TopLine="1470"/>
+        <Filename Value="unit1.pas"/>
+        <Caret Line="7534" Column="59" TopLine="7516"/>
       </Position24>
       <Position25>
-        <Filename Value="demodulate.pas"/>
-        <Caret Line="1498" Column="34" TopLine="1470"/>
+        <Filename Value="unit1.pas"/>
+        <Caret Line="7535" Column="68" TopLine="7517"/>
       </Position25>
       <Position26>
-        <Filename Value="demodulate.pas"/>
-        <Caret Line="1486" Column="1" TopLine="1472"/>
+        <Filename Value="unit1.pas"/>
+        <Caret Line="7540" Column="56" TopLine="7519"/>
       </Position26>
       <Position27>
-        <Filename Value="demodulate.pas"/>
-        <Caret Line="1485" Column="146" TopLine="1472"/>
+        <Filename Value="unit1.pas"/>
+        <Caret Line="7583" Column="62" TopLine="7556"/>
       </Position27>
       <Position28>
-        <Filename Value="demodulate.pas"/>
-        <Caret Line="1488" Column="19" TopLine="1463"/>
+        <Filename Value="unit1.pas"/>
+        <Caret Line="7591" Column="57" TopLine="7567"/>
       </Position28>
       <Position29>
-        <Filename Value="demodulate.pas"/>
-        <Caret Line="542" Column="15" TopLine="512"/>
+        <Filename Value="unit1.pas"/>
+        <Caret Line="371" Column="1" TopLine="353"/>
       </Position29>
       <Position30>
-        <Filename Value="demodulate.pas"/>
-        <Caret Line="537" Column="29" TopLine="511"/>
+        <Filename Value="project1.lpr"/>
+        <Caret Line="17" Column="1" TopLine="1"/>
       </Position30>
     </JumpHistory>
   </ProjectOptions>

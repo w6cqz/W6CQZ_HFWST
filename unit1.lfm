@@ -774,8 +774,8 @@ object Form1: TForm1
   object PageControl1: TPageControl
     Left = 208
     Height = 216
-    Top = 40
-    Width = 778
+    Top = 41
+    Width = 784
     ActivePage = TabSheet1
     TabIndex = 0
     TabOrder = 22
@@ -784,7 +784,7 @@ object Form1: TForm1
     object TabSheet1: TTabSheet
       Caption = 'Basic'
       ClientHeight = 187
-      ClientWidth = 770
+      ClientWidth = 776
       object Button4: TButton
         Left = 204
         Height = 40
@@ -869,9 +869,9 @@ object Form1: TForm1
         ParentFont = False
       end
       object GroupBox13: TGroupBox
-        Left = 588
+        Left = 452
         Height = 184
-        Top = -1
+        Top = -2
         Width = 216
         ClientHeight = 166
         ClientWidth = 212
@@ -895,7 +895,7 @@ object Form1: TForm1
           ClientHeight = 111
           ClientWidth = 92
           TabOrder = 0
-          object RadioButton25: TRadioButton
+          object dgainL0: TRadioButton
             Left = 6
             Height = 20
             Top = 0
@@ -906,7 +906,7 @@ object Form1: TForm1
             TabOrder = 3
             TabStop = True
           end
-          object RadioButton26: TRadioButton
+          object dgainL3: TRadioButton
             Left = 6
             Height = 20
             Top = 21
@@ -915,7 +915,7 @@ object Form1: TForm1
             OnChange = rigControlSet
             TabOrder = 0
           end
-          object RadioButton27: TRadioButton
+          object dgainL6: TRadioButton
             Left = 6
             Height = 20
             Top = 42
@@ -924,7 +924,7 @@ object Form1: TForm1
             OnChange = rigControlSet
             TabOrder = 1
           end
-          object RadioButton28: TRadioButton
+          object dgainL9: TRadioButton
             Left = 6
             Height = 20
             Top = 63
@@ -951,7 +951,7 @@ object Form1: TForm1
           ClientHeight = 111
           ClientWidth = 92
           TabOrder = 1
-          object RadioButton29: TRadioButton
+          object dgainR0: TRadioButton
             Left = 6
             Height = 20
             Top = 0
@@ -962,7 +962,7 @@ object Form1: TForm1
             TabOrder = 3
             TabStop = True
           end
-          object RadioButton30: TRadioButton
+          object dgainR3: TRadioButton
             Left = 6
             Height = 20
             Top = 21
@@ -971,7 +971,7 @@ object Form1: TForm1
             OnChange = rigControlSet
             TabOrder = 0
           end
-          object RadioButton31: TRadioButton
+          object dgainR6: TRadioButton
             Left = 6
             Height = 20
             Top = 42
@@ -980,7 +980,7 @@ object Form1: TForm1
             OnChange = rigControlSet
             TabOrder = 1
           end
-          object RadioButton32: TRadioButton
+          object dgainR9: TRadioButton
             Left = 6
             Height = 20
             Top = 63
@@ -1009,10 +1009,10 @@ object Form1: TForm1
       end
       object Label43: TLabel
         Left = 292
-        Height = 17
+        Height = 33
         Top = 49
-        Width = 288
-        Caption = 'Four or six character grid.  Required to enable TX.'
+        Width = 150
+        Caption = 'Four or six character grid.'#13#10'Required to enable TX.'
         ParentColor = False
       end
       object GroupBox17: TGroupBox
@@ -1090,15 +1090,15 @@ object Form1: TForm1
     object TabSheet6: TTabSheet
       Caption = 'PTT/Rig Control'
       ClientHeight = 187
-      ClientWidth = 770
+      ClientWidth = 776
       TabVisible = False
       object GroupBox3: TGroupBox
         Left = 4
         Height = 136
         Top = 47
-        Width = 664
+        Width = 240
         ClientHeight = 118
-        ClientWidth = 660
+        ClientWidth = 236
         TabOrder = 0
         object Label18: TLabel
           Left = 142
@@ -1165,9 +1165,17 @@ object Form1: TForm1
           TabOrder = 0
           TabStop = True
         end
+        object rigRebel: TRadioButton
+          Left = 126
+          Height = 20
+          Top = 0
+          Width = 53
+          Caption = 'Rebel'
+          TabOrder = 1
+        end
       end
       object Button5: TButton
-        Left = 676
+        Left = 252
         Height = 40
         Top = 143
         Width = 129
@@ -1191,7 +1199,7 @@ object Form1: TForm1
     object TabSheet2: TTabSheet
       Caption = 'Spectrum Display/GUI Options'
       ClientHeight = 187
-      ClientWidth = 770
+      ClientWidth = 776
       object GroupBox1: TGroupBox
         Left = 4
         Height = 68
@@ -1437,7 +1445,7 @@ object Form1: TForm1
     object TabSheet3: TTabSheet
       Caption = 'Spotting Networks'
       ClientHeight = 187
-      ClientWidth = 770
+      ClientWidth = 776
       object GroupBox6: TGroupBox
         Left = 4
         Height = 96
@@ -1449,24 +1457,24 @@ object Form1: TForm1
         object Label33: TLabel
           Left = 6
           Height = 17
-          Top = 29
-          Width = 175
-          Caption = 'Callsign for Spotting Networks'
+          Top = 0
+          Width = 139
+          Caption = 'Callsign for RB Spotting'
           ParentColor = False
         end
         object Label34: TLabel
-          Left = 198
+          Left = 158
           Height = 17
-          Top = 29
+          Top = 0
           Width = 320
           Caption = 'Station/Antenna Information (maximum 255 characters)'
           ParentColor = False
         end
         object edStationInfo: TEdit
-          Left = 198
+          Left = 158
           Height = 24
-          Top = 48
-          Width = 320
+          Top = 19
+          Width = 368
           MaxLength = 255
           OnChange = rigControlSet
           TabOrder = 0
@@ -1474,18 +1482,10 @@ object Form1: TForm1
         object edRBCall: TEdit
           Left = 6
           Height = 24
-          Top = 48
+          Top = 19
           Width = 104
           OnChange = rigControlSet
           TabOrder = 1
-        end
-        object cbAllowRB: TCheckBox
-          Left = 6
-          Height = 20
-          Top = 0
-          Width = 177
-          Caption = 'Allow Spots to RB Network'
-          TabOrder = 2
         end
       end
       object GroupBox7: TGroupBox
@@ -1542,7 +1542,7 @@ object Form1: TForm1
     object TabSheet7: TTabSheet
       Caption = 'ADIF Logging Options'
       ClientHeight = 187
-      ClientWidth = 840
+      ClientWidth = 776
       TabVisible = False
       object GroupBox8: TGroupBox
         Left = 4
@@ -1592,8 +1592,8 @@ object Form1: TForm1
           Left = 4
           Height = 20
           Top = 88
-          Width = 542
-          Caption = 'Remember comments field - if unchecked the comments field is cleared for each log entry.'
+          Width = 569
+          Caption = 'Remember comments field - if unchecked the comments field is cleared for each new log entry.'
           TabOrder = 2
         end
       end
@@ -1614,7 +1614,7 @@ object Form1: TForm1
     object TabSheet4: TTabSheet
       Caption = 'Other Options'
       ClientHeight = 187
-      ClientWidth = 840
+      ClientWidth = 776
       TabVisible = False
       object GroupBox9: TGroupBox
         Left = 4
@@ -1665,7 +1665,7 @@ object Form1: TForm1
         ClientHeight = 70
         ClientWidth = 332
         TabOrder = 1
-        object RadioButton19: TRadioButton
+        object rbNoCWID: TRadioButton
           Left = 6
           Height = 20
           Top = 0
@@ -1676,7 +1676,7 @@ object Form1: TForm1
           TabOrder = 2
           TabStop = True
         end
-        object RadioButton20: TRadioButton
+        object rbCWID73: TRadioButton
           Left = 6
           Height = 20
           Top = 24
@@ -1685,7 +1685,7 @@ object Form1: TForm1
           OnChange = rigControlSet
           TabOrder = 0
         end
-        object RadioButton21: TRadioButton
+        object rbCWIDFree: TRadioButton
           Left = 6
           Height = 20
           Top = 48
@@ -1799,10 +1799,10 @@ object Form1: TForm1
     object TabSheet5: TTabSheet
       Caption = 'Macros'
       ClientHeight = 187
-      ClientWidth = 840
+      ClientWidth = 776
       TabVisible = False
       object Button10: TButton
-        Left = 676
+        Left = 636
         Height = 40
         Top = 143
         Width = 129
@@ -1826,12 +1826,12 @@ object Form1: TForm1
     object TabSheet8: TTabSheet
       Caption = 'QRG List'
       ClientHeight = 187
-      ClientWidth = 840
+      ClientWidth = 776
       TabVisible = False
       object Button11: TButton
-        Left = 708
+        Left = 636
         Height = 40
-        Top = 143
+        Top = 142
         Width = 129
         Caption = 'Save'
         Font.Height = -21
@@ -1857,16 +1857,8 @@ object Form1: TForm1
     object TabSheet9: TTabSheet
       Caption = 'TabSheet9'
       ClientHeight = 187
-      ClientWidth = 840
+      ClientWidth = 776
       TabVisible = False
-      object Label22: TLabel
-        Left = 524
-        Height = 17
-        Top = 7
-        Width = 78
-        Caption = 'Instance ID:  '
-        ParentColor = False
-      end
       object xDBText1: TDBText
         Left = 772
         Height = 1
@@ -1875,605 +1867,62 @@ object Form1: TForm1
         DataField = 'INSTANCE'
         ParentColor = False
       end
-      object xdbpttrtsdtr: TDBCheckBox
-        Left = 436
-        Height = 21
-        Top = 27
-        Width = 82
-        Caption = 'ptt_rts_dtr'
-        DataField = 'PTTDTRRTS'
-        TabOrder = 0
-        ValueChecked = 'True'
-        ValueUnchecked = 'False'
-      end
-      object xdbpttrts: TDBCheckBox
-        Left = 436
-        Height = 21
-        Top = 47
-        Width = 65
-        Caption = 'ptt_rts'
-        DataField = 'PTTRTS'
-        TabOrder = 1
-        ValueChecked = 'True'
-        ValueUnchecked = 'False'
-      end
-      object xdbpttdtr: TDBCheckBox
-        Left = 436
-        Height = 21
-        Top = 67
-        Width = 64
-        Caption = 'ptt_dtr'
-        DataField = 'PTTDTR'
-        TabOrder = 2
-        ValueChecked = 'True'
-        ValueUnchecked = 'False'
-      end
-      object Label25: TLabel
-        Left = 212
-        Height = 17
-        Top = 31
-        Width = 18
-        Caption = 'dgl'
-        ParentColor = False
-      end
-      object Label45: TLabel
-        Left = 252
-        Height = 17
-        Top = 31
-        Width = 19
-        Caption = 'dgr'
-        ParentColor = False
-      end
-      object Label46: TLabel
-        Left = 292
-        Height = 17
-        Top = 31
-        Width = 34
-        Caption = 'wfspd'
-        ParentColor = False
-      end
-      object Label47: TLabel
-        Left = 332
-        Height = 17
-        Top = 31
-        Width = 29
-        Caption = 'cqco'
-        ParentColor = False
-      end
-      object Label48: TLabel
-        Left = 372
-        Height = 17
-        Top = 31
-        Width = 34
-        Caption = 'wfcon'
-        ParentColor = False
-      end
-      object Label49: TLabel
-        Left = 372
-        Height = 17
-        Top = 71
-        Width = 28
-        Caption = 'wfbrt'
-        ParentColor = False
-      end
-      object Label50: TLabel
-        Left = 332
-        Height = 17
-        Top = 71
-        Width = 27
-        Caption = 'wfgn'
-        ParentColor = False
-      end
-      object Label51: TLabel
-        Left = 12
-        Height = 17
-        Top = 115
-        Width = 36
-        Caption = 'mccol'
-        ParentColor = False
-      end
-      object Label52: TLabel
-        Left = 52
-        Height = 17
-        Top = 115
-        Width = 36
-        Caption = 'qsoco'
-        ParentColor = False
-      end
-      object Label53: TLabel
-        Left = 92
-        Height = 17
-        Top = 115
-        Width = 31
-        Caption = 'wfcm'
-        ParentColor = False
-      end
-      object Label54: TLabel
-        Left = 292
-        Height = 17
-        Top = 115
-        Width = 16
-        Caption = 'prt'
-        ParentColor = False
-      end
-      object Label55: TLabel
-        Left = 332
-        Height = 17
-        Top = 116
-        Width = 31
-        Caption = 'wdcn'
-        ParentColor = False
-      end
-      object Label56: TLabel
-        Left = 372
-        Height = 17
-        Top = 116
-        Width = 27
-        Caption = 'csvp'
-        ParentColor = False
-      end
-      object Label57: TLabel
-        Left = 92
-        Height = 17
-        Top = 159
-        Width = 21
-        Caption = 'info'
-        ParentColor = False
-      end
-      object Label58: TLabel
-        Left = 12
-        Height = 17
-        Top = 161
-        Width = 22
-        Caption = 'rbcl'
-        ParentColor = False
-      end
-      object Label59: TLabel
-        Left = 12
-        Height = 17
-        Top = 71
-        Width = 25
-        Caption = 'adfp'
-        ParentColor = False
-      end
-      object Label60: TLabel
-        Left = 52
-        Height = 17
-        Top = 71
-        Width = 26
-        Caption = 'jtmd'
-        ParentColor = False
-      end
-      object Label61: TLabel
-        Left = 12
-        Height = 17
-        Top = 31
-        Width = 25
-        Caption = 'iadc'
-        ParentColor = False
-      end
-      object Label62: TLabel
-        Left = 52
-        Height = 17
-        Top = 31
-        Width = 25
-        Caption = 'idac'
-        ParentColor = False
-      end
-      object Label63: TLabel
-        Left = 92
-        Height = 17
-        Top = 31
-        Width = 26
-        Caption = 'tadc'
-        ParentColor = False
-      end
-      object Label64: TLabel
-        Left = 132
-        Height = 17
-        Top = 31
-        Width = 26
-        Caption = 'tdac'
-        ParentColor = False
-      end
-      object Label65: TLabel
-        Left = 172
-        Height = 17
-        Top = 31
-        Width = 19
-        Caption = 'cat'
-        ParentColor = False
-      end
-      object Label66: TLabel
-        Left = 132
-        Height = 17
-        Top = 115
-        Width = 18
-        Caption = 'pfx'
-        ParentColor = False
-      end
-      object Label67: TLabel
-        Left = 172
-        Height = 17
-        Top = 115
-        Width = 21
-        Caption = 'call'
-        ParentColor = False
-      end
-      object Label68: TLabel
-        Left = 212
-        Height = 17
-        Top = 115
-        Width = 18
-        Caption = 'sfx'
-        ParentColor = False
-      end
-      object Label69: TLabel
-        Left = 252
-        Height = 17
-        Top = 115
-        Width = 19
-        Caption = 'grd'
-        ParentColor = False
-      end
-      object Label70: TLabel
-        Left = 92
-        Height = 17
-        Top = 71
-        Width = 25
-        Caption = 'deci'
-        ParentColor = False
-      end
-      object Label71: TLabel
-        Left = 132
-        Height = 17
-        Top = 71
-        Width = 27
-        Caption = 'cwid'
-        ParentColor = False
-      end
-      object Label72: TLabel
-        Left = 172
-        Height = 17
-        Top = 71
-        Width = 27
-        Caption = 'cwcl'
-        ParentColor = False
-      end
-      object xdbUseRightaudio: TDBCheckBox
-        Left = 436
-        Height = 21
-        Top = 87
-        Width = 48
-        Caption = 'Right'
-        DataField = 'RIGHT'
-        TabOrder = 3
-        ValueChecked = 'True'
-        ValueUnchecked = 'False'
-      end
-      object xdbUseLeftAudio: TDBCheckBox
-        Left = 436
-        Height = 21
-        Top = 106
-        Width = 48
-        Caption = 'Left'
-        DataField = 'LEFT'
-        TabOrder = 4
-        ValueChecked = 'True'
-        ValueUnchecked = 'False'
-      end
       object Label73: TLabel
-        Left = 212
+        Left = 52
         Height = 17
-        Top = 71
+        Top = 160
         Width = 17
         Caption = 'ver'
         ParentColor = False
       end
-      object Label74: TLabel
-        Left = 252
-        Height = 17
-        Top = 71
-        Width = 29
-        Caption = 'mbin'
-        ParentColor = False
-      end
-      object Label75: TLabel
-        Left = 52
-        Height = 17
-        Top = 159
-        Width = 25
-        Caption = 'sbin'
-        ParentColor = False
-      end
       object Label76: TLabel
-        Left = 292
+        Left = 172
         Height = 17
-        Top = 71
+        Top = 158
         Width = 23
         Caption = 'txlvl'
         ParentColor = False
       end
       object Label77: TLabel
-        Left = 132
+        Left = 12
         Height = 17
-        Top = 158
+        Top = 159
         Width = 22
         Caption = 'lqrg'
         ParentColor = False
       end
       object edDialQRG: TEdit
-        Left = 172
+        Left = 92
         Height = 24
         Top = 135
         Width = 72
         OnChange = rigControlSet
-        TabOrder = 5
+        TabOrder = 0
         Text = '7076200'
       end
-      object Button14: TButton
-        Left = 524
-        Height = 40
-        Top = 143
-        Width = 129
-        Caption = 'Save'
-        Font.Height = -21
-        Font.Name = 'Arial'
-        Font.Style = [fsBold]
-        OnClick = Button4Click
-        ParentFont = False
-        TabOrder = 6
-      end
-      object cbSpecAGC: TCheckBox
-        Left = 436
-        Height = 20
-        Top = 127
-        Width = 48
-        Caption = 'AGC'
-        Checked = True
-        State = cbChecked
-        TabOrder = 7
-      end
-      object WFSpeed: TEdit
-        Left = 292
-        Height = 24
-        Top = 7
-        Width = 32
-        TabOrder = 8
-      end
-      object wfColorMap: TEdit
-        Left = 92
-        Height = 24
-        Top = 92
-        Width = 32
-        TabOrder = 9
-      end
-      object iADC: TEdit
-        Left = 12
-        Height = 24
-        Top = 7
-        Width = 32
-        TabOrder = 10
-      end
-      object iDAC: TEdit
-        Left = 52
-        Height = 24
-        Top = 7
-        Width = 32
-        TabOrder = 11
-      end
-      object tADC: TEdit
-        Left = 92
-        Height = 24
-        Top = 7
-        Width = 32
-        TabOrder = 12
-      end
-      object tDAC: TEdit
-        Left = 132
-        Height = 24
-        Top = 7
-        Width = 32
-        TabOrder = 13
-      end
-      object rigController: TEdit
-        Left = 172
-        Height = 24
-        Top = 7
-        Width = 32
-        TabOrder = 14
-      end
-      object dgainL: TEdit
-        Left = 212
-        Height = 24
-        Top = 7
-        Width = 32
-        TabOrder = 15
-      end
-      object dgainR: TEdit
-        Left = 252
-        Height = 24
-        Top = 7
-        Width = 32
-        TabOrder = 16
-      end
-      object CQColor: TEdit
-        Left = 332
-        Height = 24
-        Top = 7
-        Width = 32
-        TabOrder = 17
-      end
-      object wfContrast: TEdit
-        Left = 374
-        Height = 24
-        Top = 7
-        Width = 32
-        TabOrder = 18
-      end
-      object adifPath: TEdit
-        Left = 12
-        Height = 24
-        Top = 47
-        Width = 32
-        TabOrder = 19
-      end
-      object adifMode: TEdit
-        Left = 52
-        Height = 24
-        Top = 47
-        Width = 32
-        TabOrder = 20
-      end
-      object deci: TEdit
-        Left = 92
-        Height = 24
-        Top = 47
-        Width = 32
-        TabOrder = 21
-      end
-      object cwID: TEdit
-        Left = 132
-        Height = 24
-        Top = 47
-        Width = 32
-        TabOrder = 22
-      end
-      object cwCall: TEdit
-        Left = 172
-        Height = 24
-        Top = 47
-        Width = 32
-        TabOrder = 23
-      end
       object version: TEdit
-        Left = 212
+        Left = 52
         Height = 24
-        Top = 47
+        Top = 136
         Width = 32
-        TabOrder = 24
-      end
-      object mBin: TEdit
-        Left = 252
-        Height = 24
-        Top = 47
-        Width = 32
-        TabOrder = 25
+        TabOrder = 1
       end
       object txLevel: TEdit
-        Left = 292
-        Height = 24
-        Top = 47
-        Width = 32
-        TabOrder = 26
-      end
-      object wfGain: TEdit
-        Left = 332
-        Height = 24
-        Top = 47
-        Width = 32
-        TabOrder = 27
-      end
-      object wfBright: TEdit
-        Left = 374
-        Height = 24
-        Top = 47
-        Width = 32
-        TabOrder = 28
-      end
-      object myCallColor: TEdit
-        Left = 12
-        Height = 24
-        Top = 92
-        Width = 32
-        TabOrder = 29
-      end
-      object qsoColor: TEdit
-        Left = 52
-        Height = 24
-        Top = 92
-        Width = 32
-        TabOrder = 30
-      end
-      object savePrefix: TEdit
-        Left = 132
-        Height = 24
-        Top = 92
-        Width = 32
-        TabOrder = 31
-      end
-      object saveCall: TEdit
         Left = 172
         Height = 24
-        Top = 92
+        Top = 134
         Width = 32
-        TabOrder = 32
-      end
-      object saveSuffix: TEdit
-        Left = 212
-        Height = 24
-        Top = 92
-        Width = 32
-        TabOrder = 33
-      end
-      object saveGrid: TEdit
-        Left = 252
-        Height = 24
-        Top = 92
-        Width = 32
-        TabOrder = 34
-      end
-      object port: TEdit
-        Left = 292
-        Height = 24
-        Top = 92
-        Width = 32
-        TabOrder = 35
-      end
-      object txWD: TEdit
-        Left = 332
-        Height = 24
-        Top = 92
-        Width = 32
-        TabOrder = 36
-      end
-      object csvPath: TEdit
-        Left = 374
-        Height = 24
-        Top = 92
-        Width = 32
-        TabOrder = 37
-      end
-      object rbCall: TEdit
-        Left = 12
-        Height = 24
-        Top = 135
-        Width = 32
-        TabOrder = 38
-      end
-      object sBin: TEdit
-        Left = 52
-        Height = 24
-        Top = 135
-        Width = 32
-        TabOrder = 39
-      end
-      object rbInfo: TEdit
-        Left = 92
-        Height = 24
-        Top = 135
-        Width = 31
-        TabOrder = 40
+        TabOrder = 2
       end
       object lastQRG: TEdit
-        Left = 132
+        Left = 12
         Height = 24
-        Top = 135
+        Top = 136
         Width = 32
-        TabOrder = 41
+        TabOrder = 3
       end
       object Label123: TLabel
-        Left = 172
+        Left = 92
         Height = 17
         Top = 158
         Width = 63
@@ -2491,9 +1940,9 @@ object Form1: TForm1
     ParentColor = False
   end
   object Label90: TLabel
-    Left = 704
+    Left = 1264
     Height = 17
-    Top = 712
+    Top = 352
     Width = 70
     Caption = 'CAT QRG:  '
     ParentColor = False
@@ -2894,7 +2343,7 @@ object Form1: TForm1
   object Memo1: TMemo
     Left = 1000
     Height = 304
-    Top = 270
+    Top = 268
     Width = 384
     OnDblClick = Memo1DblClick
     ScrollBars = ssAutoBoth
