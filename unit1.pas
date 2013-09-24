@@ -1,3 +1,6 @@
+
+{ TODO : Any change to message, dial QRG or TXDF must regenerate the TX Message Data }
+
 // (c) 2013 CQZ Electronics
 unit Unit1;
 
@@ -8,9 +11,9 @@ interface
 uses
   Classes, SysUtils, FileUtil, Forms, Controls, Graphics, Dialogs, StdCtrls,
   ExtCtrls, Math, StrUtils, CTypes, Windows, lconvencoding, ComCtrls, EditBtn,
-  DbCtrls, TAGraph, TASeries, TAChartUtils, Types, Process, portaudio,
-  globalData, adc, spectrum, waterfall1, spot, demodulate, db, BufDataset,
-  sqlite3conn, sqldb, valobject;
+  DbCtrls, TAGraph, TASeries, TAChartUtils, DividerBevel, Types, Process,
+  portaudio, globalData, adc, spectrum, waterfall1, spot, demodulate, db,
+  BufDataset, sqlite3conn, sqldb, valobject;
 
 Const
   JT_DLL = 'JT65v5.dll';
@@ -84,9 +87,9 @@ type
     Memo1: TMemo;
     rigRebel: TRadioButton;
     lastQRG: TEdit;
+    tbMultiBin: TTrackBar;
     txLevel: TEdit;
     version: TEdit;
-    doLogQSO: TButton;
     comboQRGList: TComboBox;
     GroupBox16: TGroupBox;
     Label107: TLabel;
@@ -248,8 +251,7 @@ type
     ListBox1: TListBox;
     ListBox2: TListBox;
     ListBox3: TListBox;
-    PageControl1: TPageControl;
-    RadioButton1: TRadioButton;
+    PageControl: TPageControl;
     rigNone: TRadioButton;
     rbNoCWID: TRadioButton;
     RadioButton2: TRadioButton;
@@ -280,7 +282,6 @@ type
     Timer1: TTimer;
     tbTXLevel: TTrackBar;
     FBar1: TBarSeries;
-    tbMultiBin: TTrackBar;
     tbWFSpeed: TTrackBar;
     tbWFContrast: TTrackBar;
     tbWFBright: TTrackBar;
@@ -301,7 +302,7 @@ type
     procedure Button4Click(Sender: TObject);
     procedure CheckBox2Change(Sender: TObject);
     procedure Memo1DblClick(Sender: TObject);
-    procedure PageControl1Change(Sender: TObject);
+    procedure PageControlChange(Sender: TObject);
     procedure qrgdbAfterPost(DataSet: TDataSet);
     procedure edTXMsgDblClick(Sender: TObject);
     procedure ListBox1DrawItem(Control: TWinControl; Index: Integer; ARect: TRect; State: TOwnerDrawState);
@@ -351,7 +352,8 @@ type
     function  utcTime: TSystemTime;
     procedure InitBar;
 
-    procedure genTX(const msg : String; const txdf : Integer; const plevel : Integer; var samples : Array of CTypes.cint16);
+    //procedure genTX(const msg : String; const txdf : Integer; const plevel : Integer; var samples : Array of CTypes.cint16);
+    procedure genTX(const msg : String; const txdf : Integer; const plevel : Integer);
     procedure earlySync(Const samps : Array Of CTypes.cint16; Const endpoint : Integer);
 
     procedure removeDupes(var list : TStringList; var removes : Array of Integer);
@@ -368,6 +370,8 @@ type
     procedure setG;
 
     procedure updateDB;
+    procedure setDefaults;
+    procedure setupDB(const cfgPath : String);
 
     function t(const s : String) : String;
 
@@ -479,7 +483,7 @@ implementation
 procedure rscode(Psyms : CTypes.pcint; Ptsyms : CTypes.pcint); cdecl; external JT_DLL name 'rs_encode_';
 procedure interleave(Ptsyms : CTypes.pcint; Pdirection : CTypes.pcint); cdecl; external JT_DLL name 'interleave63_';
 procedure graycode(Ptsyms : CTypes.pcint; Pcount : CTypes.pcint; Pdirection : CTypes.pcint); cdecl; external JT_DLL name 'graycode_';
-procedure gSamps(Ptxdf : CTypes.pcint; Ptsysms : CTypes.pcint; Pshmsg : CTypes.pcint; Psamples : CTypes.pcint16; Psamplescount : CTypes.pcint; level : CTypes.pcint); cdecl; external JT_DLL name 'g65_';
+//procedure gSamps(Ptxdf : CTypes.pcint; Ptsysms : CTypes.pcint; Pshmsg : CTypes.pcint; Psamples : CTypes.pcint16; Psamplescount : CTypes.pcint; level : CTypes.pcint); cdecl; external JT_DLL name 'g65_';
 procedure set65; cdecl; external JT_DLL name 'setup65_';
 procedure msync(dat : CTypes.pcfloat; jz : CTypes.pcint; syncount : CTypes.pcint; dtxa : CTypes.pcfloat; dfxa : CTypes.pcfloat; snrxa : CTypes.pcfloat; snrsynca : CTypes.pcfloat; ical : CTypes.pcint; wisfile : PChar); cdecl; external JT_DLL name 'msync65_';
 procedure lpf1(dat : CTypes.pcfloat; jz : CTypes.pcint; nz : CTypes.pcint; mousedf : CTypes.pcint; mousedf2 : CTypes.pcint; ical : CTypes.pcint; wisfile : PChar); cdecl; external JT_DLL name 'lpf1_';
@@ -534,7 +538,7 @@ Var
 Begin
      // This runs on first timer interrupt once per run session
 
-     // DEBUG - Playing with fftw threads - this may be a huge mistake.
+     // PageControl - Playing with fftw threads - this may be a huge mistake.
      //fftw_jl.fftwf_init_threads();
      //fftw_jl.fftwf_plan_with_nthreads(4);
      // End playing :)
@@ -584,110 +588,7 @@ Begin
      end;
 
      // Create sqlite3 store, if necessary
-     if not fileExists(cfgPath + 'jt65hf_datastore') Then
-     Begin
-          showMessage('Building initial config - this may take some time and program will appear non-responsive.');
-          setG;
-          sqlite3.DatabaseName := cfgPath + 'jt65hf_datastore';
-          query.SQL.Clear;
-          query.SQL.Add('CREATE TABLE ngdb(id integer primary key, xlate string(5))');
-          query.ExecSQL;
-          transaction.Commit;
-          // Definitions for ng 15 bit field
-          for i := 0 to length(demodulate.glist)-1 do
-          begin
-               query.SQL.Clear;
-               query.SQL.Add('INSERT INTO ngdb(xlate) VALUES("' + demodulate.glist[i] + '")');
-               query.ExecSQL;
-          end;
-          transaction.Commit;
-
-          // QRG Definitions
-          query.SQL.Clear;
-          query.SQL.Add('CREATE TABLE qrg(id integer primary key, instance integer, fqrg float)');
-          query.ExecSQL;
-          query.SQL.Clear;
-          query.SQL.Text := 'INSERT INTO qrg(instance, fqrg) VALUES(:INSTANCE,:QRG);';
-          // TODO - For Rebel I want to define only 40/20M QRG values. 7039 7075.7 7076 7076.3 then 14075.3 14075.6 14076
-          // 14076.3 14076.6 and 14076.9 seem reasonable.  Users can always add/delete my pre-built list.
-          query.Params.ParamByName('INSTANCE').AsInteger :=1;
-          //query.Params.ParamByName('QRG').AsFloat := 1836000.0;
-          //query.ExecSQL;
-          //query.Params.ParamByName('QRG').AsFloat := 3576000.0;
-          //query.ExecSQL;
-          query.Params.ParamByName('QRG').AsFloat := 7039000.0;
-          query.ExecSQL;
-          query.Params.ParamByName('QRG').AsFloat := 7075700.0;
-          query.ExecSQL;
-          query.Params.ParamByName('QRG').AsFloat := 7076000.0;
-          query.ExecSQL;
-          query.Params.ParamByName('QRG').AsFloat := 7076300.0;
-          query.ExecSQL;
-          //query.Params.ParamByName('QRG').AsFloat := 10138000.0;
-          //query.ExecSQL;
-          query.Params.ParamByName('QRG').AsFloat := 14075300.0;
-          query.ExecSQL;
-          query.Params.ParamByName('QRG').AsFloat := 14075600.0;
-          query.ExecSQL;
-          query.Params.ParamByName('QRG').AsFloat := 14076000.0;
-          query.ExecSQL;
-          query.Params.ParamByName('QRG').AsFloat := 14076300.0;
-          query.ExecSQL;
-          query.Params.ParamByName('QRG').AsFloat := 14076600.0;
-          query.ExecSQL;
-          query.Params.ParamByName('QRG').AsFloat := 14076900.0;
-          query.ExecSQL;
-          //query.Params.ParamByName('QRG').AsFloat := 18102000.0;
-          //query.ExecSQL;
-          //query.Params.ParamByName('QRG').AsFloat := 18106000.0;
-          //query.ExecSQL;
-          //query.Params.ParamByName('QRG').AsFloat := 21076000.0;
-          //query.ExecSQL;
-          //query.Params.ParamByName('QRG').AsFloat := 24920000.0;
-          //query.ExecSQL;
-          //query.Params.ParamByName('QRG').AsFloat := 28076000.0;
-          //query.ExecSQL;
-          //query.Params.ParamByName('QRG').AsFloat := 50276000.0;
-          //query.ExecSQL;
-          transaction.Commit;
-
-          // Macro Definitions
-          query.SQL.Clear;
-          query.SQL.Add('CREATE TABLE macro(id integer primary key, instance integer, text string(13))');
-          query.ExecSQL;
-          query.SQL.Clear;
-          query.SQL.Text := 'INSERT INTO macro(instance, text) VALUES(:INSTANCE,:TEXT);';
-          // Defining the 3 shorthand types.
-          query.Params.ParamByName('INSTANCE').AsInteger :=1;
-          query.Params.ParamByName('TEXT').AsString := 'RRR';
-          query.ExecSQL;
-          query.Params.ParamByName('TEXT').AsString := 'RO';
-          query.ExecSQL;
-          query.Params.ParamByName('TEXT').AsString := '73';
-          query.ExecSQL;
-          transaction.Commit;
-
-          // Configuration
-          foo :='CREATE TABLE config(';
-          foo := foo + 'instance integer primary key,prefix string(4),call string(6),suffix string(3), grid string(6), ';
-          foo := foo + 'tadc varchar(255), iadc integer, tdac varchar(255), idac integer, mono bool, left bool, ';
-          foo := foo + 'right bool, dgainl integer, dgainla bool, dgainr integer, dgainra bool, useserial bool, ';
-          foo := foo + 'usealt bool, port integer, pttdtrrts bool, pttrts bool, pttdtr bool, dtrnever bool, ';
-          foo := foo + 'dtralways bool, rtsnever bool, rtsalways bool, txwatchdog bool, txwatchdogcount integer, ';
-          foo := foo + 'rigcontrol varchar(12), pttcat bool, txdfcat bool, perioddivide bool, periodcompact bool, ';
-          foo := foo + 'usecolor bool, cqcolor integer, mycallcolor integer, qsocolor integer, wfcmap integer, ';
-          foo := foo + 'wfspeed integer, wfcontrast integer, wfbright integer, wfgain integer, wfsmooth bool, ';
-          foo := foo + 'wfagc bool, userb bool, spotcall varchar(32), spotinfo varchar(255), ';
-          foo := foo + 'usecsv bool, csvpath varchar(255), adifpath varchar(255), logas varchar(5), remembercomments bool, ';
-          foo := foo + 'multioffqso bool, automultion bool, halttxsetsmulti bool, defaultsetsmulti bool, ';
-          foo := foo + 'decimal varchar(10), cwid varchar(10), cwidcall varchar(11), disableoptfft bool, disablekv bool, ';
-          foo := foo + 'lastqrg varchar(10), sbinspace integer, mbinspace integer, txlevel integer, version integer, ';
-          foo := foo + 'multion bool, txeqrxdf bool, needcfg bool)';
-          query.SQL.Clear;
-          query.SQL.Add(foo);
-          query.ExecSQL;
-          transaction.Commit;
-     end;
+     if not fileExists(cfgPath + 'jt65hf_datastore') Then setupDB(cfgPath);
 
      // Housekeeping items here
      cfgdir := cfgPath;
@@ -747,98 +648,7 @@ Begin
      end;
      query.Active := False;
 
-     if mustcfg Then
-     Begin
-          // Need to set sane defaults.
-          // Tabsheet 1
-          edPrefix.Text := '';
-          edCall.Text := '';
-          edSuffix.Text :='';
-          edGrid.Text := '';
-          comboAudioIn.ItemIndex:=0;
-          cbUseMono.Checked := False;
-          rbUseLeftAudio.Checked := True;
-          dgainL0.Checked := True;
-          dgainR0.Checked := True;
-          cbAttenuateLeft.Checked := False;
-          cbAttenuateRight.Checked := False;
-          // Tabsheet 2
-          rigNone.Checked := True;
-          cbUseSerial.Checked := True;
-          edPort.Text := '-1';
-          cbUseTXWD.Checked := True;
-          edTXWD.Text := '10';
-          // Tabsheet 3
-          cbDivideDecodes.Checked := True;
-          cbCompactDivides.Checked := True;
-          cbUseColor.Checked := True;
-          cbCQColor.ItemIndex := 0;
-          cbMyCallColor.ItemIndex := 0;
-          cbQSOColor.ItemIndex := 0;
-          spColorMap.ItemIndex := 2;
-          tbWFSpeed.Position := 5;
-          tbWFContrast.Position := 0;
-          tbWFBright.Position := 0;
-          tbWFGain.Position := 0;
-          cbSpecSmooth.Checked := True;
-          // Tabsheet 4
-          edRBCall.Text := '';
-          edStationInfo.Text := '';
-          cbSaveToCSV.Checked := False;
-          edCSVPath.Text := cfgDir;
-          // Tabsheet 5
-          edADIFPath.Text := cfgDir;
-          edADIFMode.Text := 'JT65';
-          cbRememberComments.Checked := False;
-          // Tabsheet 6
-          cbMultiOffQSO.Checked := True;
-          cbRestoreMulti.Checked := True;
-          cbHaltTXMultiOn.Checked := False;
-          cbDefaultsMultiOn.Checked := True;
-          useDeciAuto.Checked := True;
-          rbNoCWID.Checked := True;
-          edCWID.Text := '';
-          cbNoOptFFT.Checked := False;
-          cbNoKV.Checked := False;
-
-          // Set main GUI variable controls
-          tbMultiBin.Position := 1; // 20 Hz
-          tbMultiBinChange(tbMultiBin);
-          inDev  := -1;
-          pttDev := -1;
-          inIcal := 0;
-          edDialQRG.Text := '0';
-          editQRG.Text := '0';
-          tbTXLevel.Position := 16;
-
-
-          if useDeciAmerican.Checked then
-          begin
-               dChar := '.';
-               kChar := ',';
-          end;
-
-          if useDeciEuro.Checked then
-          begin
-               dChar := ',';
-               kChar := '.';
-          end;
-
-          if useDeciAuto.Checked then
-          begin
-               dChar := DecimalSeparator;
-               kChar := ThousandSeparator;
-               if dChar = '.' Then useDeciAuto.Caption := 'Use System Default (decimal = . thousands = ,)';
-               if dChar = ',' Then useDeciAuto.Caption := 'Use System Default (decimal = , thousands = .)';
-          end;
-
-          // Update the DB
-          updateDB;
-          buttonConfig.Visible := False;
-          Label3.Visible       := False;
-          Button4.Visible      := True;
-          PageControl1.Visible := True;
-     end;
+     if mustcfg Then setDefaults;
 
      // Read the data from config
      query.Active := False;
@@ -849,7 +659,7 @@ Begin
      edCall.Text   := query.FieldByName('call').AsString;
      edSuffix.Text := query.FieldByName('suffix').AsString;
      edGrid.Text   := query.FieldByName('grid').AsString;
-     // Need to handle these in audio selector code! DEBUG
+     // Need to handle these in audio selector code! PageControl
      savedTADC := query.FieldByName('tadc').AsString;
      savedIADC := query.FieldByName('iadc').AsInteger;
      cbUseMono.Checked       := query.FieldByName('mono').AsBoolean;
@@ -1011,6 +821,7 @@ Begin
      if cbSpecSmooth.Checked then spectrum.specSmooth := True else spectrum.specSmooth := False;
      if cbSpecSmooth.Checked then spectrum.specuseagc := True else spectrum.specuseagc := False;
      spectrum.specColorMap := spColorMap.ItemIndex;
+     if not tryStrToInt(lastQRG.Text,fi) then lastQRG.Text := '0';
      edDialQRG.Text := lastQRG.Text;
      fs  := '';
      ff  := 0.0;
@@ -1071,13 +882,13 @@ Begin
      If tbMultiBin.Position = 2 then demodulate.dmbw := 50;
      If tbMultiBin.Position = 3 then demodulate.dmbw := 100;
      If tbMultiBin.Position = 4 then demodulate.dmbw := 200;
-     Label26.Caption := 'Multi Resolution:  ' + IntToStr(demodulate.dmbw) + ' Hz';
+     Label26.Caption := 'Multi ' + IntToStr(demodulate.dmbw) + ' Hz';
 
      If tbSingleBin.Position = 1 then demodulate.dmbws := 20;
      If tbSingleBin.Position = 2 then demodulate.dmbws := 50;
      If tbSingleBin.Position = 3 then demodulate.dmbws := 100;
      If tbSingleBin.Position = 4 then demodulate.dmbws := 200;
-     Label87.Caption := 'Single:  ' + IntToStr(demodulate.dmbws) + ' Hz';
+     Label87.Caption := 'Single ' + IntToStr(demodulate.dmbws) + ' Hz';
 
      if inIcal >-1 then demodulate.dmical := inIcal else demodulate.dmical := 0;
 
@@ -1446,7 +1257,7 @@ Begin
      if v1c > 0 Then Label116.Caption := PadLeft(IntToStr(v1c),5);
      if v2c > 0 Then Label117.Caption := PadLeft(IntToStr(v2c),5);
 
-     // DEBUG
+     // PageControl
      //if catQRG > 0 Then
      //Begin
           //edDialQRG.Text := IntToStr(catQRG);
@@ -1506,7 +1317,7 @@ Begin
 
      Label90.Caption := 'CAT QRG:  ' + IntToStr(catQRG);
 
-     if RadioButton1.Checked And globalData.txInProgress Then globalData.txInProgress := False;
+     //if RadioButton1.Checked And globalData.txInProgress Then globalData.txInProgress := False;
 
      spectrum.specColorMap := spColorMap.ItemIndex;
 
@@ -1519,11 +1330,11 @@ Begin
      If tbSingleBin.Position = 2 then demodulate.dmbws := 50;
      If tbSingleBin.Position = 3 then demodulate.dmbws := 100;
      If tbSingleBin.Position = 4 then demodulate.dmbws := 200;
-// DEBUG FIX THESE NOW!!!!
-//     if tryStrToInt(WFSpeed.Text,i) Then spectrum.specSpeed2 := i else spectrum.specSpeed2 := 0;
+
+     spectrum.specSpeed2 := tbWFSpeed.Position;
      if cbSpecSmooth.Checked Then spectrum.specSmooth := True else spectrum.specSmooth := False;
      if cbSpecSmooth.Checked Then spectrum.specuseagc := True else spectrum.specuseagc := False;
-//     if tryStrToInt(WFColorMap.Text,i) Then spectrum.specColorMap := i else spectrum.specColorMap := 0;
+     spectrum.specColorMap := spColorMap.ItemIndex;
 
      if rbUseLeftAudio.Checked Then adc.adcChan  := 1;
      if rbUseRightaudio.Checked Then adc.adcChan := 2;
@@ -1645,7 +1456,7 @@ Begin
 
      //if inSync and paActive Then RadioGroup1.Visible := True else RadioGroup1.Visible := False;
 
-     if rbOn.Checked then rbOn.Caption := 'Spots sent:  ' + rb.rbCount else rbOn.Caption := 'Internet Spotting Enable';
+     if rbOn.Checked then rbOn.Caption := 'Spots sent:  ' + rb.rbCount else rbOn.Caption := 'RB Enable';
 
      if rbOn.Checked and (not rb.rbOn) Then
      Begin
@@ -1779,7 +1590,7 @@ Begin
                   spectrum.specDisplayData[0][i].g := 0;
                   spectrum.specDisplayData[0][i].b := 0;
              end;
-             // Probably will eventually remove the following line... here for debug for now.
+             // Probably will eventually remove the following line... here for PageControl for now.
           except
              ListBox2.Items.Insert(0,'Exception in paint line (2)');
           end;
@@ -1796,7 +1607,7 @@ Begin
                   spectrum.specDisplayData[0][i].g := 255;
                   spectrum.specDisplayData[0][i].b := 0;
              end;
-             // Probably will eventually remove the following line... here for debug for now.
+             // Probably will eventually remove the following line... here for PageControl for now.
           except
              ListBox2.Items.Insert(0,'Exception in paint line (2)');
           end;
@@ -2136,7 +1947,7 @@ begin
      If tbMultiBin.Position = 2 then demodulate.dmbw := 50;
      If tbMultiBin.Position = 3 then demodulate.dmbw := 100;
      If tbMultiBin.Position = 4 then demodulate.dmbw := 200;
-     Label26.Caption := 'Multi Resolution:  ' + IntToStr(demodulate.dmbw) + ' Hz';
+     Label26.Caption := 'Multi ' + IntToStr(demodulate.dmbw) + ' Hz';
 end;
 
 procedure TForm1.tbSingleBinChange(Sender: TObject);
@@ -2145,7 +1956,7 @@ begin
      If tbSingleBin.Position = 2 then demodulate.dmbws := 50;
      If tbSingleBin.Position = 3 then demodulate.dmbws := 100;
      If tbSingleBin.Position = 4 then demodulate.dmbws := 200;
-     Label87.Caption := 'Single:  ' + IntToStr(demodulate.dmbws) + ' Hz';
+     Label87.Caption := 'Single ' + IntToStr(demodulate.dmbws) + ' Hz';
 end;
 
 procedure TForm1.tbTXLevelChange(Sender: TObject);
@@ -3503,7 +3314,7 @@ begin
           if cbUseMono.Checked Then adc.adcMono := True else adc.adcMono := False;
           audioChange(TObject(comboAudioIn));
      end;
-     // DEBUG Maybe not on these now....????
+     // PageControl Maybe not on these now....????
      //If Sender = edPrefix     Then edPrefix.Text  := TrimLeft(TrimRight(UpCase(edPrefix.Text)));
      //If Sender = edCall       Then edCall.Text  := TrimLeft(TrimRight(UpCase(edCall.Text)));
      //If Sender = edSuffix     Then edSuffix.Text  := TrimLeft(TrimRight(UpCase(edSuffix.Text)));
@@ -4263,20 +4074,28 @@ Begin
 
 end;
 
-procedure TForm1.genTX(const msg : String; const txdf : Integer; const plevel : Integer; var samples : Array of CTypes.cint16);
+//procedure TForm1.genTX(const msg : String; const txdf : Integer; const plevel : Integer; var samples : Array of CTypes.cint16);
+procedure TForm1.genTX(const msg : String; const txdf : Integer; const plevel : Integer);
 Var
    foo, sh       : String;
    form          : String;
-   i,dir,cnt     : CTypes.cint;
+   i,dir,cnt,j,k : CTypes.cint;
    nc1,nc2,ng    : LongWord;
    ng1           : LongWord;
    nc1t,nc2t,ngt : String;
    pfxt,sfxt     : String;
+   sbasetx       : String;
    syms          : Array[0..11] Of CTypes.cint;
    tsyms         : Array[0..62] Of CTypes.cint;
-   sm, ft        : Boolean;
+   fsyms         : Array[0..62] Of CTypes.cfloat;
+   isyms         : Array[0..62] Of CTypes.cint;
+   isymsL,isymsR : Array[0..62] Of CTypes.cint;
+   ssyms         : Array[0..62] Of String;
+   ssymsL,ssymsR : Array[0..62] Of String;
+   sm, ft, shm   : Boolean;
    nsamps        : CTypes.cint;
    shmsg         : CTypes.cint;
+   baseTX,tf     : CTypes.cfloat;
 begin
      nc1t := '';
      pfxt := '';
@@ -4287,16 +4106,22 @@ begin
 
      sm   := False; // Structured message type
      ft   := False; // Free text message type
-     //shm  := False; // Shorthand message type
+     shm  := False; // Shorthand message type
 
      foo := TrimLeft(TrimRight(UpCase(msg)));
 
      if messageParser(foo, nc1t, pfxt, sfxt, nc2t, ngt, sh) Then
      Begin
           sm := True;
-          if (sh='RO') or (sh='RRR') or (sh='ATT') or (sh='73') Then sm  := false;
-          if (sh='RO') or (sh='RRR') or (sh='ATT') or (sh='73') Then ft  := false;
-          //if (sh='RO') or (sh='RRR') or (sh='ATT') or (sh='73') Then shm := true;
+          if (sh='RO') or (sh='RRR') or (sh='ATT') or (sh='73') Then
+          Begin
+               sm  := false;
+               ft  := false;
+          end
+          else
+          begin
+               shm := true;
+          end;
      end
      else
      begin
@@ -4306,6 +4131,7 @@ begin
                ft := True;
           end;
      end;
+     // If sm this is a structured message
      if sm then
      begin
           nc1 := 0;
@@ -4353,9 +4179,189 @@ begin
                graycode(CTypes.pcint(@tsyms[0]),CTypes.pcint(@cnt),CTypes.pcint(@dir));
                nsamps := 0;
                shmsg := 0;
-               gSamps(CTypes.pcint(@txdf),CTypes.pcint(@tsyms),CTypes.pcint(@shmsg),CTypes.pcint16(@samples[11025]),CTypes.pcint(@nsamps),CTypes.pcint(@plevel));
+               // tsyms holds the 63 TX symbols - will need to look at TXDF and current dial
+               // RX QRG to compute the true RF TX QRG list.  TXDF 0 = 1270.5 Hz so if dial
+               // is 14076.0 and TXDF = 0 then first tone (sync) will be at 14,077,270.5 Hz
+               // What I want to do is create an array of 63 floats for the TX data frequencies
+               // and a 64th element that is the sync (same in 63 places).  Then convert to
+               // string then drop the MHz and 100 KHz (first 3 characters on 20M/first 2 on 40M
+               // then remove the decimal - as in the example above of 14,077,270.5 would be
+               // 772705
+               //tsyms         : Array[0..62] Of CTypes.cint;
+               //fsyms         : Array[0..62] Of CTypes.cfloat;
+               //isyms         : Array[0..62] Of CTypes.cint;
+               //ssyms         : Array[0..62] Of String;
+               // So.... tone 0 (sync) = Dial QRG + 1270.5
+               baseTX := 1270.5;
+               // Now add the dial QRG
+               tf := StrToFloat(edDialQRG.Text);
+               if tf > 10200000.0 Then tf := tf - 14000000.0 else tf := tf - 7000000.0;
+               //tf := tf + 0.002;
+               // Now add the DF
+               baseTX := baseTX+tf+txdf;
+               Memo1.Clear;
+               Memo1.Append('Sync at:  ' + FloatToStrF(baseTX,ffFixed,9,1));
+               tf := StrToFloat(edDialQRG.Text);
+               if tf > 10200000.0 Then sbasetx := '140' + FloatToStrF(baseTX,ffFixed,9,1) else sbasetx := '70' + FloatToStrF(baseTX,ffFixed,9,1);
+               sbasetx := ExtractWord(1,sbasetx,['.']) + ExtractWord(2,sbasetx,['.']);
+               //tf := txdf*1.0;
+               //baseTX := baseTX + tf;
+               // Have the sync RF carrier QRG - can now create the data values
+               // based on the protocol definition as;
+               // Encoded user information is transmitted during the 63 intervals not used for the sync tone.
+               // Each channel symbol generates a tone at frequency 1270.5 + 2.6917 (N+2)m Hz, where
+               // N is the integral symbol value, 0 ≤ N ≤ 63, and m assumes the values 1, 2, and 4 for JT65
+               // sub-modes A, B, and C.
+               // Not dealing with modes B/C so we have baseTX + 2.6917 (N+2) for (2) ... (65) for
+               // baseTX + 5.3834 ... baseTX + 174.9605
+               // Remember a symbol can range from 0...63 as it's a 6 bit value.
+               // Starting this by creating an array of the audio tone values (will simplify later - this will
+               // be easier to debug though)
+               for i := 0 to 62 do
+               begin
+                    fsyms[i] := 0.0;
+                    isyms[i] := 0;
+                    isymsL[i] := 0;
+                    isymsR[i] := 0;
+                    ssyms[i] := '';
+                    ssymsL[i] := '';
+                    ssymsR[i] := '';
+               end;
+               for i := 0 to 62 do
+               begin
+                    // computing 63 audio frequency values from tsyms[i] into fsyms[i]
+                    fsyms[i] := baseTX + (2.6917 * (tsyms[i]+2));
+               end;
+               // Have the audio tones - now add the RF
+               //for i := 0 to 62 do
+               //begin
+               //     fsyms[i] := fsyms[i] + StrToFloat(edDialQRG.Text);
+               //end;
+               // Have carrier frequencies - now DF adjust
+               for i := 0 to 62 do
+               begin
+                    fsyms[i] := fsyms[i] + (txdf/1.0);
+               end;
+               // This should be the real carrier frequencies we need to TX --- emphasis on should :)
+               // Lets get rid of MHz
+               //for i := 0 to 62 do
+               //begin
+               //     if fsyms[i] > 10000000.0 then fsyms[i] := fsyms[i]-14000000.0 else fsyms[i] := fsyms[i]-7000000.0;
+               //end;
+               // Okies - have just the KHz portion now and I want that down to one fractional resolution BUT
+               // after too many years of this I DO NOT TRUST Laz/FPC or anything else to do it right. :(
+               // Step one - floats to strings
+               for i := 0 to 62 do
+               begin
+                    ssyms[i] := FloatToStrF(fsyms[i],ffFixed,8,4);
+               end;
+               // Now I ****should**** have a series of strings like 77275.8834 77445.4605 etc
+               // I want to end up with 77275.9 and 77445.5 for the above :)
+               // Ok - first things first - let me be absolutely sure I'm dealing with nothing but ###.####
+               // no blasted , as decimal or otherwise present.
+               for i := 0 to 62 do
+               begin
+                    If AnsiContainsText(ssyms[i],',') Then
+                    Begin
+                         // Decimal is , split accordingly
+                         ssymsL[i] := ExtractWord(1,ssyms[i],[',']);
+                         ssymsR[i] := ExtractWord(2,ssyms[i],[',']);
+                         j := i;
+                    end;
+                    If AnsiContainsText(ssyms[i],'.') Then
+                    Begin
+                         // Decimal is . split accordingly
+                         ssymsL[i] := ExtractWord(1,ssyms[i],['.']);
+                         ssymsR[i] := ExtractWord(2,ssyms[i],['.']);
+                         j := i;
+                    end;
+                    If AnsiContainsText(ssyms[i],',') And AnsiContainsText(ssyms[i],'.') Then
+                    Begin
+                         // EXPLODE CUSS AND KICK
+                         j := i;
+                    end;
+               end;
+               // Start conversion to integer format
+               for i := 0 to 62 do
+               begin
+                    isymsL[i] := StrToInt(ssymsL[i]);
+                    if length(ssymsR[i]) = 4 Then
+                    Begin
+                         j := StrToInt(ssymsR[i][4]);
+                         if j>5 Then k := 1 else k := 0;
+                         j := StrToInt(ssymsR[i][3]);
+                         j := j+k;
+                         if j>5 Then k := 1 else k := 0;
+                         j := StrToInt(ssymsR[i][2]);
+                         j := j+k;
+                         if j>5 Then k := 1 else k := 0;
+                         j := StrToInt(ssymsR[i][1]);
+                         j := j+k;
+                         if j > 9 then
+                         Begin
+                              inc(isymsL[i]);
+                              j := 0;
+                         end;
+                         isymsR[i] := j;
+                    end;
+                    if length(ssymsR[i]) = 3 Then
+                    Begin
+                         j := StrToInt(ssymsR[i][3]);
+                         if j>5 Then k := 1 else k := 0;
+                         j := StrToInt(ssymsR[i][2]);
+                         j := j+k;
+                         if j>5 Then k := 1 else k := 0;
+                         j := StrToInt(ssymsR[i][1]);
+                         j := j+k;
+                         if j > 9 then
+                         Begin
+                              inc(isymsL[i]);
+                              j := 0;
+                         end;
+                         isymsR[i] := j;
+                    end;
+                    if length(ssymsR[i]) = 2 Then
+                    Begin
+                         j := StrToInt(ssymsR[i][2]);
+                         if j>5 Then k := 1 else k := 0;
+                         j := StrToInt(ssymsR[i][1]);
+                         j := j+k;
+                         if j > 9 then
+                         Begin
+                              inc(isymsL[i]);
+                              j := 0;
+                         end;
+                         isymsR[i] := j;
+
+                    end;
+                    if length(ssymsR[i]) = 1 Then
+                    Begin
+                         // Nothing
+                    end;
+               end;
+               // Ok - I think I now have what I need
+               for i := 0 to 62 do
+               begin
+                    ssyms[i] := IntToStr(isymsL[i])+IntToStr(isymsR[i]);
+                    isyms[i] := StrToInt(ssyms[i]);
+               end;
+               i := 0;
+               // Need to think of a sanity check here... given typical usage I should be able to define a range of isyms value that makes sense.
+               // 752705 (14075 Dial -1K DF - 200) 750705 --- call it 750000
+               // 792705 (14077 Dial +1K DF + 200) 794705 --- call it 795000
+               // I ***do not*** intend to leave this since it would hard limit the program to running at 7075000 ... 7077000 or 14075000 ... 14077000
+               for i := 0 to 62 do
+               begin
+                    if (isyms[i] < 750000) or (isyms[i] > 795000) Then ShowMessage('FSK QRG Range oddity at symbol ' + IntToStr(i) + ' for ' + IntToStr(isyms[i]));
+               end;
+               Memo1.Append('LTX');
+               Memo1.Append(sbasetx);
+               for i := 0 to 62 do Memo1.Append(IntToStr(isyms[i]));
+               { TODO : Build TX QRG array here }
+               //gSamps(CTypes.pcint(@txdf),CTypes.pcint(@tsyms),CTypes.pcint(@shmsg),CTypes.pcint16(@samples[11025]),CTypes.pcint(@nsamps),CTypes.pcint(@plevel));
           end;
      end;
+     //If ft this is free text
      if ft then
      begin
           nc1 := 0;
@@ -4378,9 +4384,11 @@ begin
                if not tryStrToInt(TrimLeft(TrimRight(edTXDF.Text)),i) Then i := 0;
                if i > 1000 then i := 1000;
                if i < -1000 then i := -1000;
-               gSamps(CTypes.pcint(@i),CTypes.pcint(@tsyms),CTypes.pcint(@shmsg),CTypes.pcint16(@samples[11025]),CTypes.pcint(@nsamps),CTypes.pcint(@plevel));
+               { TODO : Build TX QRG Array here }
+               //gSamps(CTypes.pcint(@i),CTypes.pcint(@tsyms),CTypes.pcint(@shmsg),CTypes.pcint16(@samples[11025]),CTypes.pcint(@nsamps),CTypes.pcint(@plevel));
           end;
      end;
+     //If shm it's shorthand
      //if shm Then
      //begin
      //     // Lets play shorthand
@@ -4433,17 +4441,19 @@ end;
 
 procedure TForm1.Button1Click(Sender: TObject);
 begin
-     RadioButton1.Checked := True;
+     //RadioButton1.Checked := True;
 end;
 
 procedure TForm1.mgenClick(Sender: TObject);
 Var
    foo : String;
 begin
+     thisTXmsg := '';
      if Sender = bCQ Then
      Begin
           thisTXmsg := 'CQ ' + thisTXCall + ' ' + thisTXgrid;
           edTXMsg.Text := thisTXmsg;
+
      end;
      if Sender = bQRZ Then
      Begin
@@ -4487,6 +4497,10 @@ begin
           thisTXmsg := TrimLeft(TrimRight(UpCase(edTXtoCall.Text))) + ' ' + TrimLeft(TrimRight(UpCase(edCall.Text))) + ' 73';
           edTXMsg.Text := thisTXmsg;
      end;
+     if length(thisTXmsg)>1 Then
+     Begin
+          genTX(thisTXmsg, StrToInt(edTXDF.Text), 100);
+     end;
 end;
 
 procedure TForm1.edTXMsgDblClick(Sender: TObject);
@@ -4505,7 +4519,7 @@ begin
      Memo1.Clear;
 end;
 
-procedure TForm1.PageControl1Change(Sender: TObject);
+procedure TForm1.PageControlChange(Sender: TObject);
 begin
 
 end;
@@ -4647,7 +4661,7 @@ begin
      //Chart1.Visible       := False;
      //buttonConfig.Visible      := False;
      //Button4.Visible      := False;
-     //PageControl1.Visible := False;
+     //PageControl.Visible := False;
      groupLogQSO.Visible := True;
 end;
 
@@ -4726,7 +4740,7 @@ begin
      buttonConfig.Visible := False;
      Label3.Visible       := False;
      Button4.Visible      := True;
-     PageControl1.Visible := True;
+     PageControl.Visible := True;
 end;
 
 procedure TForm1.Button4Click(Sender: TObject);
@@ -4736,7 +4750,7 @@ begin
      buttonConfig.Visible := True;
      Label3.Visible       := True;
      Button4.Visible      := False;
-     PageControl1.Visible := False;
+     PageControl.Visible := False;
      updateDB;
 end;
 
@@ -7487,7 +7501,6 @@ begin
      transaction.EndTransaction;
      query.Active:=False;
      query.SQL.Clear;
-
      foo := 'UPDATE config SET ';
      foo := foo + 'prefix=:PREFIX,call=:CALL,suffix=:SUFFIX,grid=:GRID,';
      foo := foo + 'tadc=:TADC,iadc=:IADC,tdac=:TDAC,idac=:IDAC,mono=:MONO,left=:LEFT,';
@@ -7503,9 +7516,7 @@ begin
      foo := foo + 'decimal=:DECI,cwid=:CWID,cwidcall=:CWCALL,disableoptfft=:NOOPTFFT,disablekv=:NOKV,';
      foo := foo + 'lastqrg=:LASTQRG,sbinspace=:SBIN,mbinspace=:MBIN,txlevel=:TXLEVEL,version=:VER,';
      foo := foo + 'multion=:MON,txeqrxdf=:TXEQRX,needcfg=:NEEDCFG WHERE instance=:INSTANCE';
-
      query.SQL.Text := foo;
-
      Query.Params.ParamByName('PREFIX').AsString     := t(edPrefix.Text);
      Query.Params.ParamByName('CALL').AsString       := t(edCall.Text);
      Query.Params.ParamByName('SUFFIX').AsString     := t(edSuffix.Text);
@@ -7588,7 +7599,6 @@ begin
      Query.Params.ParamByName('TXEQRX').AsBoolean := cbTXEqRXDF.Checked;
      Query.Params.ParamByName('NEEDCFG').AsBoolean := False;
      Query.Params.ParamByName('INSTANCE').AsInteger := 1;
-
      transaction.StartTransaction;
      query.ExecSQL;
      transaction.Commit;
@@ -7596,15 +7606,195 @@ begin
      query.Active:=False;
 end;
 
+procedure TForm1.setupDB(const cfgPath : String);
+Var
+   foo : String;
+   i   : Integer;
+Begin
+     showMessage('Building initial config - this may take some time and program will appear non-responsive.');
+     setG;
+     sqlite3.DatabaseName := cfgPath + 'jt65hf_datastore';
+     query.SQL.Clear;
+     query.SQL.Add('CREATE TABLE ngdb(id integer primary key, xlate string(5))');
+     query.ExecSQL;
+     transaction.Commit;
+     // Definitions for ng 15 bit field
+     for i := 0 to length(demodulate.glist)-1 do
+     begin
+          query.SQL.Clear;
+          query.SQL.Add('INSERT INTO ngdb(xlate) VALUES("' + demodulate.glist[i] + '")');
+          query.ExecSQL;
+     end;
+     transaction.Commit;
+     // QRG Definitions
+     query.SQL.Clear;
+     query.SQL.Add('CREATE TABLE qrg(id integer primary key, instance integer, fqrg float)');
+     query.ExecSQL;
+     query.SQL.Clear;
+     query.SQL.Text := 'INSERT INTO qrg(instance, fqrg) VALUES(:INSTANCE,:QRG);';
+     query.Params.ParamByName('INSTANCE').AsInteger :=1;
+     //query.Params.ParamByName('QRG').AsFloat := 1836000.0;
+     //query.ExecSQL;
+     //query.Params.ParamByName('QRG').AsFloat := 3576000.0;
+     //query.ExecSQL;
+     query.Params.ParamByName('QRG').AsFloat := 7039000.0;
+     query.ExecSQL;
+     query.Params.ParamByName('QRG').AsFloat := 7075700.0;
+     query.ExecSQL;
+     query.Params.ParamByName('QRG').AsFloat := 7076000.0;
+     query.ExecSQL;
+     query.Params.ParamByName('QRG').AsFloat := 7076300.0;
+     query.ExecSQL;
+     //query.Params.ParamByName('QRG').AsFloat := 10138000.0;
+     //query.ExecSQL;
+     query.Params.ParamByName('QRG').AsFloat := 14075300.0;
+     query.ExecSQL;
+     query.Params.ParamByName('QRG').AsFloat := 14075600.0;
+     query.ExecSQL;
+     query.Params.ParamByName('QRG').AsFloat := 14076000.0;
+     query.ExecSQL;
+     query.Params.ParamByName('QRG').AsFloat := 14076300.0;
+     query.ExecSQL;
+     query.Params.ParamByName('QRG').AsFloat := 14076600.0;
+     query.ExecSQL;
+     query.Params.ParamByName('QRG').AsFloat := 14076900.0;
+     query.ExecSQL;
+     //query.Params.ParamByName('QRG').AsFloat := 18102000.0;
+     //query.ExecSQL;
+     //query.Params.ParamByName('QRG').AsFloat := 18106000.0;
+     //query.ExecSQL;
+     //query.Params.ParamByName('QRG').AsFloat := 21076000.0;
+     //query.ExecSQL;
+     //query.Params.ParamByName('QRG').AsFloat := 24920000.0;
+     //query.ExecSQL;
+     //query.Params.ParamByName('QRG').AsFloat := 28076000.0;
+     //query.ExecSQL;
+     //query.Params.ParamByName('QRG').AsFloat := 50276000.0;
+     //query.ExecSQL;
+     transaction.Commit;
+     // Macro Definitions
+     query.SQL.Clear;
+     query.SQL.Add('CREATE TABLE macro(id integer primary key, instance integer, text string(13))');
+     query.ExecSQL;
+     query.SQL.Clear;
+     query.SQL.Text := 'INSERT INTO macro(instance, text) VALUES(:INSTANCE,:TEXT);';
+     // Defining the 3 shorthand types.
+     query.Params.ParamByName('INSTANCE').AsInteger :=1;
+     query.Params.ParamByName('TEXT').AsString := 'RRR';
+     query.ExecSQL;
+     query.Params.ParamByName('TEXT').AsString := 'RO';
+     query.ExecSQL;
+     query.Params.ParamByName('TEXT').AsString := '73';
+     query.ExecSQL;
+     transaction.Commit;
+     // Configuration
+     foo :='CREATE TABLE config(';
+     foo := foo + 'instance integer primary key,prefix string(4),call string(6),suffix string(3), grid string(6), ';
+     foo := foo + 'tadc varchar(255), iadc integer, tdac varchar(255), idac integer, mono bool, left bool, ';
+     foo := foo + 'right bool, dgainl integer, dgainla bool, dgainr integer, dgainra bool, useserial bool, ';
+     foo := foo + 'usealt bool, port integer, pttdtrrts bool, pttrts bool, pttdtr bool, dtrnever bool, ';
+     foo := foo + 'dtralways bool, rtsnever bool, rtsalways bool, txwatchdog bool, txwatchdogcount integer, ';
+     foo := foo + 'rigcontrol varchar(12), pttcat bool, txdfcat bool, perioddivide bool, periodcompact bool, ';
+     foo := foo + 'usecolor bool, cqcolor integer, mycallcolor integer, qsocolor integer, wfcmap integer, ';
+     foo := foo + 'wfspeed integer, wfcontrast integer, wfbright integer, wfgain integer, wfsmooth bool, ';
+     foo := foo + 'wfagc bool, userb bool, spotcall varchar(32), spotinfo varchar(255), ';
+     foo := foo + 'usecsv bool, csvpath varchar(255), adifpath varchar(255), logas varchar(5), remembercomments bool, ';
+     foo := foo + 'multioffqso bool, automultion bool, halttxsetsmulti bool, defaultsetsmulti bool, ';
+     foo := foo + 'decimal varchar(10), cwid varchar(10), cwidcall varchar(11), disableoptfft bool, disablekv bool, ';
+     foo := foo + 'lastqrg varchar(10), sbinspace integer, mbinspace integer, txlevel integer, version integer, ';
+     foo := foo + 'multion bool, txeqrxdf bool, needcfg bool)';
+     query.SQL.Clear;
+     query.SQL.Add(foo);
+     query.ExecSQL;
+     transaction.Commit;
+End;
+
+procedure TForm1.setDefaults;
+Begin
+     // Need to set sane defaults.
+     // Tabsheet 1
+     edPrefix.Text := '';
+     edCall.Text := '';
+     edSuffix.Text :='';
+     edGrid.Text := '';
+     comboAudioIn.ItemIndex:=0;
+     cbUseMono.Checked := False;
+     rbUseLeftAudio.Checked := True;
+     dgainL0.Checked := True;
+     dgainR0.Checked := True;
+     cbAttenuateLeft.Checked := False;
+     cbAttenuateRight.Checked := False;
+     // Tabsheet 2
+     rigNone.Checked := True;
+     cbUseSerial.Checked := True;
+     edPort.Text := '-1';
+     cbUseTXWD.Checked := True;
+     edTXWD.Text := '10';
+     // Tabsheet 3
+     cbDivideDecodes.Checked := True;
+     cbCompactDivides.Checked := True;
+     cbUseColor.Checked := True;
+     cbCQColor.ItemIndex := 0;
+     cbMyCallColor.ItemIndex := 0;
+     cbQSOColor.ItemIndex := 0;
+     spColorMap.ItemIndex := 2;
+     tbWFSpeed.Position := 5;
+     tbWFContrast.Position := 0;
+     tbWFBright.Position := 0;
+     tbWFGain.Position := 0;
+     cbSpecSmooth.Checked := True;
+     // Tabsheet 4
+     edRBCall.Text := '';
+     edStationInfo.Text := '';
+     cbSaveToCSV.Checked := False;
+     edCSVPath.Text := cfgDir;
+     // Tabsheet 5
+     edADIFPath.Text := cfgDir;
+     edADIFMode.Text := 'JT65';
+     cbRememberComments.Checked := False;
+     // Tabsheet 6
+     cbMultiOffQSO.Checked := True;
+     cbRestoreMulti.Checked := True;
+     cbHaltTXMultiOn.Checked := False;
+     cbDefaultsMultiOn.Checked := True;
+     useDeciAuto.Checked := True;
+     rbNoCWID.Checked := True;
+     edCWID.Text := '';
+     cbNoOptFFT.Checked := False;
+     cbNoKV.Checked := False;
+     // Set main GUI variable controls
+     tbMultiBin.Position := 1; // 20 Hz
+     tbMultiBinChange(tbMultiBin);
+     inDev  := -1;
+     pttDev := -1;
+     inIcal := 0;
+     edDialQRG.Text := '0';
+     editQRG.Text := '0';
+     tbTXLevel.Position := 16;
+     // Setup decimal characters
+     if useDeciAmerican.Checked then
+     begin
+          dChar := '.';
+          kChar := ',';
+     end;
+     if useDeciEuro.Checked then
+     begin
+          dChar := ',';
+          kChar := '.';
+     end;
+     if useDeciAuto.Checked then
+     begin
+          dChar := DecimalSeparator;
+          kChar := ThousandSeparator;
+          if dChar = '.' Then useDeciAuto.Caption := 'Use System Default (decimal = . thousands = ,)';
+          if dChar = ',' Then useDeciAuto.Caption := 'Use System Default (decimal = , thousands = .)';
+     end;
+     // Update the DB
+     updateDB;
+     buttonConfig.Visible := False;
+     Label3.Visible       := False;
+     Button4.Visible      := True;
+     PageControl.Visible := True;
+end;
+
 end.
-
-
-//FQuery.SQL.Text:='update employee set salary=:newsalary '+
-//        ' where first_name=:firstname and last_name=:lastname and salary=:salary ';
-//      FQuery.Params.ParamByName('newsalary').AsFloat:=StrToFloatDef(NewValue,0);
-//      FQuery.Params.ParamByName('firstname').AsString:=SalaryGrid.Cells[1,aRow];
-//      FQuery.Params.ParamByName('lastname').AsString:=SalaryGrid.Cells[2,aRow];
-//      FQuery.Params.ParamByName('salary').AsFloat:=StrToFloatDef(OldValue,0);
-//      FTran.StartTransaction;
-//      FQuery.ExecSQL;
-//      FTran.Commit;

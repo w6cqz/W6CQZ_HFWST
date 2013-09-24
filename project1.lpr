@@ -4,8 +4,8 @@ program project1;
 {$mode objfpc}{$H+}
 
 uses
-  Interfaces, Forms, tachartlazaruspkg, Unit1, portaudio, adc, globaldata,
-  spectrum, cmaps, fftw_jl, spot, demodulate, waterfall1, valobject;
+  Interfaces, Forms, tachartlazaruspkg, lazcontrols, Unit1, portaudio, adc,
+  globaldata, spectrum, cmaps, fftw_jl, spot, demodulate, waterfall1, valobject;
 
 {$R *.res}
 
