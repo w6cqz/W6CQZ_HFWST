@@ -105,6 +105,7 @@ type
     Label9: TLabel;
     Label92: TLabel;
     Memo1: TMemo;
+    Memo2: TMemo;
     Panel1: TPanel;
     RadioButton1: TRadioButton;
     RadioButton2: TRadioButton;
@@ -113,6 +114,8 @@ type
     RadioButton5: TRadioButton;
     RadioButton6: TRadioButton;
     RadioButton7: TRadioButton;
+    RadioButton8: TRadioButton;
+    RadioButton9: TRadioButton;
     RadioGroup2: TRadioGroup;
     RadioGroup3: TRadioGroup;
     rigRebel: TRadioButton;
@@ -314,6 +317,7 @@ type
     procedure CheckBox2Change(Sender: TObject);
     procedure edTXReportChange(Sender: TObject);
     procedure Memo1DblClick(Sender: TObject);
+    procedure Memo2DblClick(Sender: TObject);
     procedure PageControlChange(Sender: TObject);
     procedure qrgdbAfterPost(DataSet: TDataSet);
     procedure edTXMsgDblClick(Sender: TObject);
@@ -1790,6 +1794,15 @@ Var
 Begin
      if demodulate.dmhaveDecode Then
      Begin
+          Memo2.Clear;
+          for i := 0 to 499 do
+          begin
+               if length(demodulate.dmlastraw[i])>0 Then
+               Begin
+                    memo2.Append(demodulate.dmlastraw[i]);
+                    demodulate.dmlastraw[i] := '';
+               End;
+          end;
           //ListBox2.Items.Insert(0,'Enter display decodes');
           dstrings := TStringList.Create;
           dstrings.Clear;
@@ -4534,6 +4547,11 @@ end;
 procedure TForm1.Memo1DblClick(Sender: TObject);
 begin
      Memo1.Clear;
+end;
+
+procedure TForm1.Memo2DblClick(Sender: TObject);
+begin
+     memo2.Clear;
 end;
 
 procedure TForm1.PageControlChange(Sender: TObject);

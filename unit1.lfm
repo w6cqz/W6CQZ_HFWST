@@ -1,7 +1,7 @@
 object Form1: TForm1
-  Left = 5
+  Left = 10
   Height = 550
-  Top = 7
+  Top = 0
   Width = 960
   Caption = 'JT65-HF 2.0'
   ClientHeight = 550
@@ -1951,7 +1951,7 @@ object Form1: TForm1
   end
   object RadioGroup2: TRadioGroup
     Left = 904
-    Height = 101
+    Height = 149
     Top = 35
     Width = 49
     AutoFill = True
@@ -1964,7 +1964,7 @@ object Form1: TForm1
     ChildSizing.ShrinkVertical = crsScaleChilds
     ChildSizing.Layout = cclLeftToRightThenTopToBottom
     ChildSizing.ControlsPerLine = 1
-    ClientHeight = 83
+    ClientHeight = 131
     ClientWidth = 45
     TabOrder = 15
     object RadioButton1: TRadioButton
@@ -1987,17 +1987,33 @@ object Form1: TForm1
     end
     object RadioButton5: TRadioButton
       Left = 6
-      Height = 23
+      Height = 24
       Top = 54
       Width = 33
       Caption = '9'
       TabOrder = 1
     end
+    object RadioButton8: TRadioButton
+      Left = 6
+      Height = 24
+      Top = 78
+      Width = 33
+      Caption = 'R'
+      TabOrder = 3
+    end
+    object RadioButton9: TRadioButton
+      Left = 6
+      Height = 23
+      Top = 102
+      Width = 33
+      Caption = 'P'
+      TabOrder = 4
+    end
   end
   object RadioGroup3: TRadioGroup
     Left = 904
     Height = 65
-    Top = 136
+    Top = 186
     Width = 49
     AutoFill = True
     Caption = 'BW'
@@ -2473,12 +2489,29 @@ object Form1: TForm1
       TabOrder = 21
     end
   end
+  object Memo2: TMemo
+    Left = 1304
+    Height = 131
+    Top = 712
+    Width = 248
+    Anchors = [akTop, akLeft, akRight, akBottom]
+    BorderSpacing.Right = 5
+    BorderSpacing.Bottom = 5
+    Constraints.MinHeight = 131
+    Constraints.MinWidth = 248
+    Lines.Strings = (
+      'Memo2'
+    )
+    OnDblClick = Memo2DblClick
+    ScrollBars = ssAutoBoth
+    TabOrder = 18
+  end
   object Timer1: TTimer
     Enabled = False
     Interval = 100
     OnTimer = Timer1Timer
-    left = 1368
-    top = 720
+    left = 1688
+    top = 128
   end
   object sqlite3: TSQLite3Connection
     Connected = False
@@ -2488,8 +2521,8 @@ object Form1: TForm1
     HostName = 'localhost'
     LogEvents = []
     Options = []
-    left = 1320
-    top = 720
+    left = 1640
+    top = 128
   end
   object query: TSQLQuery
     PacketRecords = 65536
@@ -2500,14 +2533,14 @@ object Form1: TForm1
       'SELECT * FROM ngdb'
     )
     Params = <>
-    left = 1416
-    top = 720
+    left = 1736
+    top = 128
   end
   object transaction: TSQLTransaction
     Active = False
     Action = caNone
     Database = sqlite3
-    left = 1472
-    top = 720
+    left = 1792
+    top = 128
   end
 end

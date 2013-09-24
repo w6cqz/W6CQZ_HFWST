@@ -73,6 +73,7 @@ type
      dmarun       : Double;
      dmwispath    : String;
      glist        : Array[0..32767] Of String;
+     dmlastraw    : Array[0..499] Of String;
 
 implementation
 
@@ -1322,6 +1323,7 @@ Var
    dmexit        : TDateTime;
    lnc1,lnc2,lng : LongWord;
    wisPath       : String;
+   rawcount      : Integer;
 begin
      dmenter      := Now;
      dmdemodBusy  := True;
@@ -1370,7 +1372,6 @@ begin
           End;
           if dmical = 21 Then
           Begin
-               // Testing fftw patient optimization. DEBUG
                if dmfirstPass Then lical := 21 else lical := 11;
           End;
      End;
@@ -1400,7 +1401,10 @@ begin
           dmdecodes[i].ec   := '';
           dmdecodes[i].dec  := '';
           dmdecodes[i].clr  := true;
+          dmlastraw[i]      := '';
      end;
+
+     rawcount := 0; // Index for saving raw decoder outputs
 
      // Setup temporary spaces
      setLength(glInBuffer,661504);
@@ -1541,6 +1545,7 @@ begin
                if bins[j] > 0 Then
                Begin
                     // This bin needs a decode
+                    dmlastraw[rawcount] := '* Dec CF ' + IntToStr(i) + ' bin ' + IntToStr(j);
                     //ListBox2.Items.Insert(0,'Decode at Center DF = ' + IntToStr(i) + ' for bin = ' + IntToStr(j));
                     // Copy lpfM to f3Buffer
                     for k := 0 to jz2 do glf3Buffer[k] := gllpfM[k];
@@ -1589,8 +1594,10 @@ begin
                     Begin
                          rsdecode(CTypes.pcint(@lsym1[0]),CTypes.pcint(@rsera[0]),CTypes.pcint(@rsecount),CTypes.pcint(@decsyms[0]),CTypes.pcint(@rscount));
                          foo := IntToStr(ljdf) + ',' + IntToStr(lnsnr) + ',' + FormatFloat('0.0',lddtx) + ',' + IntToStr(lnsync);
+                         dmlastraw[rawcount] := dmlastraw[rawcount] + ': ' + foo;
                          if rscount > -1 Then
                          Begin
+                              dmlastraw[rawcount] := dmlastraw[rawcount] + ' BM Passes : ';
                               foo1 := '';
                               sf   := '';
                               ver  := '';
@@ -1601,6 +1608,7 @@ begin
                               Begin
                                    foo := foo + ',B,';
                                    foo := foo + foo1;
+                                   dmlastraw[rawcount] := dmlastraw[rawcount] + foo1;
                                    wc  := WordCount(foo,[',']);
                                    if wc = 6 Then
                                    Begin
@@ -1610,10 +1618,15 @@ begin
                                            // Nada (Any error in adding is ignored as it's likely a dupe reject or bad decode)
                                         end;
                                    end;
+                              end
+                              else
+                              begin
+                                   dmlastraw[rawcount] := dmlastraw[rawcount] + ' Data Invalid ';
                               end;
                          end
                          else
                          begin
+                              dmlastraw[rawcount] := dmlastraw[rawcount] + ' BM Fails : ';
                               // This is where I would try KV
                               // To attempt a KV decode I need to build the binary file, call KV, read the binary file back
                               // and see if I have something to work with.
@@ -1641,9 +1654,11 @@ begin
                               lng  := 0;
                               if evalKV('kvasd.dat',foo2,sf,ver,lnc1,lnc2,lng) Then
                               Begin
+                                   dmlastraw[rawcount] := dmlastraw[rawcount] + ' KV Passes : ';
                                    //ListBox2.Items.Insert(0,'KV Says:  ' + foo2);
                                    foo := foo + ',K,';
                                    foo := foo + foo2;
+                                   dmlastraw[rawcount] := dmlastraw[rawcount] + foo2;
                                    wc  := WordCount(foo,[',']);
                                    if wc = 6 Then
                                    Begin
@@ -1653,9 +1668,15 @@ begin
                                            // Nada (Any error in adding is ignored as it's likely a dupe reject or bad decode)
                                         end;
                                    end;
+                              end
+                              else
+                              begin
+                                   dmlastraw[rawcount] := dmlastraw[rawcount] + ' KV Fails ';
                               end;
+
                          end;
                     end;
+                    inc(rawcount);
                end;
                inc(j);
                i := i + bw;
