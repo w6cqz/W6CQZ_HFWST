@@ -1,4 +1,6 @@
-{ TODO : Any change to message, dial QRG or TXDF must regenerate the TX Message Data
+{ TODO :
+URGENT - It is not returning a decode if there's only 1 decoded signal FIX NOW
+Any change to message, dial QRG or TXDF must regenerate the TX Message Data
 Validate validate validate message input, callsigns, grids, QRGs etc.
 Hook decoder output back to double click actions
 Work out using single entry box for free text and generated message content
@@ -54,19 +56,21 @@ type
   { TForm1 }
 
   TForm1 = class(TForm)
-    bDE: TButton;
-    b73x: TButton;
-    bQRZ: TButton;
-    bCQ: TButton;
-    Button1: TButton;
-    bACQ: TButton;
-    bReport: TButton;
-    bRRR: TButton;
     b73: TButton;
+    b73x: TButton;
+    bACQ: TButton;
+    bCQ: TButton;
+    bDE: TButton;
+    bQRZ: TButton;
+    bReport: TButton;
     bRReport: TButton;
+    bRRR: TButton;
+    Button1: TButton;
     Button10: TButton;
     Button11: TButton;
     Button12: TButton;
+    cbMultiOn: TCheckBox;
+    cbTXEqRXDF: TCheckBox;
     cbUseSerial: TCheckBox;
     cbAttenuateRight: TCheckBox;
     cbSpecSmooth: TCheckBox;
@@ -85,15 +89,36 @@ type
     cbDefaultsMultiOn: TCheckBox;
     cbNoKV: TCheckBox;
     comboMacroList: TComboBox;
+    edRXDF: TEdit;
+    edTXDF: TEdit;
+    edTXMsg: TEdit;
+    edTXReport: TEdit;
+    edTXtoCall: TEdit;
+    Label10: TLabel;
+    Label11: TLabel;
     Label123: TLabel;
+    Label19: TLabel;
+    Label26: TLabel;
+    Label5: TLabel;
+    Label79: TLabel;
+    Label87: TLabel;
+    Label9: TLabel;
+    Label92: TLabel;
     Memo1: TMemo;
+    Panel1: TPanel;
     RadioButton1: TRadioButton;
+    RadioButton2: TRadioButton;
+    RadioButton3: TRadioButton;
     RadioButton4: TRadioButton;
     RadioButton5: TRadioButton;
+    RadioButton6: TRadioButton;
+    RadioButton7: TRadioButton;
     RadioGroup2: TRadioGroup;
+    RadioGroup3: TRadioGroup;
     rigRebel: TRadioButton;
     lastQRG: TEdit;
     tbMultiBin: TTrackBar;
+    tbSingleBin: TTrackBar;
     txLevel: TEdit;
     version: TEdit;
     comboQRGList: TComboBox;
@@ -148,7 +173,6 @@ type
     groupLogQSO: TGroupBox;
     Label90: TLabel;
     Label91: TLabel;
-    Label92: TLabel;
     btnsetQRG: TButton;
     Button2: TButton;
     buttonConfig: TButton;
@@ -159,13 +183,10 @@ type
     Button8: TButton;
     updateConfig: TButton;
     Chart1: TChart;
-    cbTXEqRXDF: TCheckBox;
-    cbMultiOn: TCheckBox;
     edDialQRG: TEdit;
     edGrid: TEdit;
     edADIFMode: TEdit;
     editQRG: TEdit;
-    edRXDF: TEdit;
     edRBCall: TEdit;
     edStationInfo: TEdit;
     edTXWD: TEdit;
@@ -176,8 +197,6 @@ type
     Label73: TLabel;
     Label76: TLabel;
     Label77: TLabel;
-    Label79: TLabel;
-    Label87: TLabel;
     Label88: TLabel;
     Label89: TLabel;
     rbUseLeftAudio: TRadioButton;
@@ -199,10 +218,6 @@ type
     edCSVPath: TDirectoryEdit;
     edADIFPath: TDirectoryEdit;
     edCWID: TEdit;
-    edTXDF: TEdit;
-    edTXtoCall: TEdit;
-    edTXReport: TEdit;
-    edTXMsg: TEdit;
     GroupBox1: TGroupBox;
     GroupBox10: TGroupBox;
     GroupBox11: TGroupBox;
@@ -218,18 +233,15 @@ type
     GroupBox8: TGroupBox;
     GroupBox9: TGroupBox;
     Label1: TLabel;
-    Label10: TLabel;
     Label13: TLabel;
     Label15: TLabel;
     Label16: TLabel;
     Label17: TLabel;
     Label18: TLabel;
-    Label19: TLabel;
     Label2: TLabel;
     Label20: TLabel;
     Label21: TLabel;
     Label23: TLabel;
-    Label26: TLabel;
     Label27: TLabel;
     Label28: TLabel;
     Label29: TLabel;
@@ -248,21 +260,17 @@ type
     Label41: TLabel;
     Label42: TLabel;
     Label43: TLabel;
-    Label5: TLabel;
     Label6: TLabel;
     Label7: TLabel;
     Label8: TLabel;
-    Label9: TLabel;
     ListBox1: TListBox;
     ListBox2: TListBox;
     ListBox3: TListBox;
     PageControl: TPageControl;
     rigNone: TRadioButton;
     rbNoCWID: TRadioButton;
-    RadioButton2: TRadioButton;
     rbCWID73: TRadioButton;
     rbCWIDFree: TRadioButton;
-    tbSingleBin: TTrackBar;
     useDeciAmerican: TRadioButton;
     useDeciEuro: TRadioButton;
     useDeciAuto: TRadioButton;
@@ -271,11 +279,9 @@ type
     dgainL6: TRadioButton;
     dgainL9: TRadioButton;
     dgainR0: TRadioButton;
-    RadioButton3: TRadioButton;
     dgainR3: TRadioButton;
     dgainR6: TRadioButton;
     dgainR9: TRadioButton;
-    RadioGroup1: TRadioGroup;
     TabSheet1: TTabSheet;
     TabSheet2: TTabSheet;
     TabSheet3: TTabSheet;
@@ -306,6 +312,7 @@ type
     procedure buttonConfigClick(Sender: TObject);
     procedure Button4Click(Sender: TObject);
     procedure CheckBox2Change(Sender: TObject);
+    procedure edTXReportChange(Sender: TObject);
     procedure Memo1DblClick(Sender: TObject);
     procedure PageControlChange(Sender: TObject);
     procedure qrgdbAfterPost(DataSet: TDataSet);
@@ -1355,8 +1362,8 @@ Begin
           if not IsZero(srun) Then Label84.Caption := FormatFloat('0.000',(srun/1000.0));
           if not isZero(demodulate.dmarun) Then Label86.Caption := FormatFloat('0.000',((demodulate.dmarun/demodulate.dmrcount)/1000.0));
      end;
-
-     If RadioButton2.Checked or RadioButton3.Checked Then Button1.Visible := True else Button1.Visible := False;
+     { TODO : Undo this next comment line }
+     //If RadioButton2.Checked or RadioButton3.Checked Then Button1.Visible := True else Button1.Visible := False;
 
      If (Length(edPrefix.Text)>0) And (Length(edSuffix.Text)=0) And ((Length(edCall.Text)>2) And (Length(edCall.Text)<7)) And ((Length(getLocalGrid)=4) Or (Length(getLocalGrid)=6)) Then
      Begin
@@ -4517,6 +4524,11 @@ procedure TForm1.CheckBox2Change(Sender: TObject);
 begin
      {TODO Fix}
      //If cbUseSerial.Checked Then Label12.Caption := 'PTT is enabled' else Label12.Caption := 'PTT is disabled';
+end;
+
+procedure TForm1.edTXReportChange(Sender: TObject);
+begin
+
 end;
 
 procedure TForm1.Memo1DblClick(Sender: TObject);
