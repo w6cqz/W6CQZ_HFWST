@@ -1,6 +1,10 @@
-
-{ TODO : Any change to message, dial QRG or TXDF must regenerate the TX Message Data }
-
+{ TODO : Any change to message, dial QRG or TXDF must regenerate the TX Message Data
+Validate validate validate message input, callsigns, grids, QRGs etc.
+Hook decoder output back to double click actions
+Work out using single entry box for free text and generated message content
+Add serial communications routines for next phase
+Tweak UI for small screen size ability
+}
 // (c) 2013 CQZ Electronics
 unit Unit1;
 
@@ -11,9 +15,9 @@ interface
 uses
   Classes, SysUtils, FileUtil, Forms, Controls, Graphics, Dialogs, StdCtrls,
   ExtCtrls, Math, StrUtils, CTypes, Windows, lconvencoding, ComCtrls, EditBtn,
-  DbCtrls, TAGraph, TASeries, TAChartUtils, DividerBevel, Types, Process,
-  portaudio, globalData, adc, spectrum, waterfall1, spot, demodulate, db,
-  BufDataset, sqlite3conn, sqldb, valobject;
+  DbCtrls, TAGraph, TASeries, TAChartUtils, Types, Process, portaudio,
+  globalData, adc, spectrum, waterfall1, spot, demodulate, db, BufDataset,
+  sqlite3conn, sqldb, valobject;
 
 Const
   JT_DLL = 'JT65v5.dll';
@@ -53,8 +57,6 @@ type
     bDE: TButton;
     b73x: TButton;
     bQRZ: TButton;
-    Bevel1: TBevel;
-    Bevel3: TBevel;
     bCQ: TButton;
     Button1: TButton;
     bACQ: TButton;
@@ -85,6 +87,10 @@ type
     comboMacroList: TComboBox;
     Label123: TLabel;
     Memo1: TMemo;
+    RadioButton1: TRadioButton;
+    RadioButton4: TRadioButton;
+    RadioButton5: TRadioButton;
+    RadioGroup2: TRadioGroup;
     rigRebel: TRadioButton;
     lastQRG: TEdit;
     tbMultiBin: TTrackBar;
@@ -213,7 +219,6 @@ type
     GroupBox9: TGroupBox;
     Label1: TLabel;
     Label10: TLabel;
-    Label11: TLabel;
     Label13: TLabel;
     Label15: TLabel;
     Label16: TLabel;
@@ -287,7 +292,7 @@ type
     tbWFBright: TTrackBar;
     tbWFGain: TTrackBar;
     Waterfall1: TWaterfallControl1;
-    xDBText1: TDBText;
+    xDBText1: TDBText; // UGH - this isn't here but if removed breaks a dep - MUST FIND - DEBUG
     procedure audioChange(Sender: TObject);
     procedure Button12Click(Sender: TObject);
     procedure Button13Click(Sender: TObject);
@@ -936,8 +941,8 @@ Begin
      Waterfall1 := TWaterfallControl1.Create(Self);
      Waterfall1.Height := 180;
      Waterfall1.Width  := 747;
-     Waterfall1.Top    := 66;
-     Waterfall1.Left   := 244;
+     Waterfall1.Top    := 68;
+     Waterfall1.Left   := 152;
      Waterfall1.Parent := Self;
      //Waterfall1.OnMouseDown := waterfallMouseDown;
      Waterfall1.DoubleBuffered := True;
@@ -1308,11 +1313,11 @@ Begin
                End;
           end;
           if s2[Length(s2)] = dChar then s2 := s2[1..Length(s2)-1];
-          Label27.Caption := 'QRG:  ' + s2 + ' KHz';
+          Label27.Caption := s2 + ' KHz';
      end
      else
      begin
-          Label27.Caption := 'QRG:  ' + edDialQRG.Text;
+          Label27.Caption := edDialQRG.Text;
      end;
 
      Label90.Caption := 'CAT QRG:  ' + IntToStr(catQRG);
@@ -1860,7 +1865,7 @@ Begin
                           Begin
                                if demodulate.dmdecodes[i].sf = 'S' Then
                                Begin
-                                    ListBox1.Items.Insert(0, demodulate.dmdecodes[i].utc + ' ' + demodulate.dmdecodes[i].sync + ' ' + demodulate.dmdecodes[i].db + ' ' + afoo + ' ' + demodulate.dmdecodes[i].df + '  ' + demodulate.dmdecodes[i].ec + '  ' + PadRight(demodulate.dmdecodes[i].dec,28) + 'C' + demodulate.dmdecodes[i].ver);
+                                    ListBox1.Items.Insert(0, demodulate.dmdecodes[i].utc + ' ' + demodulate.dmdecodes[i].sync + ' ' + demodulate.dmdecodes[i].db + ' ' + afoo + ' ' + demodulate.dmdecodes[i].df + '  ' + demodulate.dmdecodes[i].ec + '  ' + demodulate.dmdecodes[i].dec);
                                     tvalid := False;
                                     breakOutFields(demodulate.dmdecodes[i].utc + ' ' + demodulate.dmdecodes[i].sync + ' ' + demodulate.dmdecodes[i].db + ' ' + afoo + ' ' + demodulate.dmdecodes[i].df + '  ' + demodulate.dmdecodes[i].ec + '  ' + demodulate.dmdecodes[i].dec, tvalid);
                                     if not tvalid then inc(pfails);
@@ -1878,7 +1883,7 @@ Begin
                                end
                                else
                                begin
-                                    ListBox1.Items.Insert(0, demodulate.dmdecodes[i].utc + ' ' + demodulate.dmdecodes[i].sync + ' ' + demodulate.dmdecodes[i].db + ' ' + afoo + ' ' + demodulate.dmdecodes[i].df + '  ' + demodulate.dmdecodes[i].ec + '  ' + PadRight(demodulate.dmdecodes[i].dec,28) + 'U' + demodulate.dmdecodes[i].ver);
+                                    ListBox1.Items.Insert(0, demodulate.dmdecodes[i].utc + ' ' + demodulate.dmdecodes[i].sync + ' ' + demodulate.dmdecodes[i].db + ' ' + afoo + ' ' + demodulate.dmdecodes[i].df + '  ' + demodulate.dmdecodes[i].ec + '  ' + demodulate.dmdecodes[i].dec);
                                end;
 
                                if (rbOn.Checked) And (sopQRG = eopQRG) And (StrToInt(edDialQRG.Text) > 0) Then
