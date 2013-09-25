@@ -1,20 +1,25 @@
 { TODO :
+Validate validate validate message input, callsigns, grids, QRGs etc.
 
-URGENT - It is not returning a decode if there's only 1 decoded signal FIX NOW
-Debugging shows (^^^) this is not in decoder - though sometimes decoder returns
-a hit for a decode with no data, so, will need to check that once I fix the
-display issue.
-
-Gets stranger - display decodes enters a loop as well (fixed)
+Hook decoder output back to double click actions
 
 Fix reversed prefix/suffix in decoder
 
 Any change to message, dial QRG or TXDF must regenerate the TX Message Data
-Validate validate validate message input, callsigns, grids, QRGs etc.
-Hook decoder output back to double click actions
+
 Work out using single entry box for free text and generated message content
+
 Add serial communications routines for next phase
-Tweak UI for small screen size ability
+
+Add logging code
+
+Monitor situation with decodes sometimes being dropped or decoder indicating
+a hit with no data returned... the main problem is corrected and it's likely
+that will fix the other as well.
+
+Tweak UI for small screen size ability [mostly complete - just needs minor
+adjustments and font size testing]
+
 }
 // (c) 2013 CQZ Electronics
 unit Unit1;
@@ -74,10 +79,11 @@ type
     bReport: TButton;
     bRReport: TButton;
     bRRR: TButton;
+    Button1: TButton;
     txControl: TButton;
     Button10: TButton;
     Button11: TButton;
-    Button12: TButton;
+    LogQSO: TButton;
     cbMultiOn: TCheckBox;
     cbTXEqRXDF: TCheckBox;
     cbUseSerial: TCheckBox;
@@ -312,19 +318,19 @@ type
     Waterfall1: TWaterfallControl1;
     xDBText1: TDBText; // UGH - this isn't here but if removed breaks a dep - MUST FIND - DEBUG
     procedure audioChange(Sender: TObject);
-    procedure Button12Click(Sender: TObject);
     procedure Button13Click(Sender: TObject);
     procedure Button14Click(Sender: TObject);
+    procedure Button1Click(Sender: TObject);
     procedure cbSpecSmoothChange(Sender: TObject);
     procedure comboQRGListChange(Sender: TObject);
     procedure comboMacroListChange(Sender: TObject);
-    procedure doLogQSOClick(Sender: TObject);
     procedure btnsetQRGClick(Sender: TObject);
     procedure Button2Click(Sender: TObject);
     procedure buttonConfigClick(Sender: TObject);
     procedure Button4Click(Sender: TObject);
     procedure CheckBox2Change(Sender: TObject);
     procedure edTXReportChange(Sender: TObject);
+    procedure LogQSOClick(Sender: TObject);
     procedure Memo1DblClick(Sender: TObject);
     procedure Memo2DblClick(Sender: TObject);
     procedure PageControlChange(Sender: TObject);
@@ -4591,6 +4597,30 @@ begin
 
 end;
 
+procedure TForm1.LogQSOClick(Sender: TObject);
+begin
+     { TODO : Actually log things :) }
+     Waterfall1.Visible   := True;
+     Chart1.Visible       := True;
+     buttonConfig.Visible := True;
+     groupLogQSO.Visible  := False;
+     // Do logging
+
+     // Clear log record for next time
+     logEntry.timeOn     := '';
+     logEntry.timeOff    := '';
+     logEntry.aCall      := '';
+     logEntry.sigtx      := '';
+     logEntry.sigrx      := '';
+     logEntry.qrg        := '';
+     logEntry.plvl       := '';
+     logEntry.comment    := '';
+     logEntry.haveMySig  := False;
+     logEntry.allNew     := True;
+     logEntry.inProgress := False;
+     newLog              := True;
+end;
+
 procedure TForm1.Memo1DblClick(Sender: TObject);
 begin
      Memo1.Clear;
@@ -4737,40 +4767,6 @@ begin
      edTXMsg.Text := comboMacroList.Items.Strings[comboMacroList.ItemIndex];
 end;
 
-procedure TForm1.doLogQSOClick(Sender: TObject);
-begin
-     //Waterfall1.Visible   := False;
-     //Chart1.Visible       := False;
-     //buttonConfig.Visible      := False;
-     //Button4.Visible      := False;
-     //PageControl.Visible := False;
-     groupLogQSO.Visible := True;
-end;
-
-procedure TForm1.Button12Click(Sender: TObject);
-begin
-     //Waterfall1.Visible  := True;
-     //Chart1.Visible      := True;
-     //buttonConfig.Visible     := True;
-     //groupLogQSO.Visible := False;
-     // Do logging
-
-     // Clear log record for next time
-     logEntry.timeOn     := '';
-     logEntry.timeOff    := '';
-     logEntry.aCall      := '';
-     logEntry.sigtx      := '';
-     logEntry.sigrx      := '';
-     logEntry.qrg        := '';
-     logEntry.plvl       := '';
-     logEntry.comment    := '';
-     logEntry.haveMySig  := False;
-     logEntry.allNew     := True;
-     logEntry.inProgress := False;
-
-     newLog              := True;
-end;
-
 procedure TForm1.Button13Click(Sender: TObject);
 begin
      GroupBox16.Visible := False;
@@ -4779,6 +4775,15 @@ end;
 procedure TForm1.Button14Click(Sender: TObject);
 begin
      GroupBox16.Visible := True;
+end;
+
+procedure TForm1.Button1Click(Sender: TObject);
+begin
+     Waterfall1.Visible   := False;
+     Chart1.Visible       := False;
+     buttonConfig.Visible := False;
+     PageControl.Visible  := False;
+     groupLogQSO.visible  := True;
 end;
 
 procedure TForm1.cbSpecSmoothChange(Sender: TObject);

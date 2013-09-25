@@ -42,27 +42,28 @@ object Form1: TForm1
     TabOrder = 10
   end
   object groupLogQSO: TGroupBox
-    Left = 1000
-    Height = 244
-    Top = 464
+    Left = 152
+    Height = 212
+    Top = 35
     Width = 296
     Caption = 'Log QSO'
-    ClientHeight = 226
+    ClientHeight = 194
     ClientWidth = 292
     TabOrder = 12
-    object Button12: TButton
+    Visible = False
+    object LogQSO: TButton
       Left = 235
       Height = 25
-      Top = 194
+      Top = 168
       Width = 51
       Caption = 'Log'
-      OnClick = Button12Click
+      OnClick = LogQSOClick
       TabOrder = 0
     end
     object logCallsign: TEdit
       Left = 6
       Height = 24
-      Top = 23
+      Top = 19
       Width = 80
       CharCase = ecUppercase
       TabOrder = 1
@@ -70,7 +71,7 @@ object Form1: TForm1
     object logSigReport: TEdit
       Left = 6
       Height = 24
-      Top = 116
+      Top = 100
       Width = 57
       MaxLength = 3
       TabOrder = 2
@@ -78,14 +79,14 @@ object Form1: TForm1
     object logQRG: TEdit
       Left = 102
       Height = 24
-      Top = 23
+      Top = 19
       Width = 86
       TabOrder = 3
     end
     object logMySig: TEdit
       Left = 78
       Height = 24
-      Top = 116
+      Top = 100
       Width = 59
       MaxLength = 3
       TabOrder = 4
@@ -93,14 +94,14 @@ object Form1: TForm1
     object logTimeOn: TEdit
       Left = 6
       Height = 24
-      Top = 69
-      Width = 118
+      Top = 60
+      Width = 96
       TabOrder = 5
     end
     object Label99: TLabel
       Left = 6
       Height = 17
-      Top = 48
+      Top = 44
       Width = 81
       Caption = 'Date/Time On'
       ParentColor = False
@@ -124,7 +125,7 @@ object Form1: TForm1
     object Label102: TLabel
       Left = 6
       Height = 17
-      Top = 96
+      Top = 84
       Width = 57
       Caption = 'Report TX'
       ParentColor = False
@@ -132,22 +133,22 @@ object Form1: TForm1
     object Label103: TLabel
       Left = 78
       Height = 17
-      Top = 96
+      Top = 84
       Width = 59
       Caption = 'Report RX'
       ParentColor = False
     end
     object logTimeOff: TEdit
-      Left = 134
+      Left = 118
       Height = 24
-      Top = 68
-      Width = 118
+      Top = 60
+      Width = 96
       TabOrder = 6
     end
     object Label104: TLabel
-      Left = 134
+      Left = 119
       Height = 17
-      Top = 48
+      Top = 44
       Width = 80
       Caption = 'Date/Time Off'
       ParentColor = False
@@ -155,29 +156,29 @@ object Form1: TForm1
     object logComments: TEdit
       Left = 6
       Height = 24
-      Top = 164
+      Top = 140
       Width = 280
       TabOrder = 7
     end
     object Label105: TLabel
       Left = 6
       Height = 17
-      Top = 144
+      Top = 124
       Width = 64
       Caption = 'Comments'
       ParentColor = False
     end
     object logPower: TEdit
-      Left = 156
+      Left = 219
       Height = 24
-      Top = 116
+      Top = 19
       Width = 45
       TabOrder = 8
     end
     object Label106: TLabel
-      Left = 156
+      Left = 219
       Height = 17
-      Top = 96
+      Top = 3
       Width = 37
       Caption = 'Power'
       ParentColor = False
@@ -195,10 +196,11 @@ object Form1: TForm1
     ParentFont = False
   end
   object ListBox2: TListBox
-    Left = 1304
-    Height = 346
-    Top = 6
-    Width = 248
+    Left = 1000
+    Height = 71
+    Top = 472
+    Width = 296
+    Anchors = [akTop, akLeft, akBottom]
     Font.Height = -11
     Font.Name = 'Arial'
     ItemHeight = 0
@@ -1942,8 +1944,8 @@ object Form1: TForm1
   end
   object Memo1: TMemo
     Left = 1304
-    Height = 346
-    Top = 362
+    Height = 522
+    Top = 6
     Width = 248
     Anchors = [akTop, akLeft, akRight]
     Constraints.MinWidth = 248
@@ -2228,7 +2230,7 @@ object Form1: TForm1
     object Label5: TLabel
       Left = 176
       Height = 17
-      Top = 184
+      Top = 186
       Width = 89
       Anchors = [akLeft]
       Caption = 'TX to Callsign'
@@ -2241,7 +2243,7 @@ object Form1: TForm1
     object Label9: TLabel
       Left = 310
       Height = 17
-      Top = 184
+      Top = 186
       Width = 43
       Anchors = [akLeft]
       Caption = 'Report'
@@ -2519,11 +2521,21 @@ object Form1: TForm1
       ParentFont = False
       TabOrder = 21
     end
+    object Button1: TButton
+      Left = 96
+      Height = 24
+      Top = 162
+      Width = 67
+      Anchors = [akLeft]
+      Caption = 'Log QSO'
+      OnClick = Button1Click
+      TabOrder = 22
+    end
   end
   object Memo2: TMemo
     Left = 1304
     Height = 131
-    Top = 712
+    Top = 536
     Width = 248
     Anchors = [akTop, akLeft, akRight, akBottom]
     BorderSpacing.Right = 5
