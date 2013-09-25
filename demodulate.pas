@@ -1,3 +1,4 @@
+{ TODO : LPF Samples since I changed libJT65 - not sure if it's necessary or not, but, since it will be relatively low impact for CPU - might as well.  Low priority for now. }
 // (c) 2013 CQZ Electronics
 unit demodulate;
 

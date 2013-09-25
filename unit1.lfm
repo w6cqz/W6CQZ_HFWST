@@ -1590,6 +1590,7 @@ object Form1: TForm1
     Font.Name = 'Courier New'
     Font.Style = [fsBold]
     ItemHeight = 26
+    OnDblClick = ListBox1DblClick
     OnDrawItem = ListBox1DrawItem
     ParentShowHint = False
     ParentFont = False

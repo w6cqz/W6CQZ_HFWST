@@ -1,7 +1,7 @@
 { TODO :
-Validate validate validate message input, callsigns, grids, QRGs etc.
+Hook decoder output back to double click actions - In progress, needs ***much*** testing.
 
-Hook decoder output back to double click actions
+Validate validate validate message input, callsigns, grids, QRGs etc.
 
 Fix reversed prefix/suffix in decoder
 
@@ -12,6 +12,8 @@ Work out using single entry box for free text and generated message content
 Add serial communications routines for next phase
 
 Add logging code
+
+Look into issue with loss of net leading to program hang on exit if RB on
 
 Monitor situation with decodes sometimes being dropped or decoder indicating
 a hit with no data returned... the main problem is corrected and it's likely
@@ -404,6 +406,7 @@ type
     procedure updateDB;
     procedure setDefaults;
     procedure setupDB(const cfgPath : String);
+    procedure mgen(const msg : String; var isValid : Boolean; var isBreakIn : Boolean; var level : Integer; var response : String; var connectTo : String; var fullCall : String; var hisGrid : String);
 
     function t(const s : String) : String;
 
@@ -1119,7 +1122,7 @@ Begin
                end;
 
                // Setup input device
-               // Set parameters before saveCall to start
+               // Set parameters before call to start
                // Input
                if cbUseMono.Checked Then
                Begin
@@ -1273,6 +1276,7 @@ Begin
 
      if forceCAT and catFree Then
      Begin
+          { TODO : Hook CAT selection up again }
           //catMethod := xdbRigController.Text;
           catMethod := 'None';
           doCAT     := True;
@@ -1865,13 +1869,13 @@ Begin
                     k := Abs(StrToInt(demodulate.dmdecodes[i].db));
                     if k > 30 Then
                     Begin
-                         ListBox2.Items.Insert(0,'Skipped:  ' + demodulate.dmdecodes[i].db + ',' + demodulate.dmdecodes[i].dec);
+                         Memo1.Append('Skipped:  ' + demodulate.dmdecodes[i].db + ',' + demodulate.dmdecodes[i].dec);
                          demodulate.dmdecodes[i].clr := True;
                     end;
                     k := Abs(StrToInt(demodulate.dmdecodes[i].sync));
                     if k < 1 Then
                     Begin
-                         ListBox2.Items.Insert(0,'Skipped:  ' + demodulate.dmdecodes[i].db + ',' + demodulate.dmdecodes[i].dec);
+                         Memo1.Append('Skipped:  ' + demodulate.dmdecodes[i].db + ',' + demodulate.dmdecodes[i].dec);
                          demodulate.dmdecodes[i].clr := True;
                     end;
                end;
@@ -1917,13 +1921,12 @@ Begin
                                     if not tvalid then Label119.Caption := IntToStr(pfails);
                                     if not tvalid then
                                     Begin
-                                         ListBox2.Items.Insert(0,'Failed to build - input:  ' + demodulate.dmdecodes[i].utc + ' ' + demodulate.dmdecodes[i].sync + ' ' + demodulate.dmdecodes[i].db + ' ' + afoo + ' ' + demodulate.dmdecodes[i].df + '  ' + demodulate.dmdecodes[i].ec + '  ' + demodulate.dmdecodes[i].dec);
-                                         //halt;
+                                         Memo1.Append('Failed to build - input:  ' + demodulate.dmdecodes[i].utc + ' ' + demodulate.dmdecodes[i].sync + ' ' + demodulate.dmdecodes[i].db + ' ' + afoo + ' ' + demodulate.dmdecodes[i].df + '  ' + demodulate.dmdecodes[i].ec + '  ' + demodulate.dmdecodes[i].dec);
                                     end;
                                     if demodulate.dmdecodes[i].ver = '2' Then
                                     Begin
                                          // Diag dump the V2 string so I can track who's using V2! :)
-                                         ListBox2.Items.Insert(0,'V2 Frame:  ' + demodulate.dmdecodes[i].utc + ' ' + demodulate.dmdecodes[i].sync + ' ' + demodulate.dmdecodes[i].db + ' ' + afoo + ' ' + demodulate.dmdecodes[i].df + '  ' + demodulate.dmdecodes[i].ec + '  ' + demodulate.dmdecodes[i].dec);
+                                         Memo1.Append('V2 Frame:  ' + demodulate.dmdecodes[i].utc + ' ' + demodulate.dmdecodes[i].sync + ' ' + demodulate.dmdecodes[i].db + ' ' + afoo + ' ' + demodulate.dmdecodes[i].df + '  ' + demodulate.dmdecodes[i].ec + '  ' + demodulate.dmdecodes[i].dec);
                                     end;
                                end
                                else
@@ -1980,7 +1983,7 @@ Begin
           end;
           k := 0;
           for i := 0 to 499 do if not demodulate.dmdecodes[i].clr Then inc(k);
-          If k>0 Then ListBox2.Items.Insert(0,'Items not cleared at end of display pass - this is wrong.');
+          If k>0 Then Memo1.Append('Items not cleared at end of display pass - this is wrong.');
           //ListBox2.Items.Insert(0,'Exit display decodes');
           if demodulate.dmdecodecount <> dcount Then
           Begin
@@ -2322,7 +2325,7 @@ Begin
      Begin
           foo := PadRight(foo,4);
           // String formatted for case and length -- convert.
-          // savePrefix support using rule of 36 * 37 * 37 * 37
+          // Prefix support using rule of 36 * 37 * 37 * 37
 
           for i := 1 to 4 do cp[i] := 0;
           ct := 0;
@@ -2346,20 +2349,20 @@ Begin
           ct := 37 * ct + cp[3];
           ct := 37 * ct + cp[4];
 
-          // CQ  (No savePrefix/saveSuffix) 262,177,561
-          // QRZ (No savePrefix/saveSuffix) 262,177,562
+          // CQ  (No Prefix/Suffix) 262,177,561
+          // QRZ (No Prefix/Suffix) 262,177,562
           //
-          // CQ ### (No savePrefix/saveSuffix) 262,177,563 ... 262,178,562
+          // CQ ### (No Prefix/Suffix) 262,177,563 ... 262,178,562
           //
-          // CQ  with savePrefix 262,178,563 ... 264,002,071
-          // QRZ with savePrefix 264,002,072 ... 265,825,580
-          // DE  with savePrefix 265,825,581 ... 267,649,089
+          // CQ  with Prefix 262,178,563 ... 264,002,071
+          // QRZ with Prefix 264,002,072 ... 265,825,580
+          // DE  with Prefix 265,825,581 ... 267,649,089
           //
-          // CQ  with saveSuffix 267,649,090 ... 267,698,374
-          // QRZ with saveSuffix 267,698,375 ... 267,747,659
-          // DE  with saveSuffix 267,747,660 ... 267,796,944
+          // CQ  with Suffix 267,649,090 ... 267,698,374
+          // QRZ with Suffix 267,698,375 ... 267,747,659
+          // DE  with Suffix 267,747,660 ... 267,796,944
           //
-          // DE (No savePrefix/saveSuffix) 267,796,945
+          // DE (No Prefix/Suffix) 267,796,945
 
           if form = 'CQ'  Then result := 262178563 + ct;
           if form = 'QRZ' Then result := 264002072 + ct;
@@ -2388,7 +2391,7 @@ Begin
      else
      Begin
           foo := PadRight(foo,3);
-          // Have saveSuffix
+          // Have Suffix
           // Support using rule of 36 * 37 * 37
           for i := 1 to 3 do cs[i] := 0;
 
@@ -2413,20 +2416,20 @@ Begin
           ct := 37 * ct + cs[2];
           ct := 37 * ct + cs[3];
 
-          // CQ  (No savePrefix/saveSuffix) 262,177,561
-          // QRZ (No savePrefix/saveSuffix) 262,177,562
+          // CQ  (No Prefix/Suffix) 262,177,561
+          // QRZ (No Prefix/Suffix) 262,177,562
           //
-          // CQ ### (No savePrefix/saveSuffix) 262,177,563 ... 262,178,562
+          // CQ ### (No Prefix/Suffix) 262,177,563 ... 262,178,562
           //
-          // CQ  with savePrefix 262,178,563 ... 264,002,071
-          // QRZ with savePrefix 264,002,072 ... 265,825,580
-          // DE  with savePrefix 265,825,581 ... 267,649,089
+          // CQ  with Prefix 262,178,563 ... 264,002,071
+          // QRZ with Prefix 264,002,072 ... 265,825,580
+          // DE  with Prefix 265,825,581 ... 267,649,089
           //
-          // CQ  with saveSuffix 267,649,090 ... 267,698,374
-          // QRZ with saveSuffix 267,698,375 ... 267,747,659
-          // DE  with saveSuffix 267,747,660 ... 267,796,944
+          // CQ  with Suffix 267,649,090 ... 267,698,374
+          // QRZ with Suffix 267,698,375 ... 267,747,659
+          // DE  with Suffix 267,747,660 ... 267,796,944
           //
-          // DE (No savePrefix/saveSuffix) 267,796,945
+          // DE (No Prefix/Suffix) 267,796,945
 
           if form = 'CQ'  Then result := 267649090 + ct;
           if form = 'QRZ' Then result := 267698375 + ct;
@@ -2525,6 +2528,157 @@ Begin
      end;
 end;
 
+{ TODO : breakOutFields can -eventually- go away - it's here for testing - mgen is the real thing. }
+
+procedure TForm1.breakOutFields(const msg : String; var mvalid : Boolean);
+Var
+  foo       : String;
+  exchange  : exch;
+  i,wc      : Integer;
+  isiglevel : Integer;
+  gonogo    : Boolean;
+  toparse   : String;
+  isValid   : Boolean;
+  isBreakIn : Boolean;
+  level     : Integer;
+  response  : String;
+  connectTo : String;
+  fullCall  : String;
+  hisGrid   : String;
+Begin
+     mvalid   := False;
+     gonogo   := False;
+     isValid  := False;
+     // Get the decode to parse
+     foo := msg;
+     foo := DelSpace1(foo);
+     foo := StringReplace(foo,' ',',',[rfReplaceAll,rfIgnoreCase]);
+
+     // Now with a structured message I'll have...
+     // UTC, Sync, dB, DT, DF, EC, NC1, Call FROM, MSG
+     // Where NC1 is one of [CQ, CQ ###, QRZ, DE, CALLSIGN]
+     // Where MSG is one of [Grid,-##,R-##,RRR,RO,73]
+
+     // First check is for first two characters to be numeric AND wordcount
+     // = 9 or 10.  10 Handles case of a CQ ### format (not seen on HF, but...)
+     // If not wc = 9 or 10 then it's not something to parse here.
+     i := 0;
+     wc := wordcount(foo,[',']);
+     if (wc=8) or (wc=9) or (wc=10) Then
+     Begin
+          if wc=8 Then
+          Begin
+               // Parse string into parts (8 word exchange)
+               exchange.utc  := TrimLeft(TrimRight(UpCase(ExtractWord(1,foo,[',']))));
+               exchange.sync := TrimLeft(TrimRight(UpCase(ExtractWord(2,foo,[',']))));
+               exchange.db   := TrimLeft(TrimRight(UpCase(ExtractWord(3,foo,[',']))));
+               exchange.dt   := TrimLeft(TrimRight(UpCase(ExtractWord(4,foo,[',']))));
+               exchange.df   := TrimLeft(TrimRight(UpCase(ExtractWord(5,foo,[',']))));
+               exchange.ec   := TrimLeft(TrimRight(UpCase(ExtractWord(6,foo,[',']))));
+               exchange.nc1  := TrimLeft(TrimRight(UpCase(ExtractWord(7,foo,[',']))));
+               exchange.nc1s := '';
+               exchange.nc2  := TrimLeft(TrimRight(UpCase(ExtractWord(8,foo,[',']))));
+               exchange.ng   := '';
+          end;
+          if wc=9 Then
+          Begin
+               // Parse string into parts (9 word exchange)
+               exchange.utc  := TrimLeft(TrimRight(UpCase(ExtractWord(1,foo,[',']))));
+               exchange.sync := TrimLeft(TrimRight(UpCase(ExtractWord(2,foo,[',']))));
+               exchange.db   := TrimLeft(TrimRight(UpCase(ExtractWord(3,foo,[',']))));
+               exchange.dt   := TrimLeft(TrimRight(UpCase(ExtractWord(4,foo,[',']))));
+               exchange.df   := TrimLeft(TrimRight(UpCase(ExtractWord(5,foo,[',']))));
+               exchange.ec   := TrimLeft(TrimRight(UpCase(ExtractWord(6,foo,[',']))));
+               exchange.nc1  := TrimLeft(TrimRight(UpCase(ExtractWord(7,foo,[',']))));
+               exchange.nc1s := '';
+               exchange.nc2  := TrimLeft(TrimRight(UpCase(ExtractWord(8,foo,[',']))));
+               exchange.ng   := TrimLeft(TrimRight(UpCase(ExtractWord(9,foo,[',']))));
+          End;
+          if wc=10 Then
+          Begin
+               // Parse string into parts (10 word exchange)
+               exchange.utc  := TrimLeft(TrimRight(UpCase(ExtractWord(1,foo,[',']))));
+               exchange.sync := TrimLeft(TrimRight(UpCase(ExtractWord(2,foo,[',']))));
+               exchange.db   := TrimLeft(TrimRight(UpCase(ExtractWord(3,foo,[',']))));
+               exchange.dt   := TrimLeft(TrimRight(UpCase(ExtractWord(4,foo,[',']))));
+               exchange.df   := TrimLeft(TrimRight(UpCase(ExtractWord(5,foo,[',']))));
+               exchange.ec   := TrimLeft(TrimRight(UpCase(ExtractWord(6,foo,[',']))));
+               exchange.nc1  := TrimLeft(TrimRight(UpCase(ExtractWord(7,foo,[',']))));
+               exchange.nc1s := TrimLeft(TrimRight(UpCase(ExtractWord(8,foo,[',']))));
+               exchange.nc2  := TrimLeft(TrimRight(UpCase(ExtractWord(9,foo,[',']))));
+               exchange.ng   := TrimLeft(TrimRight(UpCase(ExtractWord(10,foo,[',']))));
+          End;
+
+          i := 0;
+          if TryStrToInt(exchange.utc[1..2],i) Then gonogo := True else gonogo := False;
+
+          if gonogo Then
+          Begin
+               isiglevel := -30;
+               if not tryStrToInt(exchange.db,isiglevel) Then
+               Begin
+                    gonogo := False;
+               End
+               Else
+               Begin
+                    gonogo := True;
+                    if isiglevel > -1 Then
+                    Begin
+                         isiglevel := -1;
+                    End;
+                    if isiglevel < -30 Then
+                    Begin
+                         isiglevel := -30;
+                    End;
+               End;
+          End;
+
+          If gonogo then
+          begin
+               gonogo := False;
+               i := -9999;
+               if not TryStrToInt(exchange.df,i) Then
+               begin
+                    gonogo := False;
+               end
+               else
+               begin
+                    if (i<-1100) or (i>1100) Then gonogo := False else gonogo := True;
+               end;
+          end;
+
+          if gonogo Then
+          Begin
+               gonogo := False;
+               // Have signal report and DF
+               // Now can Call the message parser
+               toParse := '';
+               if wc = 8 Then toParse  := exchange.nc1  + ' ' + exchange.nc2;
+               if wc = 9 Then toParse  := exchange.nc1  + ' ' + exchange.nc2 + ' ' + exchange.ng;
+               if wc = 10 Then toParse := exchange.nc1  + ' ' + exchange.nc1s + ' ' + exchange.nc2 + ' ' + exchange.ng;
+
+               isValid   := False;
+               isBreakIn := False;
+               level     := 0;
+               response  := '';
+               connectTo := '';
+               fullCall  := '';
+               hisGrid   := '';
+
+               decomposeDecode(toParse,inQSOWith,isValid,isBreakIn,level,response,connectTo,fullCall,hisGrid);
+
+               if not isValid then
+               Begin
+                    mvalid := False;
+               end
+               else
+               begin
+                    mvalid := True;
+               end;
+          end;
+     end;
+end;
+
 procedure TForm1.decomposeDecode(const exchange    : String;
                                  const connectedTo : String;
                                  var isValid       : Boolean;
@@ -2575,16 +2729,16 @@ Begin
           // 2 Word types:
           //   Exchange                                 Protocol Level
           //   ------------------------------------     --------------
-          //   CQ  saveCall (Technically not valid)          1
-          //   QRZ saveCall                                  1
-          //   CQ  savePrefix/saveCall                           1
-          //   CQ  saveCall/saveSuffix                           1
-          //   QRZ savePrefix/saveCall                           1
-          //   QRZ saveCall/saveSuffix                           1
+          //   CQ  Call (Technically not valid)          1
+          //   QRZ Call                                  1
+          //   CQ  Prefix/Call                           1
+          //   CQ  Call/Suffix                           1
+          //   QRZ Prefix/Call                           1
+          //   QRZ Call/Suffix                           1
           level := 1;
           if (nc1 = 'CQ') or (nc1 = 'QRZ') or (nc1 = 'DE') Then
           Begin
-               // Handler for CQ or QRZ [saveCall or savePrefix/saveCall or saveCall/saveSuffix] types.
+               // Handler for CQ or QRZ [Call or Prefix/Call or Call/Suffix] types.
                level   := 1;
                if AnsiContainsText(nc2,'/') Then isSlashed := True else isSlashed := False;
                isValid := True;
@@ -2592,50 +2746,50 @@ Begin
                fullCall := connectTo;
                if isSlashed Then response := connectTo + ' ' + myscall;
                if not isSlashed Then response := connectTo + ' ' + myCall;
-               // Response is like PFX/saveCall MYCALL
-               //                  saveCall/SFX MYCALL
-               //                  saveCall PFX/MYCALL
-               //                  saveCall MYCALL/SFX
-               //                  saveCall MYCALL
+               // Response is like PFX/Call MYCALL
+               //                  Call/SFX MYCALL
+               //                  Call PFX/MYCALL
+               //                  Call MYCALL/SFX
+               //                  Call MYCALL
           end
           else
           begin
                // 2 Word types:
                //   Exchange                                 Protocol Level
                //   ------------------------------------     --------------
-               //   savePrefix/saveCall saveCall                          1
-               //   saveCall/saveSuffix saveCall                          1
-               //   saveCall savePrefix/saveCall                          1
-               //   saveCall saveCall/saveSuffix                          1
-               //   saveCall saveCall                                 1/2 Technically invalid - but I'll work with it as long as it's too "me"
+               //   Prefix/Call Call                          1
+               //   Call/Suffix Call                          1
+               //   Call Prefix/Call                          1
+               //   Call Call/Suffix                          1
+               //   Call Call                                 1/2 Technically invalid - but I'll work with it as long as it's too "me"
 
                // 2 Word types:
                //   Exchange                                 Protocol Level
                //   ------------------------------------     --------------
-               //   saveCall -##                                  1
-               //   saveCall R-##                                 1
-               //   saveCall RO                                   1
-               //   saveCall RRR                                  1
-               //   saveCall 73                                   1
-               //   savePrefix/saveCall -##                           1
-               //   savePrefix/saveCall R-##                          1
-               //   savePrefix/saveCall RO                            1
-               //   savePrefix/saveCall RRR                           1
-               //   savePrefix/saveCall 73                            1
-               //   saveCall/saveSuffix -##                           1
-               //   saveCall/saveSuffix R-##                          1
-               //   saveCall/saveSuffix RO                            1
-               //   saveCall/saveSuffix RRR                           1
-               //   saveCall/saveSuffix 73                            1
+               //   Call -##                                  1
+               //   Call R-##                                 1
+               //   Call RO                                   1
+               //   Call RRR                                  1
+               //   Call 73                                   1
+               //   Prefix/Call -##                           1
+               //   Prefix/Call R-##                          1
+               //   Prefix/Call RO                            1
+               //   Prefix/Call RRR                           1
+               //   Prefix/Call 73                            1
+               //   Call/Suffix -##                           1
+               //   Call/Suffix R-##                          1
+               //   Call/Suffix RO                            1
+               //   Call/Suffix RRR                           1
+               //   Call/Suffix 73                            1
 
-               // Two sub-forms to handle here.  Pair of calls or saveCall and control field
+               // Two sub-forms to handle here.  Pair of calls or call and control field
                // If pair of calls I can look to see if it's to me or not to determing breakin
                // status.  If second word is control then I ONLY respond when word1 is mycall
                // AND connectedTo variable is set.
 
                if isControl(nc2) Then
                Begin
-                    // The ONLY form of these I respond to is if nc1 contains my saveCall
+                    // The ONLY form of these I respond to is if nc1 contains my Call
                     // and connectedTo is set.
                     if ((nc1 = myCall) or (nc1 = mysCall)) And (Length(connectedTo)>0) Then
                     Begin
@@ -2687,7 +2841,7 @@ Begin
                               connectTo := '';
                               fullCall := connectTo;
                          End;
-                         // Have now setup for anwering a saveCall to my saveCall
+                         // Have now setup for anwering a Call to my Call
                     end
                     else
                     begin
@@ -2728,22 +2882,22 @@ Begin
      Begin
           // 3 Word types:
           //   ------------------------------------     --------------
-          //   CQ  saveCall saveGrid                            1
-          //   QRZ saveCall saveGrid                            1
-          //   DE  saveCall saveGrid                            2
-          //   CQ  savePrefix/saveCall saveGrid                 2
-          //   QRZ savePrefix/saveCall saveGrid                 2
-          //   DE  savePrefix/saveCall saveGrid                 2
-          //   CQ  saveCall/saveSuffix saveGrid                 2
-          //   QRZ saveCall/saveSuffix saveGrid                 2
-          //   DE  saveCall/saveSuffix saveGrid                 2
+          //   CQ  Call Grid                            1
+          //   QRZ Call Grid                            1
+          //   DE  Call Grid                            2
+          //   CQ  Prefix/Call Grid                     2
+          //   QRZ Prefix/Call Grid                     2
+          //   DE  Prefix/Call Grid                     2
+          //   CQ  Call/Suffix Grid                     2
+          //   QRZ Call/Suffix Grid                     2
+          //   DE  Call/Suffix Grid                     2
           //
 
           // Handling all the CQ/QRZ/DE Forms first.
 
           if ((nc1='CQ') or (nc1='QRZ') or (nc1='DE')) And isGrid(ng) Then
           Begin
-               // Check for savePrefix/saveSuffix saveCall
+               // Check for Prefix/Suffix Call
                If AnsiContainsText(nc2,'/') Then isSlashed := true else isSlashed := false;
                If isSlashed then level := 2 else level := 1;
                If isSlashed then
@@ -2786,15 +2940,15 @@ Begin
                     connectTo := '';
                     fullCall  := '';
                End;
-               // Have now handled all the CQ/QRZ/DE saveCall saveGrid with response of saveCall MYCALL saveGrid
+               // Have now handled all the CQ/QRZ/DE Call Grid with response of Call MYCALL Grid
           End;
 
-          //   DE saveCall 73                               2
-          //   DE savePrefix/saveCall 73                        2
-          //   DE saveCall/saveSuffix 73                        2
+          //   DE Call 73                               2
+          //   DE Prefix/Call 73                        2
+          //   DE Call/Suffix 73                        2
           if ((nc1='CQ') or (nc1='QRZ') or (nc1='DE')) And (not isGrid(ng)) Then
           Begin
-               // Check for savePrefix/saveSuffix saveCall
+               // Check for Prefix/Suffix Call
                If AnsiContainsText(nc2,'/') Then isSlashed := true else isSlashed := false;
                If isSlashed then level := 2 else level := 1;
                If isSlashed then
@@ -2837,16 +2991,16 @@ Begin
                     connectTo := '';
                     fullCall  := '';
                End;
-               // Have now handled all the CQ/QRZ/DE saveCall not saveGrid with response of saveCall MYCALL saveGrid
-               // This covers something like a breakin for DE saveCall 73 or not a brakin for CQ saveCall .5W
+               // Have now handled all the CQ/QRZ/DE Call not Grid with response of Call MYCALL Grid
+               // This covers something like a breakin for DE Call 73 or not a brakin for CQ Call .5W
           End;
 
-          //   saveCall saveCall saveGrid                       1
-          //   saveCall saveCall -##                            1
-          //   saveCall saveCall R-##                           1
-          //   saveCall saveCall RO (Deprecated on HF)          1
-          //   saveCall saveCall RRR                            1
-          //   saveCall saveCall 73                             1
+          //   Call Call Grid                           1
+          //   Call Call -##                            1
+          //   Call Call R-##                           1
+          //   Call Call RO (Deprecated on HF)          1
+          //   Call Call RRR                            1
+          //   Call Call 73                             1
 
           // An oddity I'm seeing is something like
           // callsign 73 none where none is a grid that's not defined.
@@ -2946,10 +3100,10 @@ Begin
           End;
 
           //   [Not supported in JT65-HF]
-          //   CQ  ### savePrefix/saveCall                       1
-          //   CQ  ### saveCall/saveSuffix                       1
-          //   QRZ ### savePrefix/saveCall                       1
-          //   QRZ ### saveCall/saveSuffix                       1
+          //   CQ  ### Prefix/Call                       1
+          //   CQ  ### Call/Suffix                       1
+          //   QRZ ### Prefix/Call                       1
+          //   QRZ ### Call/Suffix                       1
           //
           if ((nc1='CQ') or (nc1='QRZ')) And (not isCallSign(nc2)) Then
           Begin
@@ -2966,7 +3120,7 @@ Begin
           // 4 Word types:
           //   ------------------------------------     --------------
           //   [Not supported in JT65-HF]
-          //   CQ ### saveCall saveGrid                         1
+          //   CQ ### Call Grid                         1
           //
           level     := 1;
           isValid   := False;
@@ -2976,7 +3130,7 @@ Begin
 
 end;
 
-procedure TForm1.breakOutFields(const msg : String; var mvalid : Boolean);
+procedure TForm1.mgen(const msg : String; var isValid : Boolean; var isBreakIn : Boolean; var level : Integer; var response : String; var connectTo : String; var fullCall : String; var hisGrid : String);
 Var
   foo       : String;
   exchange  : exch;
@@ -2984,26 +3138,25 @@ Var
   isiglevel : Integer;
   gonogo    : Boolean;
   toparse   : String;
-  isValid   : Boolean;
-  isBreakIn : Boolean;
-  level     : Integer;
-  response  : String;
-  connectTo : String;
-  fullCall  : String;
-  hisGrid   : String;
 Begin
-     mvalid   := False;
      gonogo   := False;
      isValid  := False;
+     isBreakIn := False;
+     level := 0;
+     response := '';
+     connectTo := '';
+     fullCall := '';
+     hisGrid := '';
+
      // Get the decode to parse
      foo := msg;
      foo := DelSpace1(foo);
      foo := StringReplace(foo,' ',',',[rfReplaceAll,rfIgnoreCase]);
 
      // Now with a structured message I'll have...
-     // UTC, Sync, dB, DT, DF, EC, NC1, saveCall FROM, MSG
+     // UTC, Sync, dB, DT, DF, EC, NC1, Call FROM, MSG
      // Where NC1 is one of [CQ, CQ ###, QRZ, DE, CALLSIGN]
-     // Where MSG is one of [saveGrid,-##,R-##,RRR,RO,73]
+     // Where MSG is one of [Grid,-##,R-##,RRR,RO,73]
 
      // First check is for first two characters to be numeric AND wordcount
      // = 9 or 10.  10 Handles case of a CQ ### format (not seen on HF, but...)
@@ -3097,30 +3250,13 @@ Begin
           Begin
                gonogo := False;
                // Have signal report and DF
-               // Now can saveCall the message parser
+               // Now can Call the message parser
                toParse := '';
                if wc = 8 Then toParse  := exchange.nc1  + ' ' + exchange.nc2;
                if wc = 9 Then toParse  := exchange.nc1  + ' ' + exchange.nc2 + ' ' + exchange.ng;
                if wc = 10 Then toParse := exchange.nc1  + ' ' + exchange.nc1s + ' ' + exchange.nc2 + ' ' + exchange.ng;
 
-               isValid   := False;
-               isBreakIn := False;
-               level     := 0;
-               response  := '';
-               connectTo := '';
-               fullCall  := '';
-               hisGrid   := '';
-
                decomposeDecode(toParse,inQSOWith,isValid,isBreakIn,level,response,connectTo,fullCall,hisGrid);
-
-               if not isValid then
-               Begin
-                    mvalid := False;
-               end
-               else
-               begin
-                    mvalid := True;
-               end;
           end;
      end;
 end;
@@ -3128,13 +3264,8 @@ end;
 procedure TForm1.ListBox1DblClick(Sender: TObject);
 Var
   foo       : String;
-  exchange  : exch;
-  idx,i,wc  : Integer;
-  isiglevel : Integer;
-  idf       : Integer;
-  gonogo    : Boolean;
-  toparse   : String;
-  isValid   : Boolean;
+  i         : Integer;
+  tvalid    : Boolean;
   isBreakIn : Boolean;
   level     : Integer;
   response  : String;
@@ -3142,182 +3273,201 @@ Var
   fullCall  : String;
   hisGrid   : String;
 begin
-     idx := Form1.ListBox1.ItemIndex;
-     if idx > -1 Then
+     i := Form1.ListBox1.ItemIndex;
+     if i > -1 Then
      Begin
           gonogo   := False;
           // Get the decode to parse
           foo := Form1.ListBox1.Items[idx];
           foo := DelSpace1(foo);
-          foo := StringReplace(foo,' ',',',[rfReplaceAll,rfIgnoreCase]);
+          //foo := StringReplace(foo,' ',',',[rfReplaceAll,rfIgnoreCase]);
+          tvalid    := False;
+          hisGrid   := '';
+          fullCall  := '';
+          connectTo := '';
+          response  := '';
+          level     := -1;
+          isBreakIn := False;
+
+          mgen(foo, tValid, isBreakin, Level, response, connectTo, fullCall, hisgrid);
+          //breakOutFields(foo, tvalid);
+          if tValid Then
+          Begin
+               if isBreakIn Then Memo1.Append('Tail end type, msg: ' + response + ' connecting to ' + connectTo + ' [' + fullCall + '] @ ' + hisGrid + ' Proto ' + IntToStr(level)) else Memo1.Append('Immediate type, msg: ' + response + ' connecting to ' + connectTo + ' [' + fullCall + '] @ ' + hisGrid + ' Proto ' + IntToStr(level));
+          end
+          else
+          begin
+               Memo1.Append('No message can be generated');
+          end;
+     End;
+          //decomposeDecode(toParse,inQSOWith,isValid,isBreakIn,level,response,connectTo,fullCall,hisGrid);
 
           // Now with a structured message I'll have...
-          // UTC, Sync, dB, DT, DF, EC, NC1, saveCall FROM, MSG
+          // UTC, Sync, dB, DT, DF, EC, NC1, Call FROM, MSG
           // Where NC1 is one of [CQ, CQ ###, QRZ, DE, CALLSIGN]
-          // Where MSG is one of [saveGrid,-##,R-##,RRR,RO,73]
+          // Where MSG is one of [Grid,-##,R-##,RRR,RO,73]
 
           // First check is for first two characters to be numeric AND wordcount
           // = 9 or 10.  10 Handles case of a CQ ### format (not seen on HF, but...)
           // If not wc = 9 or 10 then it's not something to parse here.
-          i := 0;
-          wc := wordcount(foo,[',']);
-          if (wc=8) or (wc=9) or (wc=10) Then
-          Begin
-               if wc=8 Then
-               Begin
-                    // Parse string into parts (8 word exchange)
-                    exchange.utc  := TrimLeft(TrimRight(UpCase(ExtractWord(1,foo,[',']))));
-                    exchange.sync := TrimLeft(TrimRight(UpCase(ExtractWord(2,foo,[',']))));
-                    exchange.db   := TrimLeft(TrimRight(UpCase(ExtractWord(3,foo,[',']))));
-                    exchange.dt   := TrimLeft(TrimRight(UpCase(ExtractWord(4,foo,[',']))));
-                    exchange.df   := TrimLeft(TrimRight(UpCase(ExtractWord(5,foo,[',']))));
-                    exchange.ec   := TrimLeft(TrimRight(UpCase(ExtractWord(6,foo,[',']))));
-                    exchange.nc1  := TrimLeft(TrimRight(UpCase(ExtractWord(7,foo,[',']))));
-                    exchange.nc1s := '';
-                    exchange.nc2  := TrimLeft(TrimRight(UpCase(ExtractWord(8,foo,[',']))));
-                    exchange.ng   := '';
-               end;
-               if wc=9 Then
-               Begin
-                    // Parse string into parts (9 word exchange)
-                    exchange.utc  := TrimLeft(TrimRight(UpCase(ExtractWord(1,foo,[',']))));
-                    exchange.sync := TrimLeft(TrimRight(UpCase(ExtractWord(2,foo,[',']))));
-                    exchange.db   := TrimLeft(TrimRight(UpCase(ExtractWord(3,foo,[',']))));
-                    exchange.dt   := TrimLeft(TrimRight(UpCase(ExtractWord(4,foo,[',']))));
-                    exchange.df   := TrimLeft(TrimRight(UpCase(ExtractWord(5,foo,[',']))));
-                    exchange.ec   := TrimLeft(TrimRight(UpCase(ExtractWord(6,foo,[',']))));
-                    exchange.nc1  := TrimLeft(TrimRight(UpCase(ExtractWord(7,foo,[',']))));
-                    exchange.nc1s := '';
-                    exchange.nc2  := TrimLeft(TrimRight(UpCase(ExtractWord(8,foo,[',']))));
-                    exchange.ng   := TrimLeft(TrimRight(UpCase(ExtractWord(9,foo,[',']))));
-               End;
-               if wc=10 Then
-               Begin
-                    // Parse string into parts (10 word exchange)
-                    exchange.utc  := TrimLeft(TrimRight(UpCase(ExtractWord(1,foo,[',']))));
-                    exchange.sync := TrimLeft(TrimRight(UpCase(ExtractWord(2,foo,[',']))));
-                    exchange.db   := TrimLeft(TrimRight(UpCase(ExtractWord(3,foo,[',']))));
-                    exchange.dt   := TrimLeft(TrimRight(UpCase(ExtractWord(4,foo,[',']))));
-                    exchange.df   := TrimLeft(TrimRight(UpCase(ExtractWord(5,foo,[',']))));
-                    exchange.ec   := TrimLeft(TrimRight(UpCase(ExtractWord(6,foo,[',']))));
-                    exchange.nc1  := TrimLeft(TrimRight(UpCase(ExtractWord(7,foo,[',']))));
-                    exchange.nc1s := TrimLeft(TrimRight(UpCase(ExtractWord(8,foo,[',']))));
-                    exchange.nc2  := TrimLeft(TrimRight(UpCase(ExtractWord(9,foo,[',']))));
-                    exchange.ng   := TrimLeft(TrimRight(UpCase(ExtractWord(10,foo,[',']))));
-               End;
-
-               i := 0;
-               if TryStrToInt(exchange.utc[1..2],i) Then gonogo := True else gonogo := False;
-
-               if gonogo Then
-               Begin
-                    isiglevel := -30;
-                    if not tryStrToInt(exchange.db,isiglevel) Then
-                    Begin
-                         gonogo := False;
-                    End
-                    Else
-                    Begin
-                         gonogo := True;
-                         if isiglevel > -1 Then
-                         Begin
-                              isiglevel := -1;
-                         End;
-                         if isiglevel < -30 Then
-                         Begin
-                              isiglevel := -30;
-                         End;
-                    End;
-               End;
-
-               If gonogo then
-               begin
-                    gonogo := False;
-                    idf := -9999;
-                    i := -9999;
-                    if not TryStrToInt(exchange.df,i) Then
-                    begin
-                         gonogo := False;
-                    end
-                    else
-                    begin
-                         if (i<-1000) or (i>1000) Then gonogo := False else gonogo := True;
-                         if (i<-1000) or (i>1000) Then idf := -9999 else idf := i;
-                    end;
-               end;
-
-               if gonogo Then
-               Begin
-                    gonogo := False;
-                    // Have signal report and DF
-                    // Now can saveCall the message parser
-                    toParse := '';
-                    if wc = 8 Then toParse  := exchange.nc1  + ' ' + exchange.nc2;
-                    if wc = 9 Then toParse  := exchange.nc1  + ' ' + exchange.nc2 + ' ' + exchange.ng;
-                    if wc = 10 Then toParse := exchange.nc1  + ' ' + exchange.nc1s + ' ' + exchange.nc2 + ' ' + exchange.ng;
-
-                    isValid   := False;
-                    isBreakIn := False;
-                    level     := 0;
-                    response  := '';
-                    connectTo := '';
-                    fullCall  := '';
-                    hisGrid   := '';
-
-                    decomposeDecode(toParse,inQSOWith,isValid,isBreakIn,level,response,connectTo,fullCall,hisGrid);
-               end;
-
-               gonogo := isValid;
-
-               if gonogo then
-               Begin
-                    // Have a response!
-                    if isiglevel > -10 Then
-                    Begin
-                         edTXReport.Text := '-0' + IntToStr(Abs(isiglevel));
-                    end;
-                    if isiglevel < -9  Then
-                    Begin
-                         edTXReport.Text := '-' + IntToStr(Abs(isiglevel));
-                    end;
-                    edTXDF.Text := IntToStr(idf);
-                    edRXDF.Text := IntToStr(idf);
-                    if not (inQSOWith = connectTo) Then
-                    Begin
-                         inQSOWith        := connectTo;
-                         edTxToCall.Text  := inQSOWith;
-                         logCallsign.Text := fullCall;
-
-                    end
-                    else
-                    Begin
-                         edTxToCall.Text  := inQSOWith;
-                         logCallsign.Text := fullCall;
-                    end;
-                    edTXMsg.Text := response;
-               End
-               Else
-               Begin
-                    // Failed to parse
-                    edTXReport.Text := '';
-                    edTXToCall.Text := '';
-                    edTXMsg.Text := '';
-                    edTXReport.Text := '';
-                    edTXDF.Text := '0';
-                    edRXDF.Text := '0';
-               End;
-          end
-          else
-          begin
-               // Failed to parse
-               edTXReport.Text := '';
-               edTXToCall.Text := '';
-               edTXMsg.Text := '';
-               edTXReport.Text := '';
-               edTXDF.Text := '0';
-               edRXDF.Text := '0';
-          end;
-     end;
+          //i := 0;
+          //wc := wordcount(foo,[',']);
+          //if (wc=8) or (wc=9) or (wc=10) Then
+          //Begin
+          //     if wc=8 Then
+          //     Begin
+          //          // Parse string into parts (8 word exchange)
+          //          exchange.utc  := TrimLeft(TrimRight(UpCase(ExtractWord(1,foo,[',']))));
+          //          exchange.sync := TrimLeft(TrimRight(UpCase(ExtractWord(2,foo,[',']))));
+          //          exchange.db   := TrimLeft(TrimRight(UpCase(ExtractWord(3,foo,[',']))));
+          //          exchange.dt   := TrimLeft(TrimRight(UpCase(ExtractWord(4,foo,[',']))));
+          //          exchange.df   := TrimLeft(TrimRight(UpCase(ExtractWord(5,foo,[',']))));
+          //          exchange.ec   := TrimLeft(TrimRight(UpCase(ExtractWord(6,foo,[',']))));
+          //          exchange.nc1  := TrimLeft(TrimRight(UpCase(ExtractWord(7,foo,[',']))));
+          //          exchange.nc1s := '';
+          //          exchange.nc2  := TrimLeft(TrimRight(UpCase(ExtractWord(8,foo,[',']))));
+          //          exchange.ng   := '';
+          //     end;
+          //     if wc=9 Then
+          //     Begin
+          //          // Parse string into parts (9 word exchange)
+          //          exchange.utc  := TrimLeft(TrimRight(UpCase(ExtractWord(1,foo,[',']))));
+          //          exchange.sync := TrimLeft(TrimRight(UpCase(ExtractWord(2,foo,[',']))));
+          //          exchange.db   := TrimLeft(TrimRight(UpCase(ExtractWord(3,foo,[',']))));
+          //          exchange.dt   := TrimLeft(TrimRight(UpCase(ExtractWord(4,foo,[',']))));
+          //          exchange.df   := TrimLeft(TrimRight(UpCase(ExtractWord(5,foo,[',']))));
+          //          exchange.ec   := TrimLeft(TrimRight(UpCase(ExtractWord(6,foo,[',']))));
+          //          exchange.nc1  := TrimLeft(TrimRight(UpCase(ExtractWord(7,foo,[',']))));
+          //          exchange.nc1s := '';
+          //          exchange.nc2  := TrimLeft(TrimRight(UpCase(ExtractWord(8,foo,[',']))));
+          //          exchange.ng   := TrimLeft(TrimRight(UpCase(ExtractWord(9,foo,[',']))));
+          //     End;
+          //     if wc=10 Then
+          //     Begin
+          //          // Parse string into parts (10 word exchange)
+          //          exchange.utc  := TrimLeft(TrimRight(UpCase(ExtractWord(1,foo,[',']))));
+          //          exchange.sync := TrimLeft(TrimRight(UpCase(ExtractWord(2,foo,[',']))));
+          //          exchange.db   := TrimLeft(TrimRight(UpCase(ExtractWord(3,foo,[',']))));
+          //          exchange.dt   := TrimLeft(TrimRight(UpCase(ExtractWord(4,foo,[',']))));
+          //          exchange.df   := TrimLeft(TrimRight(UpCase(ExtractWord(5,foo,[',']))));
+          //          exchange.ec   := TrimLeft(TrimRight(UpCase(ExtractWord(6,foo,[',']))));
+          //          exchange.nc1  := TrimLeft(TrimRight(UpCase(ExtractWord(7,foo,[',']))));
+          //          exchange.nc1s := TrimLeft(TrimRight(UpCase(ExtractWord(8,foo,[',']))));
+          //          exchange.nc2  := TrimLeft(TrimRight(UpCase(ExtractWord(9,foo,[',']))));
+          //          exchange.ng   := TrimLeft(TrimRight(UpCase(ExtractWord(10,foo,[',']))));
+          //     End;
+          //
+          //     i := 0;
+          //     if TryStrToInt(exchange.utc[1..2],i) Then gonogo := True else gonogo := False;
+          //
+          //     if gonogo Then
+          //     Begin
+          //          isiglevel := -30;
+          //          if not tryStrToInt(exchange.db,isiglevel) Then
+          //          Begin
+          //               gonogo := False;
+          //          End
+          //          Else
+          //          Begin
+          //               gonogo := True;
+          //               if isiglevel > -1 Then
+          //               Begin
+          //                    isiglevel := -1;
+          //               End;
+          //               if isiglevel < -30 Then
+          //               Begin
+          //                    isiglevel := -30;
+          //               End;
+          //          End;
+          //     End;
+          //
+          //     If gonogo then
+          //     begin
+          //          gonogo := False;
+          //          idf := -9999;
+          //          i := -9999;
+          //          if not TryStrToInt(exchange.df,i) Then
+          //          begin
+          //               gonogo := False;
+          //          end
+          //          else
+          //          begin
+          //               if (i<-1000) or (i>1000) Then gonogo := False else gonogo := True;
+          //               if (i<-1000) or (i>1000) Then idf := -9999 else idf := i;
+          //          end;
+          //     end;
+          //
+          //     if gonogo Then
+          //     Begin
+          //          gonogo := False;
+          //          // Have signal report and DF
+          //          // Now can call the message parser
+          //          toParse := '';
+          //          if wc = 8 Then toParse  := exchange.nc1  + ' ' + exchange.nc2;
+          //          if wc = 9 Then toParse  := exchange.nc1  + ' ' + exchange.nc2 + ' ' + exchange.ng;
+          //          if wc = 10 Then toParse := exchange.nc1  + ' ' + exchange.nc1s + ' ' + exchange.nc2 + ' ' + exchange.ng;
+          //
+          //          isValid   := False;
+          //          isBreakIn := False;
+          //          level     := 0;
+          //          response  := '';
+          //          connectTo := '';
+          //          fullCall  := '';
+          //          hisGrid   := '';
+          //
+          //          decomposeDecode(toParse,inQSOWith,isValid,isBreakIn,level,response,connectTo,fullCall,hisGrid);
+          //     end;
+          //
+          //     gonogo := isValid;
+          //
+          //     if gonogo then
+          //     Begin
+          //          // Have a response!
+          //          if isiglevel > -10 Then
+          //          Begin
+          //               edTXReport.Text := '-0' + IntToStr(Abs(isiglevel));
+          //          end;
+          //          if isiglevel < -9  Then
+          //          Begin
+          //               edTXReport.Text := '-' + IntToStr(Abs(isiglevel));
+          //          end;
+          //          edTXDF.Text := IntToStr(idf);
+          //          edRXDF.Text := IntToStr(idf);
+          //          if not (inQSOWith = connectTo) Then
+          //          Begin
+          //               inQSOWith        := connectTo;
+          //               edTxToCall.Text  := inQSOWith;
+          //               logCallsign.Text := fullCall;
+          //
+          //          end
+          //          else
+          //          Begin
+          //               edTxToCall.Text  := inQSOWith;
+          //               logCallsign.Text := fullCall;
+          //          end;
+          //          edTXMsg.Text := response;
+          //     End
+          //     Else
+          //     Begin
+          //          // Failed to parse
+          //          edTXReport.Text := '';
+          //          edTXToCall.Text := '';
+          //          edTXMsg.Text := '';
+          //          edTXReport.Text := '';
+          //          edTXDF.Text := '0';
+          //          edRXDF.Text := '0';
+          //     End;
+          //end
+          //else
+          //begin
+          //     // Failed to parse
+          //     edTXReport.Text := '';
+          //     edTXToCall.Text := '';
+          //     edTXMsg.Text := '';
+          //     edTXReport.Text := '';
+          //     edTXDF.Text := '0';
+          //     edRXDF.Text := '0';
+          //end;
 end;
 
 procedure TForm1.ListBox1DrawItem(Control: TWinControl; Index: Integer; ARect: TRect; State: TOwnerDrawState);
@@ -3468,7 +3618,7 @@ function TForm1.isControl(c : String) : Boolean;
 Var
    i : Integer;
 Begin
-     // saveGrid, -##, R-##, RRR, RO, 73, NONE (For missing saveGrid error)
+     // Grid, -##, R-##, RRR, RO, 73, NONE (For missing Grid error)
      // c must be one of the above to return true.
      Result := False;
      if c = 'RRR' then result := true;
@@ -3514,7 +3664,7 @@ function TForm1.isGrid(c : String) : Boolean;
 Var
    foo : String;
 Begin
-     // saveGrid is simple.  Must be LL## where L = alpha A...R and # 0...9
+     // Grid is simple.  Must be LL## where L = alpha A...R and # 0...9
      foo := DelSpace(TrimLeft(TrimRight(UpCase(c))));  // Remove any spaces, paddding and upper case.
      if Length(foo)=4 Then
      Begin
@@ -3554,7 +3704,7 @@ Begin
 
           if wc=4 then
           Begin
-               // Only one structured message has four words:  CQ ### saveCall saveGrid and savePrefix/saveSuffix is disallowed with these.
+               // Only one structured message has four words:  CQ ### Call Grid and Prefix/Suffix is disallowed with these.
                if w[1] = 'CQ' Then
                Begin
                     b := True;
@@ -3572,7 +3722,7 @@ Begin
                          end;
                          if b Then
                          Begin
-                              // Have to have an offset 001 to 999 followed by a callsign followed by a saveGrid
+                              // Have to have an offset 001 to 999 followed by a callsign followed by a Grid
                               nc1t := 'CQ';
                               nc2t := w[3];
                               if length(w[2]) = 1 Then w[2] := '00'+w[2];
@@ -3637,27 +3787,27 @@ Begin
           Begin
                // Many types:
                //
-               // CQ saveCall saveGrid
-               // CQ savePrefix/saveCall saveGrid
-               // CQ saveCall/saveSuffix saveGrid
+               // CQ Call Grid
+               // CQ Prefix/Call Grid
+               // CQ Call/Suffix Grid
                //
-               // QRZ saveCall saveGrid
-               // QRZ savePrefix/saveCall saveGrid
-               // QRZ saveCall/saveSuffix saveGrid
+               // QRZ Call Grid
+               // QRZ Prefix/Call Grid
+               // QRZ Call/Suffix Grid
                //
-               // DE saveCall saveGrid
-               // DE savePrefix/saveCall saveGrid
-               // DE saveCall/saveSuffix saveGrid
-               // DE saveCall 73
-               // DE savePrefix/saveCall 73
-               // DE saveCall/saveSuffix 73
+               // DE Call Grid
+               // DE Prefix/Call Grid
+               // DE Call/Suffix Grid
+               // DE Call 73
+               // DE Prefix/Call 73
+               // DE Call/Suffix 73
                //
-               // saveCall saveCall saveGrid
-               // saveCall saveCall -##
-               // saveCall saveCall R-##
-               // saveCall saveCall RO
-               // saveCall saveCall RRR
-               // saveCall saveCall 73
+               // Call Call Grid
+               // Call Call -##
+               // Call Call R-##
+               // Call Call RO
+               // Call Call RRR
+               // Call Call 73
 
                if (w[1]='CQ') Or (w[1]='QRZ') Or (w[1]='DE') Then
                Begin
@@ -3689,8 +3839,8 @@ Begin
 
                          if (not ispfx) and (not issfx) Then
                          Begin
-                              // Bit more complicated here as it could be garbage or a savePrefix that looks like a callsign.
-                              // There are some 4 character savePrefix values defined in WSJT that look like a full callsign
+                              // Bit more complicated here as it could be garbage or a Prefix that looks like a callsign.
+                              // There are some 4 character Prefix values defined in WSJT that look like a full callsign
                               // like:
                               //
                               // 3D2C/ 3D2R/ CE0X/ CE0Y/ CE0Z/ HK0A/ HK0M/ KH5K/ PY0F/ PT0S/ PY0T/
@@ -3698,18 +3848,18 @@ Begin
                               // VP6D/ VP8G/ VP8H/ VP8O/ VP8S/ ZK1N/ ZK1S/
                               //
 
-                              // Now... the only way I can end up with a pair of calls is to have a 4 character savePrefix
+                              // Now... the only way I can end up with a pair of calls is to have a 4 character Prefix
                               // that looks like a callsign with a 3 character "real" callsign or a 4 character callsign
-                              // with a 3 character saveSuffix that looks like a callsign.  I have to wonder what the chances
-                              // of that happening may be?  Seems slight at best.  A 4 character savePrefix being used by a 1x1
+                              // with a 3 character Suffix that looks like a callsign.  I have to wonder what the chances
+                              // of that happening may be?  Seems slight at best.  A 4 character Prefix being used by a 1x1
                               // format callsign seems almost impossible, but, who knows...  A 4 character "real" callsign
-                              // with a 3 character saveSuffix looking like a 1x1 callsign seems, well, stupid.
+                              // with a 3 character Suffix looking like a 1x1 callsign seems, well, stupid.
 
                               // So...  I'm going to punt for now and do a simple test for a > 4 character w1 value or > 3
                               // character w2 value.  If length w1=3 and w2=3 then I give up.
 
                               // Some simple checks here.  Prefix can be 1..4 characters
-                              //                           saveSuffix can be 1..3 characters
+                              //                           Suffix can be 1..3 characters
                               // If w1 length > 4 it can't be a prefix
                               // If w2 length > 3 it can't be a prefix
 
@@ -3729,7 +3879,7 @@ Begin
 
                               if Length(w1) = Length(w2) Then
                               Begin
-                                   // Flip a coin... call w1 savePrefix w2 saveCall
+                                   // Flip a coin... call w1 Prefix w2 Call
                                    ispfx := True;
                                    issfx := False;
                               end;
@@ -3770,7 +3920,7 @@ Begin
                     End
                     Else
                     Begin
-                         // Have to have a callsign here followed by a saveGrid
+                         // Have to have a callsign here followed by a Grid
                          // Or, for DE, A callsign follwed by 73
                          nc1t := w[1]; // CQ QRZ of DE
                          nc2t := w[2];
@@ -3802,21 +3952,21 @@ Begin
                     End;
                End;
 
-               // Have now covered CQ/DE/QRZ saveCall saveGrid, CQ/DE/QRZ PFX/saveCall saveGrid and CQ/DE/QRZ saveCall/SFX saveGrid
+               // Have now covered CQ/DE/QRZ Call Grid, CQ/DE/QRZ PFX/Call Grid and CQ/DE/QRZ Call/SFX Grid
 
                If not Result Then
                Begin
                     // Didn't parse to any of the above cases leaving:
-                    // saveCall saveCall saveGrid
-                    // saveCall saveCall -##
-                    // saveCall saveCall R-##
-                    // saveCall saveCall RO
-                    // saveCall saveCall RRR
-                    // saveCall saveCall 73
+                    // Call Call Grid
+                    // Call Call -##
+                    // Call Call R-##
+                    // Call Call RO
+                    // Call Call RRR
+                    // Call Call 73
 
                     if ((w[3] = 'RO') Or (w[3] = 'RRR') Or (w[3] = '73') Or (AnsiContainsText(w[3],'-'))) And (isCallSign(w[1]) and isCallsign(w[2])) Then
                     Begin
-                         // saveCall saveCall RO or saveCall saveCall RRR or saveCall saveCall 73 or saveCall saveCall -## or saveCall saveCall R-##
+                         // Call Call RO or Call Call RRR or Call Call 73 or Call Call -## or Call Call R-##
                          nc1t := w[1];
                          nc2t := w[2];
                          pfx  := '';
@@ -3828,10 +3978,10 @@ Begin
 
                     If not Result Then
                     Begin
-                         // This leaves saveCall saveCall saveGrid as only thing it can be if valid.
+                         // This leaves Call Call Grid as only thing it can be if valid.
                          if isCallsign(w[1]) And isCallsign(w[2]) And isGrid(w[3]) Then
                          Begin
-                              // Seems to be a saveGrid... it's at least LL## format so assume CALL CALL GRID
+                              // Seems to be a Grid... it's at least LL## format so assume CALL CALL GRID
                               nc1t := w[1];
                               nc2t := w[2];
                               pfx  := '';
