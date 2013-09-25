@@ -680,6 +680,7 @@ object Form1: TForm1
         Height = 24
         Top = 22
         Width = 56
+        CharCase = ecUppercase
         OnChange = rigControlSet
         TabOrder = 4
       end
@@ -688,6 +689,7 @@ object Form1: TForm1
         Height = 24
         Top = 22
         Width = 72
+        CharCase = ecUppercase
         OnChange = rigControlSet
         TabOrder = 5
       end
@@ -696,6 +698,7 @@ object Form1: TForm1
         Height = 24
         Top = 22
         Width = 52
+        CharCase = ecUppercase
         OnChange = rigControlSet
         TabOrder = 6
       end
@@ -721,6 +724,7 @@ object Form1: TForm1
       Caption = 'PTT/Rig Control'
       ClientHeight = 187
       ClientWidth = 739
+      TabVisible = False
       object GroupBox3: TGroupBox
         Left = 4
         Height = 136
@@ -1112,6 +1116,7 @@ object Form1: TForm1
           Height = 24
           Top = 19
           Width = 104
+          CharCase = ecUppercase
           OnChange = rigControlSet
           TabOrder = 1
         end
@@ -1971,6 +1976,7 @@ object Form1: TForm1
     ChildSizing.ControlsPerLine = 1
     ClientHeight = 131
     ClientWidth = 45
+    Enabled = False
     Font.Height = -9
     Font.Name = 'Arial'
     ParentFont = False
@@ -2050,6 +2056,7 @@ object Form1: TForm1
     ChildSizing.ControlsPerLine = 1
     ClientHeight = 47
     ClientWidth = 45
+    Enabled = False
     Font.Height = -11
     Font.Name = 'Arial'
     ParentFont = False
@@ -2262,7 +2269,7 @@ object Form1: TForm1
       Anchors = [akLeft]
       Font.Height = -13
       Font.Name = 'Arial'
-      OnChange = edTXReportChange
+      OnDblClick = edTXReportDblClick
       ParentFont = False
       TabOrder = 9
     end
@@ -2272,8 +2279,10 @@ object Form1: TForm1
       Top = 162
       Width = 120
       Anchors = [akLeft]
+      CharCase = ecUppercase
       Font.Height = -13
       Font.Name = 'Arial'
+      OnDblClick = edTXtoCallDblClick
       ParentFont = False
       TabOrder = 10
     end
@@ -2285,6 +2294,7 @@ object Form1: TForm1
       Anchors = [akLeft]
       BorderSpacing.Around = 2
       Caption = 'Enable TX'
+      Enabled = False
       Font.Height = -16
       Font.Name = 'Arial'
       Font.Style = [fsBold]
@@ -2440,6 +2450,8 @@ object Form1: TForm1
       Font.Height = -16
       Font.Name = 'Arial'
       Font.Style = [fsBold]
+      OnChange = edRXDFChange
+      OnDblClick = edRXDFDblClick
       ParentFont = False
       TabOrder = 18
       Text = '0'
@@ -2467,6 +2479,7 @@ object Form1: TForm1
       Font.Name = 'Arial'
       Font.Style = [fsBold]
       MaxLength = 5
+      OnDblClick = edTXDFDblClick
       ParentFont = False
       TabOrder = 19
       Text = '0'
@@ -2529,6 +2542,7 @@ object Form1: TForm1
       Width = 67
       Anchors = [akLeft]
       Caption = 'Log QSO'
+      Enabled = False
       OnClick = Button1Click
       TabOrder = 22
     end

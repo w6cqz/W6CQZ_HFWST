@@ -3,6 +3,10 @@ Hook decoder output back to double click actions - In progress, needs ***much***
 
 Validate validate validate message input, callsigns, grids, QRGs etc.
 
+Fill in RB call from Station call if user does not manually set.
+
+Look into issue with loss of net leading to program hang on exit if RB on
+
 Fix reversed prefix/suffix in decoder
 
 Any change to message, dial QRG or TXDF must regenerate the TX Message Data
@@ -13,7 +17,9 @@ Add serial communications routines for next phase
 
 Add logging code
 
-Look into issue with loss of net leading to program hang on exit if RB on
+Add macro edit/define
+
+Add qrg edit/define
 
 Monitor situation with decodes sometimes being dropped or decoder indicating
 a hit with no data returned... the main problem is corrected and it's likely
@@ -330,8 +336,11 @@ type
     procedure Button2Click(Sender: TObject);
     procedure buttonConfigClick(Sender: TObject);
     procedure Button4Click(Sender: TObject);
-    procedure CheckBox2Change(Sender: TObject);
-    procedure edTXReportChange(Sender: TObject);
+    procedure edRXDFChange(Sender: TObject);
+    procedure edRXDFDblClick(Sender: TObject);
+    procedure edTXDFDblClick(Sender: TObject);
+    procedure edTXReportDblClick(Sender: TObject);
+    procedure edTXtoCallDblClick(Sender: TObject);
     procedure LogQSOClick(Sender: TObject);
     procedure Memo1DblClick(Sender: TObject);
     procedure Memo2DblClick(Sender: TObject);
@@ -406,7 +415,9 @@ type
     procedure updateDB;
     procedure setDefaults;
     procedure setupDB(const cfgPath : String);
-    procedure mgen(const msg : String; var isValid : Boolean; var isBreakIn : Boolean; var level : Integer; var response : String; var connectTo : String; var fullCall : String; var hisGrid : String);
+    //procedure mgen(const msg : String; var isValid : Boolean; var isBreakIn : Boolean; var level : Integer; var response : String; var connectTo : String; var fullCall : String; var hisGrid : String);
+    //procedure mgen(const msg : String; var isValid : Boolean; var isBreakIn : Boolean; var level : Integer; var response : String; var connectTo : String; var fullCall : String; var hisGrid : String; var sdf : String; var sdB : String);
+    procedure mgen(const msg : String; var isValid : Boolean; var isBreakIn : Boolean; var level : Integer; var response : String; var connectTo : String; var fullCall : String; var hisGrid : String; var sdf : String; var sdB : String; var txp : Integer);
 
     function t(const s : String) : String;
 
@@ -3130,7 +3141,7 @@ Begin
 
 end;
 
-procedure TForm1.mgen(const msg : String; var isValid : Boolean; var isBreakIn : Boolean; var level : Integer; var response : String; var connectTo : String; var fullCall : String; var hisGrid : String);
+procedure TForm1.mgen(const msg : String; var isValid : Boolean; var isBreakIn : Boolean; var level : Integer; var response : String; var connectTo : String; var fullCall : String; var hisGrid : String; var sdf : String; var sdB : String; var txp : Integer);
 Var
   foo       : String;
   exchange  : exch;
@@ -3147,17 +3158,14 @@ Begin
      connectTo := '';
      fullCall := '';
      hisGrid := '';
-
      // Get the decode to parse
      foo := msg;
      foo := DelSpace1(foo);
      foo := StringReplace(foo,' ',',',[rfReplaceAll,rfIgnoreCase]);
-
      // Now with a structured message I'll have...
      // UTC, Sync, dB, DT, DF, EC, NC1, Call FROM, MSG
      // Where NC1 is one of [CQ, CQ ###, QRZ, DE, CALLSIGN]
      // Where MSG is one of [Grid,-##,R-##,RRR,RO,73]
-
      // First check is for first two characters to be numeric AND wordcount
      // = 9 or 10.  10 Handles case of a CQ ### format (not seen on HF, but...)
      // If not wc = 9 or 10 then it's not something to parse here.
@@ -3210,7 +3218,6 @@ Begin
 
           i := 0;
           if TryStrToInt(exchange.utc[1..2],i) Then gonogo := True else gonogo := False;
-
           if gonogo Then
           Begin
                isiglevel := -30;
@@ -3231,7 +3238,6 @@ Begin
                     End;
                End;
           End;
-
           If gonogo then
           begin
                gonogo := False;
@@ -3245,7 +3251,6 @@ Begin
                     if (i<-1100) or (i>1100) Then gonogo := False else gonogo := True;
                end;
           end;
-
           if gonogo Then
           Begin
                gonogo := False;
@@ -3255,8 +3260,15 @@ Begin
                if wc = 8 Then toParse  := exchange.nc1  + ' ' + exchange.nc2;
                if wc = 9 Then toParse  := exchange.nc1  + ' ' + exchange.nc2 + ' ' + exchange.ng;
                if wc = 10 Then toParse := exchange.nc1  + ' ' + exchange.nc1s + ' ' + exchange.nc2 + ' ' + exchange.ng;
-
                decomposeDecode(toParse,inQSOWith,isValid,isBreakIn,level,response,connectTo,fullCall,hisGrid);
+               sdb := exchange.db;
+               sdf := exchange.df;
+               // compute TX period
+               foo := exchange.utc[4..5];
+               i := -1;
+               i := StrToInt(foo);
+               if (i>-1) and odd(i) then txp := 0; // Was received Odd so TX Even!
+               if (i>-1) and not odd(i) then txp := 1; // Was received Even so TX Odd!
           end;
      end;
 end;
@@ -3264,7 +3276,7 @@ end;
 procedure TForm1.ListBox1DblClick(Sender: TObject);
 Var
   foo       : String;
-  i         : Integer;
+  i, txp    : Integer;
   tvalid    : Boolean;
   isBreakIn : Boolean;
   level     : Integer;
@@ -3272,13 +3284,13 @@ Var
   connectTo : String;
   fullCall  : String;
   hisGrid   : String;
+  sdb, sdf  : String;
 begin
      i := Form1.ListBox1.ItemIndex;
      if i > -1 Then
      Begin
-          gonogo   := False;
           // Get the decode to parse
-          foo := Form1.ListBox1.Items[idx];
+          foo := Form1.ListBox1.Items[i];
           foo := DelSpace1(foo);
           //foo := StringReplace(foo,' ',',',[rfReplaceAll,rfIgnoreCase]);
           tvalid    := False;
@@ -3287,187 +3299,28 @@ begin
           connectTo := '';
           response  := '';
           level     := -1;
+          sdb       := '-99';
+          sdf       := '9999';
           isBreakIn := False;
+          txp       := 2;
 
-          mgen(foo, tValid, isBreakin, Level, response, connectTo, fullCall, hisgrid);
-          //breakOutFields(foo, tvalid);
+          mgen(foo, tValid, isBreakin, Level, response, connectTo, fullCall, hisgrid, sdf, sdb, txp);
           if tValid Then
           Begin
-               if isBreakIn Then Memo1.Append('Tail end type, msg: ' + response + ' connecting to ' + connectTo + ' [' + fullCall + '] @ ' + hisGrid + ' Proto ' + IntToStr(level)) else Memo1.Append('Immediate type, msg: ' + response + ' connecting to ' + connectTo + ' [' + fullCall + '] @ ' + hisGrid + ' Proto ' + IntToStr(level));
+               //if isBreakIn Then Memo1.Append('[TE] ' + response + ' to ' + connectTo + ' [' + fullCall + '] @ ' + hisGrid + ' Proto ' + IntToStr(level) + '[' + sdb + 'dB @ ' + sdf + 'Hz]') else Memo1.Append('[IM] ' + response + ' to ' + connectTo + ' [' + fullCall + '] @ ' + hisGrid + ' Proto ' + IntToStr(level) + '[' + sdb + 'dB @ ' + sdf + 'Hz]');
+               edTXMsg.Text := response;
+               edTXToCall.Text := fullCall;
+               edTXReport.Text := sdb;
+               edTXDF.Text := sdf;
+               if cbTXeqRXDF.Checked Then edRXDF.Text := sdf;
+               if txp=0 then rbTxEven.Checked := True else rbTxOdd.Checked := True;
+               { TODO : mgen is not taking suffix/prefix into account - fix. }
           end
           else
           begin
                Memo1.Append('No message can be generated');
           end;
      End;
-          //decomposeDecode(toParse,inQSOWith,isValid,isBreakIn,level,response,connectTo,fullCall,hisGrid);
-
-          // Now with a structured message I'll have...
-          // UTC, Sync, dB, DT, DF, EC, NC1, Call FROM, MSG
-          // Where NC1 is one of [CQ, CQ ###, QRZ, DE, CALLSIGN]
-          // Where MSG is one of [Grid,-##,R-##,RRR,RO,73]
-
-          // First check is for first two characters to be numeric AND wordcount
-          // = 9 or 10.  10 Handles case of a CQ ### format (not seen on HF, but...)
-          // If not wc = 9 or 10 then it's not something to parse here.
-          //i := 0;
-          //wc := wordcount(foo,[',']);
-          //if (wc=8) or (wc=9) or (wc=10) Then
-          //Begin
-          //     if wc=8 Then
-          //     Begin
-          //          // Parse string into parts (8 word exchange)
-          //          exchange.utc  := TrimLeft(TrimRight(UpCase(ExtractWord(1,foo,[',']))));
-          //          exchange.sync := TrimLeft(TrimRight(UpCase(ExtractWord(2,foo,[',']))));
-          //          exchange.db   := TrimLeft(TrimRight(UpCase(ExtractWord(3,foo,[',']))));
-          //          exchange.dt   := TrimLeft(TrimRight(UpCase(ExtractWord(4,foo,[',']))));
-          //          exchange.df   := TrimLeft(TrimRight(UpCase(ExtractWord(5,foo,[',']))));
-          //          exchange.ec   := TrimLeft(TrimRight(UpCase(ExtractWord(6,foo,[',']))));
-          //          exchange.nc1  := TrimLeft(TrimRight(UpCase(ExtractWord(7,foo,[',']))));
-          //          exchange.nc1s := '';
-          //          exchange.nc2  := TrimLeft(TrimRight(UpCase(ExtractWord(8,foo,[',']))));
-          //          exchange.ng   := '';
-          //     end;
-          //     if wc=9 Then
-          //     Begin
-          //          // Parse string into parts (9 word exchange)
-          //          exchange.utc  := TrimLeft(TrimRight(UpCase(ExtractWord(1,foo,[',']))));
-          //          exchange.sync := TrimLeft(TrimRight(UpCase(ExtractWord(2,foo,[',']))));
-          //          exchange.db   := TrimLeft(TrimRight(UpCase(ExtractWord(3,foo,[',']))));
-          //          exchange.dt   := TrimLeft(TrimRight(UpCase(ExtractWord(4,foo,[',']))));
-          //          exchange.df   := TrimLeft(TrimRight(UpCase(ExtractWord(5,foo,[',']))));
-          //          exchange.ec   := TrimLeft(TrimRight(UpCase(ExtractWord(6,foo,[',']))));
-          //          exchange.nc1  := TrimLeft(TrimRight(UpCase(ExtractWord(7,foo,[',']))));
-          //          exchange.nc1s := '';
-          //          exchange.nc2  := TrimLeft(TrimRight(UpCase(ExtractWord(8,foo,[',']))));
-          //          exchange.ng   := TrimLeft(TrimRight(UpCase(ExtractWord(9,foo,[',']))));
-          //     End;
-          //     if wc=10 Then
-          //     Begin
-          //          // Parse string into parts (10 word exchange)
-          //          exchange.utc  := TrimLeft(TrimRight(UpCase(ExtractWord(1,foo,[',']))));
-          //          exchange.sync := TrimLeft(TrimRight(UpCase(ExtractWord(2,foo,[',']))));
-          //          exchange.db   := TrimLeft(TrimRight(UpCase(ExtractWord(3,foo,[',']))));
-          //          exchange.dt   := TrimLeft(TrimRight(UpCase(ExtractWord(4,foo,[',']))));
-          //          exchange.df   := TrimLeft(TrimRight(UpCase(ExtractWord(5,foo,[',']))));
-          //          exchange.ec   := TrimLeft(TrimRight(UpCase(ExtractWord(6,foo,[',']))));
-          //          exchange.nc1  := TrimLeft(TrimRight(UpCase(ExtractWord(7,foo,[',']))));
-          //          exchange.nc1s := TrimLeft(TrimRight(UpCase(ExtractWord(8,foo,[',']))));
-          //          exchange.nc2  := TrimLeft(TrimRight(UpCase(ExtractWord(9,foo,[',']))));
-          //          exchange.ng   := TrimLeft(TrimRight(UpCase(ExtractWord(10,foo,[',']))));
-          //     End;
-          //
-          //     i := 0;
-          //     if TryStrToInt(exchange.utc[1..2],i) Then gonogo := True else gonogo := False;
-          //
-          //     if gonogo Then
-          //     Begin
-          //          isiglevel := -30;
-          //          if not tryStrToInt(exchange.db,isiglevel) Then
-          //          Begin
-          //               gonogo := False;
-          //          End
-          //          Else
-          //          Begin
-          //               gonogo := True;
-          //               if isiglevel > -1 Then
-          //               Begin
-          //                    isiglevel := -1;
-          //               End;
-          //               if isiglevel < -30 Then
-          //               Begin
-          //                    isiglevel := -30;
-          //               End;
-          //          End;
-          //     End;
-          //
-          //     If gonogo then
-          //     begin
-          //          gonogo := False;
-          //          idf := -9999;
-          //          i := -9999;
-          //          if not TryStrToInt(exchange.df,i) Then
-          //          begin
-          //               gonogo := False;
-          //          end
-          //          else
-          //          begin
-          //               if (i<-1000) or (i>1000) Then gonogo := False else gonogo := True;
-          //               if (i<-1000) or (i>1000) Then idf := -9999 else idf := i;
-          //          end;
-          //     end;
-          //
-          //     if gonogo Then
-          //     Begin
-          //          gonogo := False;
-          //          // Have signal report and DF
-          //          // Now can call the message parser
-          //          toParse := '';
-          //          if wc = 8 Then toParse  := exchange.nc1  + ' ' + exchange.nc2;
-          //          if wc = 9 Then toParse  := exchange.nc1  + ' ' + exchange.nc2 + ' ' + exchange.ng;
-          //          if wc = 10 Then toParse := exchange.nc1  + ' ' + exchange.nc1s + ' ' + exchange.nc2 + ' ' + exchange.ng;
-          //
-          //          isValid   := False;
-          //          isBreakIn := False;
-          //          level     := 0;
-          //          response  := '';
-          //          connectTo := '';
-          //          fullCall  := '';
-          //          hisGrid   := '';
-          //
-          //          decomposeDecode(toParse,inQSOWith,isValid,isBreakIn,level,response,connectTo,fullCall,hisGrid);
-          //     end;
-          //
-          //     gonogo := isValid;
-          //
-          //     if gonogo then
-          //     Begin
-          //          // Have a response!
-          //          if isiglevel > -10 Then
-          //          Begin
-          //               edTXReport.Text := '-0' + IntToStr(Abs(isiglevel));
-          //          end;
-          //          if isiglevel < -9  Then
-          //          Begin
-          //               edTXReport.Text := '-' + IntToStr(Abs(isiglevel));
-          //          end;
-          //          edTXDF.Text := IntToStr(idf);
-          //          edRXDF.Text := IntToStr(idf);
-          //          if not (inQSOWith = connectTo) Then
-          //          Begin
-          //               inQSOWith        := connectTo;
-          //               edTxToCall.Text  := inQSOWith;
-          //               logCallsign.Text := fullCall;
-          //
-          //          end
-          //          else
-          //          Begin
-          //               edTxToCall.Text  := inQSOWith;
-          //               logCallsign.Text := fullCall;
-          //          end;
-          //          edTXMsg.Text := response;
-          //     End
-          //     Else
-          //     Begin
-          //          // Failed to parse
-          //          edTXReport.Text := '';
-          //          edTXToCall.Text := '';
-          //          edTXMsg.Text := '';
-          //          edTXReport.Text := '';
-          //          edTXDF.Text := '0';
-          //          edRXDF.Text := '0';
-          //     End;
-          //end
-          //else
-          //begin
-          //     // Failed to parse
-          //     edTXReport.Text := '';
-          //     edTXToCall.Text := '';
-          //     edTXMsg.Text := '';
-          //     edTXReport.Text := '';
-          //     edTXDF.Text := '0';
-          //     edRXDF.Text := '0';
-          //end;
 end;
 
 procedure TForm1.ListBox1DrawItem(Control: TWinControl; Index: Integer; ARect: TRect; State: TOwnerDrawState);
@@ -4418,8 +4271,8 @@ begin
                //tf := tf + 0.002;
                // Now add the DF
                baseTX := baseTX+tf+txdf;
-               Memo1.Clear;
-               Memo1.Append('Sync at:  ' + FloatToStrF(baseTX,ffFixed,9,1));
+               //Memo1.Clear;
+               //Memo1.Append('Sync at:  ' + FloatToStrF(baseTX,ffFixed,9,1));
                tf := StrToFloat(edDialQRG.Text);
                if tf > 10200000.0 Then sbasetx := '140' + FloatToStrF(baseTX,ffFixed,9,1) else sbasetx := '70' + FloatToStrF(baseTX,ffFixed,9,1);
                sbasetx := ExtractWord(1,sbasetx,['.']) + ExtractWord(2,sbasetx,['.']);
@@ -4569,13 +4422,13 @@ begin
                // 752705 (14075 Dial -1K DF - 200) 750705 --- call it 750000
                // 792705 (14077 Dial +1K DF + 200) 794705 --- call it 795000
                // I ***do not*** intend to leave this since it would hard limit the program to running at 7075000 ... 7077000 or 14075000 ... 14077000
-               for i := 0 to 62 do
-               begin
-                    if (isyms[i] < 750000) or (isyms[i] > 795000) Then ShowMessage('FSK QRG Range oddity at symbol ' + IntToStr(i) + ' for ' + IntToStr(isyms[i]));
-               end;
-               Memo1.Append('LTX');
-               Memo1.Append(sbasetx);
-               for i := 0 to 62 do Memo1.Append(IntToStr(isyms[i]));
+               //for i := 0 to 62 do
+               //begin
+                    //if (isyms[i] < 750000) or (isyms[i] > 795000) Then ShowMessage('FSK QRG Range oddity at symbol ' + IntToStr(i) + ' for ' + IntToStr(isyms[i]));
+               //end;
+               //Memo1.Append('LTX');
+               //Memo1.Append(sbasetx);
+               //for i := 0 to 62 do Memo1.Append(IntToStr(isyms[i]));
                { TODO : Build TX QRG array here }
                //gSamps(CTypes.pcint(@txdf),CTypes.pcint(@tsyms),CTypes.pcint(@shmsg),CTypes.pcint16(@samples[11025]),CTypes.pcint(@nsamps),CTypes.pcint(@plevel));
           end;
@@ -4736,15 +4589,35 @@ begin
      edTXMsg.Clear;
 end;
 
-procedure TForm1.CheckBox2Change(Sender: TObject);
-begin
+//procedure TForm1.CheckBox2Change(Sender: TObject);
+//begin
      {TODO Fix}
      //If cbUseSerial.Checked Then Label12.Caption := 'PTT is enabled' else Label12.Caption := 'PTT is disabled';
+//end;
+
+procedure TForm1.edRXDFChange(Sender: TObject);
+begin
+     if cbTXeqRXDF.Checked Then edTXDF.Text := edRXDF.Text;
 end;
 
-procedure TForm1.edTXReportChange(Sender: TObject);
+procedure TForm1.edRXDFDblClick(Sender: TObject);
 begin
+     edRXDF.Text := '0';
+end;
 
+procedure TForm1.edTXDFDblClick(Sender: TObject);
+begin
+     edTXDF.Text := '0';
+end;
+
+procedure TForm1.edTXReportDblClick(Sender: TObject);
+begin
+     edTXReport.Text := '';
+end;
+
+procedure TForm1.edTXtoCallDblClick(Sender: TObject);
+begin
+     edTXtoCall.Text := '';
 end;
 
 procedure TForm1.LogQSOClick(Sender: TObject);
