@@ -328,7 +328,7 @@ object Form1: TForm1
     ParentFont = False
   end
   object Button2: TButton
-    Left = 482
+    Left = 136
     Height = 26
     Top = 266
     Width = 106
@@ -353,7 +353,7 @@ object Form1: TForm1
     ParentFont = False
   end
   object buttonConfig: TButton
-    Left = 152
+    Left = 532
     Height = 26
     Top = 266
     Width = 56
@@ -1945,6 +1945,8 @@ object Form1: TForm1
     Height = 346
     Top = 362
     Width = 248
+    Anchors = [akTop, akLeft, akRight]
+    Constraints.MinWidth = 248
     OnDblClick = Memo1DblClick
     ScrollBars = ssAutoBoth
     TabOrder = 14
@@ -1955,7 +1957,7 @@ object Form1: TForm1
     Top = 35
     Width = 49
     AutoFill = True
-    Caption = 'Mode'
+    Caption = 'TX Mode'
     ChildSizing.LeftRightSpacing = 6
     ChildSizing.TopBottomSpacing = 6
     ChildSizing.EnlargeHorizontal = crsHomogenousChildResize
@@ -1966,6 +1968,9 @@ object Form1: TForm1
     ChildSizing.ControlsPerLine = 1
     ClientHeight = 131
     ClientWidth = 45
+    Font.Height = -9
+    Font.Name = 'Arial'
+    ParentFont = False
     TabOrder = 15
     object RadioButton1: TRadioButton
       Left = 6
@@ -1974,6 +1979,9 @@ object Form1: TForm1
       Width = 33
       Caption = '65'
       Checked = True
+      Font.Height = -13
+      Font.Name = 'Arial'
+      ParentFont = False
       TabOrder = 2
       TabStop = True
     end
@@ -1983,6 +1991,9 @@ object Form1: TForm1
       Top = 30
       Width = 33
       Caption = '4'
+      Font.Height = -13
+      Font.Name = 'Arial'
+      ParentFont = False
       TabOrder = 0
     end
     object RadioButton5: TRadioButton
@@ -1991,6 +2002,9 @@ object Form1: TForm1
       Top = 54
       Width = 33
       Caption = '9'
+      Font.Height = -13
+      Font.Name = 'Arial'
+      ParentFont = False
       TabOrder = 1
     end
     object RadioButton8: TRadioButton
@@ -1999,6 +2013,9 @@ object Form1: TForm1
       Top = 78
       Width = 33
       Caption = 'R'
+      Font.Height = -13
+      Font.Name = 'Arial'
+      ParentFont = False
       TabOrder = 3
     end
     object RadioButton9: TRadioButton
@@ -2007,6 +2024,9 @@ object Form1: TForm1
       Top = 102
       Width = 33
       Caption = 'P'
+      Font.Height = -13
+      Font.Name = 'Arial'
+      ParentFont = False
       TabOrder = 4
     end
   end
@@ -2016,7 +2036,7 @@ object Form1: TForm1
     Top = 186
     Width = 49
     AutoFill = True
-    Caption = 'BW'
+    Caption = 'RX BW'
     ChildSizing.LeftRightSpacing = 6
     ChildSizing.TopBottomSpacing = 6
     ChildSizing.EnlargeHorizontal = crsHomogenousChildResize
@@ -2027,6 +2047,9 @@ object Form1: TForm1
     ChildSizing.ControlsPerLine = 1
     ClientHeight = 47
     ClientWidth = 45
+    Font.Height = -11
+    Font.Name = 'Arial'
+    ParentFont = False
     TabOrder = 16
     object RadioButton6: TRadioButton
       Left = 6
@@ -2035,6 +2058,9 @@ object Form1: TForm1
       Width = 33
       Caption = '2'
       Checked = True
+      Font.Height = -13
+      Font.Name = 'Arial'
+      ParentFont = False
       TabOrder = 1
       TabStop = True
     end
@@ -2044,6 +2070,9 @@ object Form1: TForm1
       Top = 23
       Width = 33
       Caption = '5'
+      Font.Height = -13
+      Font.Name = 'Arial'
+      ParentFont = False
       TabOrder = 0
     end
   end
@@ -2245,46 +2274,48 @@ object Form1: TForm1
       ParentFont = False
       TabOrder = 10
     end
-    object Button1: TButton
+    object txControl: TButton
       Left = 6
       Height = 24
       Top = 135
       Width = 347
       Anchors = [akLeft]
       BorderSpacing.Around = 2
-      Caption = 'HALT TX'
+      Caption = 'Enable TX'
       Font.Height = -16
       Font.Name = 'Arial'
       Font.Style = [fsBold]
-      OnClick = Button1Click
+      OnClick = txControlClick
       ParentFont = False
       TabOrder = 11
     end
-    object RadioButton2: TRadioButton
+    object rbTXEven: TRadioButton
       Left = 249
       Height = 20
       Top = 211
       Width = 51
       Anchors = [akLeft]
       Caption = 'Even'
-      Enabled = False
+      Checked = True
       Font.Height = -13
       Font.Name = 'Arial'
       Font.Style = [fsBold]
+      OnChange = rbTXEvenChange
       ParentFont = False
       TabOrder = 12
+      TabStop = True
     end
-    object RadioButton3: TRadioButton
+    object rbTXOdd: TRadioButton
       Left = 307
       Height = 20
       Top = 211
       Width = 46
       Anchors = [akLeft]
       Caption = 'Odd'
-      Enabled = False
       Font.Height = -13
       Font.Name = 'Arial'
       Font.Style = [fsBold]
+      OnChange = rbTXEvenChange
       ParentFont = False
       TabOrder = 13
     end
@@ -2361,7 +2392,7 @@ object Form1: TForm1
     object tbSingleBin: TTrackBar
       Left = 160
       Height = 26
-      Top = 254
+      Top = 260
       Width = 88
       Max = 4
       Min = 1
@@ -2374,7 +2405,7 @@ object Form1: TForm1
     object tbMultiBin: TTrackBar
       Left = 265
       Height = 26
-      Top = 254
+      Top = 260
       Width = 88
       Max = 4
       Min = 1
@@ -2499,9 +2530,6 @@ object Form1: TForm1
     BorderSpacing.Bottom = 5
     Constraints.MinHeight = 131
     Constraints.MinWidth = 248
-    Lines.Strings = (
-      'Memo2'
-    )
     OnDblClick = Memo2DblClick
     ScrollBars = ssAutoBoth
     TabOrder = 18

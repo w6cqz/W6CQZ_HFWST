@@ -62,18 +62,19 @@ type
   function demod(Const samps : Array Of CTypes.cint16) : Boolean;
 
   Var
-     dmical       : CTypes.cint;
-     dmfirstPass  : Boolean;
-     dmhaveDecode : Boolean;
-     dmdemodBusy  : Boolean;
-     dmdecodes    : Array[0..499] Of decoded;
-     dmruntime    : Double;
-     dmbw,dmbws   : CTypes.cint;
-     dmrcount     : Integer;
-     dmarun       : Double;
-     dmwispath    : String;
-     glist        : Array[0..32767] Of String;
-     dmlastraw    : Array[0..499] Of String;
+     dmical        : CTypes.cint;
+     dmfirstPass   : Boolean;
+     dmhaveDecode  : Boolean;
+     dmdemodBusy   : Boolean;
+     dmdecodes     : Array[0..499] Of decoded;
+     dmruntime     : Double;
+     dmbw,dmbws    : CTypes.cint;
+     dmrcount      : Integer;
+     dmarun        : Double;
+     dmwispath     : String;
+     glist         : Array[0..32767] Of String;
+     dmlastraw     : Array[0..499] Of String;
+     dmdecodecount : Integer;
 
 implementation
 
@@ -1403,7 +1404,7 @@ begin
           dmdecodes[i].clr  := true;
           dmlastraw[i]      := '';
      end;
-
+     dmdecodecount := 0;
      rawcount := 0; // Index for saving raw decoder outputs
 
      // Setup temporary spaces
@@ -1606,6 +1607,7 @@ begin
                               lng  := 0;
                               If decode(decsyms,foo1,sf,ver,lnc1,lnc2,lng) Then
                               Begin
+                                   inc(dmdecodecount);
                                    foo := foo + ',B,';
                                    foo := foo + foo1;
                                    dmlastraw[rawcount] := dmlastraw[rawcount] + foo1;
@@ -1654,6 +1656,7 @@ begin
                               lng  := 0;
                               if evalKV('kvasd.dat',foo2,sf,ver,lnc1,lnc2,lng) Then
                               Begin
+                                   inc(dmdecodecount);
                                    dmlastraw[rawcount] := dmlastraw[rawcount] + ' KV Passes : ';
                                    //ListBox2.Items.Insert(0,'KV Says:  ' + foo2);
                                    foo := foo + ',K,';
@@ -1673,7 +1676,6 @@ begin
                               begin
                                    dmlastraw[rawcount] := dmlastraw[rawcount] + ' KV Fails ';
                               end;
-
                          end;
                     end;
                     inc(rawcount);

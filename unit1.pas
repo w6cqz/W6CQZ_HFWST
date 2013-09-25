@@ -1,5 +1,14 @@
 { TODO :
+
 URGENT - It is not returning a decode if there's only 1 decoded signal FIX NOW
+Debugging shows (^^^) this is not in decoder - though sometimes decoder returns
+a hit for a decode with no data, so, will need to check that once I fix the
+display issue.
+
+Gets stranger - display decodes enters a loop as well (fixed)
+
+Fix reversed prefix/suffix in decoder
+
 Any change to message, dial QRG or TXDF must regenerate the TX Message Data
 Validate validate validate message input, callsigns, grids, QRGs etc.
 Hook decoder output back to double click actions
@@ -65,7 +74,7 @@ type
     bReport: TButton;
     bRReport: TButton;
     bRRR: TButton;
-    Button1: TButton;
+    txControl: TButton;
     Button10: TButton;
     Button11: TButton;
     Button12: TButton;
@@ -108,8 +117,8 @@ type
     Memo2: TMemo;
     Panel1: TPanel;
     RadioButton1: TRadioButton;
-    RadioButton2: TRadioButton;
-    RadioButton3: TRadioButton;
+    rbTXEven: TRadioButton;
+    rbTXOdd: TRadioButton;
     RadioButton4: TRadioButton;
     RadioButton5: TRadioButton;
     RadioButton6: TRadioButton;
@@ -323,11 +332,12 @@ type
     procedure edTXMsgDblClick(Sender: TObject);
     procedure ListBox1DrawItem(Control: TWinControl; Index: Integer; ARect: TRect; State: TOwnerDrawState);
     procedure mgenClick(Sender: TObject);
-    procedure Button1Click(Sender: TObject);
+    procedure txControlClick(Sender: TObject);
     procedure FormClose(Sender: TObject; var CloseAction: TCloseAction);
     procedure FormCreate(Sender: TObject);
     procedure ListBox1DblClick(Sender: TObject);
     procedure ListBox2DblClick(Sender: TObject);
+    procedure rbTXEvenChange(Sender: TObject);
     procedure rigControlSet(Sender: TObject);
     procedure Timer1Timer(Sender: TObject);
     procedure tbTXLevelChange(Sender: TObject);
@@ -493,6 +503,9 @@ var
   catError       : TStringList;
   savedTADC      : String;
   savedIADC      : Integer;
+  txperiod       : Integer; // 1 = Odd 0 = Even
+  couldtx        : Boolean; // If one could TX this period (it matches even/odd selection)
+  txrequested    : Boolean; // Is a request to TX in place?
 
 implementation
 
@@ -1367,7 +1380,7 @@ Begin
           if not isZero(demodulate.dmarun) Then Label86.Caption := FormatFloat('0.000',((demodulate.dmarun/demodulate.dmrcount)/1000.0));
      end;
      { TODO : Undo this next comment line }
-     //If RadioButton2.Checked or RadioButton3.Checked Then Button1.Visible := True else Button1.Visible := False;
+     //If rbTXEven.Checked or rbTXOdd.Checked Then txControl.Visible := True else txControl.Visible := False;
 
      If (Length(edPrefix.Text)>0) And (Length(edSuffix.Text)=0) And ((Length(edCall.Text)>2) And (Length(edCall.Text)<7)) And ((Length(getLocalGrid)=4) Or (Length(getLocalGrid)=6)) Then
      Begin
@@ -1403,7 +1416,7 @@ Begin
      end
      else
      Begin
-          If radioButton2.Checked or radioButton3.Checked Then
+          If rbTXEven.Checked or rbTXOdd.Checked Then
           Begin
                Label16.Caption := 'TX:  ENABLED';
                Label16.Font.Color := clBlack;
@@ -1648,8 +1661,16 @@ Begin
      // TX to index = 0
      //dac.d65txBufferIdx := 0;
      FBar1.Clear;
+
+     // Set flag for TX ability
+     //txperiod       : Integer; // 1 = Odd 0 = Even
+     //couldtx        : Boolean; // If one could TX this period (it matches even/odd selection)
+     couldtx := False;
+     if (txperiod = 1) and Odd(thisUTC.Minute) Then couldtx := True;
+     if (txperiod = 0) and not Odd(thisUTC.Minute) Then couldtx := True;
+
      // Enable TX if necessary
-     if (RadioButton2.Checked or RadioButton3.Checked) and (not globalData.txInProgress) and inSync Then
+     if (rbTXEven.Checked or rbTXOdd.Checked) and (not globalData.txInProgress) and inSync Then
      Begin
           i := -9999;
           if not tryStrToInt(TrimLeft(TrimRight(edTXDF.Text)),i) Then i := 0;
@@ -1660,11 +1681,11 @@ Begin
           //genTX(foo,i,gTXLevel,dac.d65txBuffer);
           globalData.txInProgress := False;
 
-          if RadioButton2.Checked and (not Odd(thisUTC.Minute)) and (not globalData.txInProgress) Then
+          if rbTXEven.Checked and (not Odd(thisUTC.Minute)) and (not globalData.txInProgress) Then
           Begin
                globalData.txInProgress := True;
           end;
-          if RadioButton3.Checked and Odd(thisUTC.Minute) and (not globalData.txInProgress) Then
+          if rbTXOdd.Checked and Odd(thisUTC.Minute) and (not globalData.txInProgress) Then
           Begin
                globalData.txInProgress := True;
                //genTX(foo,i,gTXLevel,dac.d65txBuffer);
@@ -1791,53 +1812,46 @@ Var
    cfoo     : String;
    srec     : Spot.spotRecord;
    tvalid   : Boolean;
+   dcount   : Integer;
 Begin
      if demodulate.dmhaveDecode Then
      Begin
-          Memo2.Clear;
-          for i := 0 to 499 do
-          begin
-               if length(demodulate.dmlastraw[i])>0 Then
-               Begin
-                    memo2.Append(demodulate.dmlastraw[i]);
-                    demodulate.dmlastraw[i] := '';
-               End;
-          end;
+          dcount := 0;
           //ListBox2.Items.Insert(0,'Enter display decodes');
-          dstrings := TStringList.Create;
-          dstrings.Clear;
-          dstrings.CaseSensitive := False;
-          dstrings.Sorted := False;
-          dstrings.Duplicates := Types.dupAccept;
+
           // Remove any duplicates and/or image decodes.
           j := 0;
-          for i := 0 to 499 do
-          begin
-               if not demodulate.dmdecodes[i].clr Then
-               begin
-                    dstrings.Add(demodulate.dmdecodes[i].db + ',' + demodulate.dmdecodes[i].dec + ',' + IntToStr(i));
-                    inc(j);
-               end;
-          end;
-          SetLength(removes,j);
+          for i := 0 to 499 do if not demodulate.dmdecodes[i].clr Then inc(j);
+
+          //if j=1 then showmessage('j=1');
+
           if j > 1 Then
           Begin
+               SetLength(removes,j);
+               dstrings := TStringList.Create;
+               dstrings.Clear;
+               dstrings.CaseSensitive := False;
+               dstrings.Sorted := False;
+               dstrings.Duplicates := Types.dupAccept;
+               j := 0;
+               for i := 0 to 499 do if not demodulate.dmdecodes[i].clr then inc(j);
                //ListBox2.Items.Insert(0,'Dupes to remove:  ' + IntToStr(j));
                removeDupes(dstrings,removes);
-          End;
-          dstrings.Destroy;
+               dstrings.Destroy;
 
-          for i := 0 to length(removes) - 1 do
-          begin
-               if removes[i] > -1 Then
-               Begin
-                    demodulate.dmdecodes[removes[i]].clr := True;
-               End;
-          end;
-          SetLength(removes,0);
+               for i := 0 to length(removes) - 1 do
+               begin
+                    if removes[i] > -1 Then
+                    Begin
+                         demodulate.dmdecodes[removes[i]].clr := True;
+                    End;
+               end;
+               SetLength(removes,0);
+          End;
 
           // Have decode results - display them.
           // Delete any impossible decodes like signal < -30
+          j:=0;
           for i := 0 to 499 do
           begin
                if not demodulate.dmdecodes[i].clr Then
@@ -1855,10 +1869,14 @@ Begin
                          demodulate.dmdecodes[i].clr := True;
                     end;
                end;
+               if not demodulate.dmdecodes[i].clr Then inc(j);
           end;
+
+          //if j < 2 then showmessage('j is ' + IntToStr(j));
 
           k := 0;
           for i := 0 to 499 do if not demodulate.dmdecodes[i].clr Then inc(k);
+          //if k = 0 then showmessage('k is zero');
           If k>0 Then
           Begin
                if cbDivideDecodes.Checked Then ListBox1.Items.Insert(0,'------------------------------------------------------------');
@@ -1867,6 +1885,7 @@ Begin
                begin
                      if not demodulate.dmdecodes[i].clr Then
                      Begin
+                          inc(dcount);
                           // Adjust the decimal point to what it "should" be for user's display.
                           afoo := demodulate.dmdecodes[i].dt;
                           bfoo := ExtractWord(1,afoo,[',','.']);
@@ -1933,7 +1952,7 @@ Begin
                           demodulate.dmdecodes[i].clr := True;
                      end;
                 end;
-                demodulate.dmhaveDecode := False;
+               demodulate.dmhaveDecode := False;
                 //if xdbCompactDivides.Checked and xdbDivideDecodes.Checked Then
                 //Begin
                      // Remove extra --- divider lines
@@ -1957,6 +1976,20 @@ Begin
           for i := 0 to 499 do if not demodulate.dmdecodes[i].clr Then inc(k);
           If k>0 Then ListBox2.Items.Insert(0,'Items not cleared at end of display pass - this is wrong.');
           //ListBox2.Items.Insert(0,'Exit display decodes');
+          if demodulate.dmdecodecount <> dcount Then
+          Begin
+               Memo2.Append('Count? Dec=' + IntToStr(demodulate.dmdecodecount) + ' Dis=' + IntToStr(dcount));
+               for i := 0 to 499 do
+               begin
+                    if length(demodulate.dmlastraw[i])>0 Then
+                    Begin
+                         memo2.Append(demodulate.dmlastraw[i]);
+                         demodulate.dmlastraw[i] := '';
+                    End;
+               end;
+               // Maybe this next line is not such a great idea.... DEBUG
+               demodulate.dmhaveDecode := False;
+          end;
      end;
 end;
 
@@ -3332,6 +3365,11 @@ begin
      ListBox2.Clear;
 end;
 
+procedure TForm1.rbTXEvenChange(Sender: TObject);
+begin
+     if rbTXEven.Checked Then txperiod := 0 else txperiod := 1;
+end;
+
 procedure TForm1.rigControlSet(Sender: TObject);
 begin
      if Sender = cbUseMono Then
@@ -4464,9 +4502,18 @@ begin
      //end;
 end;
 
-procedure TForm1.Button1Click(Sender: TObject);
+procedure TForm1.txControlClick(Sender: TObject);
 begin
-     //RadioButton1.Checked := True;
+     If txrequested then
+     begin
+          txrequested := False;
+          txControl.Caption := 'Enable TX';
+     end
+     else
+     begin
+          txrequested := True;
+          txControl.Caption := 'Disable TX';
+     end;
 end;
 
 procedure TForm1.mgenClick(Sender: TObject);
