@@ -1,4 +1,5 @@
 { TODO :
+
 Hook decoder output back to double click actions - In progress, needs ***much*** testing.
 
 Validate validate validate message input, callsigns, grids, QRGs etc.
@@ -20,6 +21,9 @@ Add logging code
 Add macro edit/define
 
 Add qrg edit/define
+
+Add worked call tracking taking into consideration a call worked in one grid is not
+worked if in a new one.
 
 Monitor situation with decodes sometimes being dropped or decoder indicating
 a hit with no data returned... the main problem is corrected and it's likely
@@ -349,6 +353,7 @@ type
     procedure edTXMsgDblClick(Sender: TObject);
     procedure ListBox1DrawItem(Control: TWinControl; Index: Integer; ARect: TRect; State: TOwnerDrawState);
     procedure mgenClick(Sender: TObject);
+    procedure rbOnChange(Sender: TObject);
     procedure txControlClick(Sender: TObject);
     procedure FormClose(Sender: TObject; var CloseAction: TCloseAction);
     procedure FormCreate(Sender: TObject);
@@ -524,8 +529,11 @@ var
   savedTADC      : String;
   savedIADC      : Integer;
   txperiod       : Integer; // 1 = Odd 0 = Even
-  couldtx        : Boolean; // If one could TX this period (it matches even/odd selection)
+  canTX          : Boolean; // Only true if callsign and grid is ok
+  couldTX        : Boolean; // If one could TX this period (it matches even/odd selection)
   txrequested    : Boolean; // Is a request to TX in place?
+  tmpdir         : String; // Path to user's temporary files directory
+  homedir        : String; // Path to user's home directory
 
 implementation
 
@@ -552,21 +560,16 @@ begin
      // Triggers for periodic actions
      if firstTick Then OncePerRuntime; // Reads config and sets everything up to run state.
      OncePerTick; // Code that executes ever ~100 mS.
-
      if (thisUTC.Second = 0) and (lastSecond = 59) Then newMinute := True else newMinute := False;
      if newMinute Then OncePerMinute;
-
      if (thisSecond <> lastSecond) Then newSecond := True else newSecond := False;
      if newSecond then oncePerSecond;
-
      if thisADCTick > lastADCTick Then adcdacTick;
-
      // Setup for next tick
      lastSecond := thisSecond;
      lastADCTick := thisADCTick;
      if newMinute then newMinute := False;
      if newSecond then newSecond := False;
-
      timer1.enabled := True;
      // And that's it for the timing loop - so much simpler than JT65-HF 1.x
 end;
@@ -586,6 +589,11 @@ Var
    mustcfg   : Boolean;
 Begin
      // This runs on first timer interrupt once per run session
+     tmpdir := GetTempDir(false);
+     //dmtmpdir := tmpdir; // For KV files -sigh- not.
+     homedir := getUserDir;
+     dmtmpdir := homedir+'hfwst\';
+
 
      // PageControl - Playing with fftw threads - this may be a huge mistake.
      //fftw_jl.fftwf_init_threads();
@@ -597,6 +605,20 @@ Begin
      catError.CaseSensitive := False;
      catError.Sorted := False;
      catError.Duplicates := Types.dupAccept;
+
+     if not DirectoryExistsUTF8(homedir+'hfwst') Then
+     Begin
+          if not createDir(homedir+'hfwst') Then
+          Begin
+               showmessage('Could not create data directory' + sLineBreak + 'Program must halt.');
+               halt;
+          end;
+     end;
+
+     if not FileExistsUTF8(homedir+'hfwst\kvasd.exe') Then
+     Begin
+          if not FileUtil.CopyFile('kvasd.exe',homedir+'hfwst\kvasd.exe') Then showmessage('Need kvasd.exe in data directory.');
+     end;
 
      basedir := GetAppConfigDir(false);
      basedir := TrimFilename(basedir);
@@ -999,6 +1021,7 @@ Begin
      rbThread  := rbcThread.Create(False);
      if rbOn.Checked Then
      Begin
+          if length(edRBCall.Text) <3 Then edRBCall.Text := edCall.Text;
           rb.myCall := TrimLeft(TrimRight(UpCase(edRBCall.Text)));
           rb.myGrid := TrimLeft(TrimRight(edGrid.Text));
           rb.rbInfo := TrimLeft(TrimRight(edStationInfo.Text));
@@ -1010,6 +1033,7 @@ Begin
      end
      else
      begin
+          if length(edRBCall.Text) <3 Then edRBCall.Text := edCall.Text;
           rb.myCall := TrimLeft(TrimRight(UpCase(edRBCall.Text)));
           rb.myGrid := TrimLeft(TrimRight(edGrid.Text));
           rb.rbInfo := TrimLeft(TrimRight(edStationInfo.Text));
@@ -1326,7 +1350,7 @@ Begin
      mval.forceDecimalEuro := False;
      if mval.evalQRG(fs,'STRICT',ff,fi,fsc) Then qrgValid := True else qrgValid := False;
 
-     if qrgValid Then
+     if qrgValid and (length(edRBCall.Text)>2) Then
      Begin
           rbOn.Enabled := True;
           rbOn.Font.Color := clBlack;
@@ -1507,6 +1531,7 @@ Begin
      //if inSync and paActive Then RadioGroup1.Visible := True else RadioGroup1.Visible := False;
 
      if rbOn.Checked then rbOn.Caption := 'Spots sent:  ' + rb.rbCount else rbOn.Caption := 'RB Enable';
+     if length(edRBCall.Text) < 3 Then rbOn.Caption := 'Setup RB Callsign please.';
 
      if rbOn.Checked and (not rb.rbOn) Then
      Begin
@@ -4584,6 +4609,11 @@ begin
      end;
 end;
 
+procedure TForm1.rbOnChange(Sender: TObject);
+begin
+     if length(edRBCall.Text) < 3 Then edRBCall.Text := edCall.Text;
+end;
+
 procedure TForm1.edTXMsgDblClick(Sender: TObject);
 begin
      edTXMsg.Clear;
@@ -4855,6 +4885,37 @@ end;
 
 procedure TForm1.Button4Click(Sender: TObject);
 begin
+     { TODO : Do a little better than the next line does. }
+     if length(edRBCall.Text) < 3 Then edRBCall.Text := edCall.Text;
+     { TODO : Validate everything on the inputs that matters for it }
+     canTX := True;
+     // Validate prefix (if present)
+     if length(edPrefix.Text)>0 Then
+     Begin
+          //        function evalCSign(const call : String) : Boolean;
+          //        function evalGrid(const grid : String) : Boolean;
+
+     End;
+     // Validate callsign
+     if not mval.evalCSign(edCall.Text) Then
+     Begin
+          showmessage('The entered callsign is not valid for JT65 - TX will not be enabled');
+          canTX := False;
+     end;
+
+     // Validate suffix (if present)
+     if length(edSuffix.Text) >0 Then
+     Begin
+
+     End;
+     // Validate grid
+     if not mval.evalGrid(edGrid.Text) Then
+     Begin
+          showmessage('The entered grid square is not valid for JT65 - TX will not be enabled');
+          canTX := False;
+     end;
+
+
      Waterfall1.Visible   := True;
      Chart1.Visible       := True;
      buttonConfig.Visible := True;
@@ -7857,9 +7918,9 @@ Begin
      edRBCall.Text := '';
      edStationInfo.Text := '';
      cbSaveToCSV.Checked := False;
-     edCSVPath.Text := cfgDir;
+     edCSVPath.Text := homeDir+'hfwst';
      // Tabsheet 5
-     edADIFPath.Text := cfgDir;
+     edADIFPath.Text := homeDir+'hfwst';
      edADIFMode.Text := 'JT65';
      cbRememberComments.Checked := False;
      // Tabsheet 6

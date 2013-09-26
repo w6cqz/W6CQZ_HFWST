@@ -76,6 +76,7 @@ type
      glist         : Array[0..32767] Of String;
      dmlastraw     : Array[0..499] Of String;
      dmdecodecount : Integer;
+     dmtmpdir      : String;
 
 implementation
 
@@ -225,6 +226,11 @@ I tried simply not doing the zero bins in the library fortran code and it seems 
 this filtering issue totally.  What I really want to see is a side by side comparison of decoding with the bin zero in place
 and without it to see if it's generating phantoms.  Some of it is going to be spectral leakage to adjoining bins - but I'm
 curious if the zero bin filter is "enhancing" any of that.
+
+Answer to ^^^ is Y E S.  It is night and day difference without doing the zero bin hack.  It will not be coming back to my
+code.  Question remains do I need to do an LPF filter so there's no wrap around aliasing for signals outside the downsampled
+range.  Probably yes but only for those (few) using a rig with wide filtering as the average user's RX filter will do it for me.
+But - will add - eventually.
 
 mousedf2 will still be 0 on this for the first time I use.
 calling a complex to real fft.  c is the complex data array nh = 262144
@@ -1165,11 +1171,11 @@ end;
 
 Function evalKV(const fname : String; Var decoded : String; Var sf : String; Var ver : String; var nc1 : LongWord; var nc2 : LongWord; var ng : LongWord) : Boolean;
 Var
-   kvSec2, kvCount, ierr, i : CTypes.cint;
+   kvSec2, kvCount,ierr,i,j : CTypes.cint;
    kvProc                   : TProcess;
    kvDat                    : Array[0..11] of CTypes.cint;
    kvFile                   : File Of CTypes.cint;
-   foo        : String;
+   foo,kvfullname           : String;
 Begin
      // Looking for a KV decode
      Result  := false;
@@ -1184,12 +1190,13 @@ Begin
      End;
 
      ierr := 0;
-
-     if FileExists(fname) Then
+     kvfullname := dmtmpdir+fname;
+     if FileExists(kvfullname) Then
      Begin
           kvProc := TProcess.Create(nil);
-          //kvProc.Parameters.Add('kvasd.exe -q');
-          kvProc.CommandLine := 'kvasd.exe -q';
+          kvProc.Executable := dmtmpdir + 'kvasd.exe';
+          kvProc.Parameters.Append('-q');
+          kvProc.CurrentDirectory := dmtmpdir;
           kvProc.Options := kvProc.Options + [poWaitOnExit];
           kvProc.Options := kvProc.Options + [poNoConsole];
           kvProc.Execute;
@@ -1205,10 +1212,11 @@ Begin
      Begin
           Try
              // read kvasd.dat
-             AssignFile(kvFile,fname);
+             AssignFile(kvFile,kvfullname);
              Reset(kvFile);
              //ListBox2.Items.Insert(0,'kv size = ' + IntToStr(System.FileSize(kvfile)));
-             If System.FileSize(kvfile) > 256 Then
+             j:=System.FileSize(kvfile);
+             If j > 256 Then
              Begin
                   // Seek to nsec2 (256)
                   Seek(kvFile,256);
@@ -1252,6 +1260,10 @@ Begin
              End
              Else
              Begin
+                  if j<>256 Then
+                  Begin
+                       Result := False;
+                  end;
                   //ListBox2.Items.Insert(0,'KV File wrong size');
                   CloseFile(kvFile);
                   Result  := False;
@@ -1274,7 +1286,7 @@ Begin
      kvProc.Destroy;
 
      try
-        FileUtil.DeleteFileUTF8(fname);
+        FileUtil.DeleteFileUTF8(kvfullname);
      except
         // No action required
      end;
@@ -1630,10 +1642,7 @@ begin
                          else
                          begin
                               dmlastraw[rawcount] := dmlastraw[rawcount] + ' BM Fails : ';
-                              // This is where I would try KV
-                              // To attempt a KV decode I need to build the binary file, call KV, read the binary file back
-                              // and see if I have something to work with.
-
+                              // This is where I try KV
                               // Build the data record
                               kvdat.nsec1    := 1;
                               kvdat.xlambda  := 12.0;
@@ -1643,7 +1652,8 @@ begin
                               for k := 0 to 62 do kvdat.mrprob[k] := lsym1p[k];
                               for k := 0 to 62 do kvdat.mr2sym[k]  := lsym2[k];
                               for k := 0 to 62 do kvdat.mr2prob[k] := lsym2p[k];
-                              AssignFile(kvfile,'kvasd.dat');
+                              AssignFile(kvfile,dmtmpdir+'kvasd.dat');
+                              //AssignFile(kvfile,'kvasd.dat');
                               Rewrite(kvfile);
                               write(kvfile,kvdat);
                               CloseFile(kvfile);
@@ -1655,6 +1665,7 @@ begin
                               lnc1 := 0;
                               lnc2 := 0;
                               lng  := 0;
+                              { TODO : MUST place kvasd.dat in a proper place and have KV pull from that - not the launch time current directory! }
                               if evalKV('kvasd.dat',foo2,sf,ver,lnc1,lnc2,lng) Then
                               Begin
                                    inc(dmdecodecount);

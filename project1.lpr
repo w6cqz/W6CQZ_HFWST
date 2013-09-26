@@ -10,7 +10,7 @@ uses
 {$R *.res}
 
 begin
-  Application.Title:='JT65HF2';
+  Application.Title:='HFWST';
   Application.Initialize;
   Application.CreateForm(TForm1, Form1);
   Application.Run;

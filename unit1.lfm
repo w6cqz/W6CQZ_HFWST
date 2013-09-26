@@ -376,6 +376,7 @@ object Form1: TForm1
     Font.Height = -19
     Font.Name = 'Arial'
     Font.Style = [fsBold]
+    OnChange = rbOnChange
     ParentFont = False
     TabOrder = 7
   end
