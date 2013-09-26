@@ -209,7 +209,7 @@ object Form1: TForm1
     TabOrder = 1
   end
   object Label16: TLabel
-    Left = 440
+    Left = 496
     Height = 23
     Top = 6
     Width = 185
@@ -219,14 +219,13 @@ object Form1: TForm1
     Font.Style = [fsBold]
     ParentColor = False
     ParentFont = False
-    Visible = False
   end
   object Label20: TLabel
-    Left = 757
+    Left = 748
     Height = 23
     Top = 6
-    Width = 196
-    Caption = 'HFWST V1.0-Phoenix'
+    Width = 205
+    Caption = 'HFWST v1.0 (Phoenix)'
     Font.Height = -19
     Font.Name = 'Arial'
     Font.Style = [fsBold]
@@ -321,8 +320,8 @@ object Form1: TForm1
     Left = 233
     Height = 23
     Top = 6
-    Width = 45
-    Caption = 'DE:  '
+    Width = 35
+    Caption = 'DE:'
     Font.Height = -19
     Font.Name = 'Arial'
     Font.Style = [fsBold]

@@ -2,9 +2,9 @@
 
 Hook decoder output back to double click actions - In progress, needs ***much*** testing.
 
-Validate validate validate message input, callsigns, grids, QRGs etc.
+Validate validate validate message input, callsigns, grids, QRGs etc. - In progress - weak and needs testing.
 
-Fill in RB call from Station call if user does not manually set.
+Fill in RB call from Station call if user does not manually set. - In progress - weak, needs better implementation
 
 Look into issue with loss of net leading to program hang on exit if RB on
 
@@ -606,7 +606,7 @@ Begin
      catError.Sorted := False;
      catError.Duplicates := Types.dupAccept;
 
-     if not DirectoryExistsUTF8(homedir+'hfwst') Then
+     if not DirectoryExists(homedir+'hfwst') Then
      Begin
           if not createDir(homedir+'hfwst') Then
           Begin
@@ -615,15 +615,17 @@ Begin
           end;
      end;
 
-     if not FileExistsUTF8(homedir+'hfwst\kvasd.exe') Then
+     homedir := homedir+'\hfwst\';
+
+     if not FileExists(homedir+'kvasd.exe') Then
      Begin
-          if not FileUtil.CopyFile('kvasd.exe',homedir+'hfwst\kvasd.exe') Then showmessage('Need kvasd.exe in data directory.');
+          if not FileUtil.CopyFile('kvasd.exe',homedir+'kvasd.exe') Then showmessage('Need kvasd.exe in data directory.');
      end;
 
      basedir := GetAppConfigDir(false);
      basedir := TrimFilename(basedir);
 
-     if not DirectoryExistsUTF8(basedir) Then
+     if not DirectoryExists(basedir) Then
      Begin
           if not createDir(basedir) Then
           begin
@@ -641,7 +643,7 @@ Begin
           cfgpath := basedir + PathDelim + cfgpath + 'I1' + PathDelim;
      end;
 
-     if not DirectoryExistsUTF8(cfgpath) Then
+     if not DirectoryExists(cfgpath) Then
      Begin
           if not createDir(cfgpath) Then
           begin
@@ -1065,10 +1067,10 @@ Begin
           PaResult := portaudio.Pa_Initialize();
           If PaResult <> 0 Then
           Begin
-               ShowMessage('Fatal Error.  Could not initialize portaudio.');
+               ShowMessage('Fatal Error.  Could not initialize PortAudio.');
                halt;
           end;
-          If PaResult = 0 Then ListBox2.Items.Insert(0,'Portaudio initialized OK.');
+          If PaResult = 0 Then ListBox2.Items.Insert(0,'PortAudio up.');
           // Now I need to populate the Sound In/Out pulldowns.  First I'm going to get
           // a list of the portaudio API descriptions.  For now I'm going to stick with
           // the default windows interface.
@@ -1079,7 +1081,7 @@ Begin
                i := paCount-1;
                if i < 0 Then
                Begin
-                    ShowMessage('PA Reports no audio I/O devices.');
+                    ShowMessage('PortAudio Reports no audio devices.');
                     Halt;
                End;
                comboAudioIn.Clear;
@@ -1203,7 +1205,7 @@ Begin
                if paResult <> 0 Then
                Begin
                     // Was unable to open RX.
-                    ShowMessage('Unable to start PA RX Stream.');
+                    ShowMessage('Unable to start PortAudio Input Stream.');
                     Halt;
                end;
                ListBox2.Items.Insert(0,'Opened input device');
@@ -1212,7 +1214,7 @@ Begin
                if paResult <> 0 Then
                Begin
                     // Was unable to start RX stream.
-                    ShowMessage('Unable to start PA RX Stream.');
+                    ShowMessage('Unable to start PortAudio Input Stream.');
                     Halt;
                end;
                ListBox2.Items.Insert(0,'Started input device');
@@ -1245,18 +1247,19 @@ Begin
                //paresult := portAudio.Pa_CloseStream(paOutStream);
                //paOutStream := Nil;
                //dac.dacTick := 0;
-               ListBox2.Items.Insert(0,'PA Streams open and running');
-               ListBox2.Items.Insert(0,'Waiting for sync to second = 0');
           end
           else
           begin
-               ShowMessage('PA Error.  No default API value.');
+               ShowMessage('PortAudio Error.  No default API value.');
                halt;
           end;
           paActive := True;
 
-          ListBox2.Items.Insert(0,'PortAudio Initialized and running properly');
+          ListBox2.Items.Insert(0,'PortAudio configured and running');
+          ListBox2.Items.Insert(0,'Waiting for sync to second = 0');
 
+          // Set the audio selector to configured device so it doesn't
+          // trigger any random changes when configuration is opened.
           for i := 0 to comboAudioIn.Items.Count-1 do
           begin
                if comboAudioIn.Items.Strings[i] = savedTADC Then
@@ -1265,6 +1268,7 @@ Begin
                     break;
                end;
           end;
+
           //for i := 0 to comboAudioOut.Items.Count-1 do
           //begin
           //     if comboAudioOut.Items.Strings[i] = tdac.Text Then
@@ -1291,8 +1295,8 @@ Var
   iptt      : CTypes.cint;
   ioresult  : CTypes.cint;
   msg       : CTypes.cschar;
-  fs,fsc    : String;
-  s1,s2     : String;
+  fs, fsc   : String;
+  s1, s2    : String;
   ff        : Double;
   cqrg      : Integer;
 Begin
@@ -1311,9 +1315,10 @@ Begin
 
      if forceCAT and catFree Then
      Begin
-          { TODO : Hook CAT selection up again }
-          //catMethod := xdbRigController.Text;
-          catMethod := 'None';
+          { TODO : Add CI-V Commander back as control option }
+          If rigNone.Checked Then catMethod := 'None';
+          if rigRebel.Checked Then catMethod := 'Rebel';
+          //if rigCommander.Checked Then catMethod := 'Commander';
           doCAT     := True;
           forceCAT  := False;
      end;
@@ -1330,16 +1335,6 @@ Begin
      if mfc > 0 Then Label113.Caption := PadLeft(IntToStr(mfc),5);
      if v1c > 0 Then Label116.Caption := PadLeft(IntToStr(v1c),5);
      if v2c > 0 Then Label117.Caption := PadLeft(IntToStr(v2c),5);
-
-     // PageControl
-     //if catQRG > 0 Then
-     //Begin
-          //edDialQRG.Text := IntToStr(catQRG);
-     //end
-     //else
-     //begin
-          //if not (xdbRigController.Text = 'None') Then edDialQRG.Text := '0';
-     //end;
 
      fs  := '';
      ff  := 0.0;
@@ -1363,6 +1358,8 @@ Begin
           rbOn.Font.Color := clRed;
      end;
 
+     // Converts Integer Hertz value to KHz taking into account local decimal character.
+     // This is *better* than converting to float and dividing.  :)
      if length(edDialQRG.Text)> 3 Then
      Begin
           s1 := edDialQRG.Text;
@@ -1424,8 +1421,11 @@ Begin
           if not IsZero(srun) Then Label84.Caption := FormatFloat('0.000',(srun/1000.0));
           if not isZero(demodulate.dmarun) Then Label86.Caption := FormatFloat('0.000',((demodulate.dmarun/demodulate.dmrcount)/1000.0));
      end;
-     { TODO : Undo this next comment line }
-     //If rbTXEven.Checked or rbTXOdd.Checked Then txControl.Visible := True else txControl.Visible := False;
+
+     // Compute actual full callsign to use from prefix+callsign+suffix
+
+     // If Prefix and suffix defined (invalid) the prefix wins.
+     If (Length(edPrefix.Text)>0) And (Length(edSuffix.Text)>0) Then edSuffix.Text := '';
 
      If (Length(edPrefix.Text)>0) And (Length(edSuffix.Text)=0) And ((Length(edCall.Text)>2) And (Length(edCall.Text)<7)) And ((Length(getLocalGrid)=4) Or (Length(getLocalGrid)=6)) Then
      Begin
@@ -1450,26 +1450,39 @@ Begin
           if Length(thisTXGrid)>4 Then thisTXGrid := thisTXGrid[1..4];
           Label8.Caption := 'DE ' + thisTXCall + ' ' + edGrid.Text;
      end;
+
+     { TODO : And canTX with message to TX being valid }
+     // canTX is based upon having valid callsign and grid in config & valid message ready to send
+     If canTX Then txControl.Visible := True else txControl.Visible := False;
+
      { TODO Fix }
      //If txOn Then Label12.Caption := 'PTT:  ON' else Label12.Caption := 'PTT:  OFF';
      //If txOn Then Label12.Font.Color := clRed else Label12.Font.Color := clBlack;
 
-     If globalData.txInProgress Then
+     if not canTX Then
      Begin
-          Label16.Caption := 'TX:  TRANSMITTING';
-          Label16.Font.Color := clRed;
+          Label16.Caption := 'TX:  DISABLED';
+          Label16.Font.Color := clBlack;
      end
      else
-     Begin
-          If rbTXEven.Checked or rbTXOdd.Checked Then
+     begin
+          If globalData.txInProgress Then
           Begin
-               Label16.Caption := 'TX:  ENABLED';
-               Label16.Font.Color := clBlack;
+               Label16.Caption := 'TX:  TRANSMITTING';
+               Label16.Font.Color := clRed;
           end
           else
-          begin
-               Label16.Caption := 'TX:  OFF';
-               Label16.Font.Color := clBlack;
+          Begin
+               If (rbTXEven.Checked or rbTXOdd.Checked) and canTX  Then
+               Begin
+                    Label16.Caption := 'TX:  ENABLED';
+                    Label16.Font.Color := clBlack;
+               end
+               else
+               begin
+                    Label16.Caption := 'TX:  OFF';
+                    Label16.Font.Color := clBlack;
+               end;
           end;
      end;
 
@@ -1798,7 +1811,7 @@ Begin
                //if aulevel = 0 Then aulevel := spectrum.computeAudio(adc.adclast2k1) else aulevel := (aulevel + spectrum.computeAudio(adc.adclast2k1)) div 2;
                aulevel := spectrum.computeAudio(adc.adclast2k1);
                Label108.Caption := IntToStr(Trunc((aulevel*0.4)-20)) + 'dB';
-               Label78.Caption := '';
+               Label78.Caption := 'Mono:';
                Label3.Caption := 'Audio Level';
                Label107.Visible := False;
                Label109.Visible := False;
@@ -4878,7 +4891,6 @@ begin
      Waterfall1.Visible   := False;
      Chart1.Visible       := False;
      buttonConfig.Visible := False;
-     Label3.Visible       := False;
      Button4.Visible      := True;
      PageControl.Visible := True;
 end;
@@ -4915,11 +4927,12 @@ begin
           canTX := False;
      end;
 
+     { TODO : REMOVE NEXT LINE AFTER DEBUGGING!!!!!!!!!!!!!!!!!!!!! }
+     canTX := False;
 
      Waterfall1.Visible   := True;
      Chart1.Visible       := True;
      buttonConfig.Visible := True;
-     Label3.Visible       := True;
      Button4.Visible      := False;
      PageControl.Visible := False;
      updateDB;
@@ -5037,6 +5050,7 @@ end;
 procedure decodeThread.Execute;
 Var
    rxb : Packed Array of CTypes.cint16;
+//   rxf : Packed Array of CTypes.cfloat;
    i   : Integer;
 begin
      while not Terminated and not Suspended and not decoderBusy do
@@ -5055,9 +5069,13 @@ begin
                if adc.adcChan = 0 Then for i := 0 to length(adc.d65rxBuffer1)-1 do rxb[i] := adc.d65rxBuffer1[i];
                if adc.adcChan = 1 Then for i := 0 to length(adc.d65rxBuffer1)-1 do rxb[i] := adc.d65rxBuffer1[i];
                if adc.adcChan = 2 Then for i := 0 to length(adc.d65rxBuffer2)-1 do rxb[i] := adc.d65rxBuffer2[i];
-               demodulate.demod(rxb);
+
+               //demodulate.demod(rxb);
+               demodulate.ldemod(rxb);
+
                inc(decodeping);
                setLength(rxb,0);
+               //setLength(rxf,0);
                doDecode := False;
                decoderBusy := False;
           end;
@@ -5090,17 +5108,14 @@ begin
                     // Here's where I run the CAT control cycle by either launching
                     // jt65hfrc.exe for everything but hamlib or hamlib command line
                     // util
-                    if catMethod = 'Commander' Then commandline := 'jt65hfrc.exe -c COMMANDER -d . -r';
-                    if catMethod = 'HRD'       Then commandline := 'jt65hfrc.exe -c HRD -d . -r';
-                    if catMethod = 'Omni1'     Then commandline := 'jt65hfrc.exe -c OMNI -d . -u 1 -r';
-                    if catMethod = 'Omni2'     Then commandline := 'jt65hfrc.exe -c OMNI -d . -u 2 -r';
-                    if catMethod = 'HamLib'    Then commandline := '';
+                    if catMethod = 'Commander' Then commandline := '-c COMMANDER -d . -r';
                     if length(commandline)>0 Then
                     Begin
                          haveError := False;
                          MemStream := TMemoryStream.Create;
                          BytesRead := 0;
                          catProc := TProcess.Create(nil);
+                         catProc.Executable := 'jt65hfrc.exe';
                          catProc.Parameters.Add(commandline);
                          //catProc.CommandLine := commandline;
                          catProc.Options := [poUsePipes] + [poNoConsole];
@@ -7804,10 +7819,10 @@ Begin
      query.SQL.Clear;
      query.SQL.Text := 'INSERT INTO qrg(instance, fqrg) VALUES(:INSTANCE,:QRG);';
      query.Params.ParamByName('INSTANCE').AsInteger :=1;
-     //query.Params.ParamByName('QRG').AsFloat := 1836000.0;
-     //query.ExecSQL;
-     //query.Params.ParamByName('QRG').AsFloat := 3576000.0;
-     //query.ExecSQL;
+     query.Params.ParamByName('QRG').AsFloat := 1836000.0;
+     query.ExecSQL;
+     query.Params.ParamByName('QRG').AsFloat := 3576000.0;
+     query.ExecSQL;
      query.Params.ParamByName('QRG').AsFloat := 7039000.0;
      query.ExecSQL;
      query.Params.ParamByName('QRG').AsFloat := 7075700.0;
@@ -7816,8 +7831,8 @@ Begin
      query.ExecSQL;
      query.Params.ParamByName('QRG').AsFloat := 7076300.0;
      query.ExecSQL;
-     //query.Params.ParamByName('QRG').AsFloat := 10138000.0;
-     //query.ExecSQL;
+     query.Params.ParamByName('QRG').AsFloat := 10138000.0;
+     query.ExecSQL;
      query.Params.ParamByName('QRG').AsFloat := 14075300.0;
      query.ExecSQL;
      query.Params.ParamByName('QRG').AsFloat := 14075600.0;
@@ -7830,18 +7845,18 @@ Begin
      query.ExecSQL;
      query.Params.ParamByName('QRG').AsFloat := 14076900.0;
      query.ExecSQL;
-     //query.Params.ParamByName('QRG').AsFloat := 18102000.0;
-     //query.ExecSQL;
-     //query.Params.ParamByName('QRG').AsFloat := 18106000.0;
-     //query.ExecSQL;
-     //query.Params.ParamByName('QRG').AsFloat := 21076000.0;
-     //query.ExecSQL;
-     //query.Params.ParamByName('QRG').AsFloat := 24920000.0;
-     //query.ExecSQL;
-     //query.Params.ParamByName('QRG').AsFloat := 28076000.0;
-     //query.ExecSQL;
-     //query.Params.ParamByName('QRG').AsFloat := 50276000.0;
-     //query.ExecSQL;
+     query.Params.ParamByName('QRG').AsFloat := 18102000.0;
+     query.ExecSQL;
+     query.Params.ParamByName('QRG').AsFloat := 18106000.0;
+     query.ExecSQL;
+     query.Params.ParamByName('QRG').AsFloat := 21076000.0;
+     query.ExecSQL;
+     query.Params.ParamByName('QRG').AsFloat := 24920000.0;
+     query.ExecSQL;
+     query.Params.ParamByName('QRG').AsFloat := 28076000.0;
+     query.ExecSQL;
+     query.Params.ParamByName('QRG').AsFloat := 50276000.0;
+     query.ExecSQL;
      transaction.Commit;
      // Macro Definitions
      query.SQL.Clear;
@@ -7963,7 +7978,6 @@ Begin
      // Update the DB
      updateDB;
      buttonConfig.Visible := False;
-     Label3.Visible       := False;
      Button4.Visible      := True;
      PageControl.Visible := True;
 end;

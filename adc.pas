@@ -15,12 +15,13 @@ uses
 Var
    d65rxBuffer1    : Packed Array[0..661503] of CTypes.cint16;   // This is slightly more than 60*11025 to make it evenly divided by 2048
    d65rxBuffer2    : Packed Array[0..661503] of CTypes.cint16;   // This is slightly more than 60*11025 to make it evenly divided by 2048
-   adclast2k1      : Packed Array[0..2047] of CTypes.cint16;
+   adclast2k1      : Packed Array[0..2047] of CTypes.cint16;     // ^^^ 1 holds left ADC channel samples - 2 holds right.
    adclast2k2      : Packed Array[0..2047] of CTypes.cint16;
    adclast4k1      : Packed Array[0..4095] of CTypes.cint16;
    adclast4k2      : Packed Array[0..4095] of CTypes.cint16;
    d65rxBufferIdx  : Integer;
    adcChan         : Integer;  // 1 = Left, 2 = Right
+   adcFirst        : Integer;  // Flag so I can init some things on first call to this
    adcRunning      : Boolean;
    adcLDgain       : Integer;
    adcRDgain       : Integer;
@@ -39,21 +40,28 @@ function adcCallback(input: Pointer; output: Pointer; frameCount: Longword;
                        statusFlags: TPaStreamCallbackFlags;
                        inputDevice: Pointer): Integer; cdecl;
 Var
-   i,z             : Integer;
-   inptr           : ^smallint;
-   tempInt1        : smallint;
-   tempInt2        : smallint;
-   localIdx        : Integer;
+   i,z,lpidx,jz,nave : Integer;
+   inptr             : ^smallint;
+   tempInt1          : smallint;
+   tempInt2          : smallint;
+   localIdx,n        : Integer;
+   fsum,ave,sq       : CTypes.cfloat;
 Begin
      Try
-        if adcRunning Then inc(adcECount);
+        if adcRunning Then
+        Begin
+             inc(adcECount);  // Looking for any recursive calls to this - i.e. overruns.
+        end;
         adcRunning := True;
         // Move paAudio Buffer to d65rxBuffer (d65rxBufferIdx ranges 0..661503)
         inptr := input;
         localIdx := d65rxBufferIdx;
         // Now I need to copy the frames to real rx buffer
-        //for i := 0 to 2047 do adclast2k[i] := 0;
         z := framecount;
+        // Don't get confused remembering OLD OLD things - framecount is now 64 samples per callback NOT 2048 :)
+        // By the way.... at 64 samples per frame (11025 S/S) this routine is called every ~5.805 mS best not
+        // get too greedy here doing things.
+        lpidx := 0;
         For i := 1 to z do
         Begin
              // inptr is a pointer ^ indicates read value at pointer address NOT the pointer's value. :)
@@ -75,6 +83,7 @@ Begin
                inc(localIdx);
                inc(auIDX);
                inc(specIDX);
+               inc(lpidx);
                // Flags for spectrum/audio level computations
                if auIDX = 2048 then haveAU := True;
                if specIDX = 4096 then haveSpec := True;
@@ -104,6 +113,7 @@ Begin
                   inc(localIdx);
                   inc(auIDX);
                   inc(specIDX);
+                  inc(lpidx);
                   // Flags for spectrum/audio level computations
                   if auIDX = 2048 then haveAU := True;
                   if specIDX = 4096 then haveSpec := True;

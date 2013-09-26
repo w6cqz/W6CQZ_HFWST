@@ -1,4 +1,7 @@
-{ TODO : LPF Samples since I changed libJT65 - not sure if it's necessary or not, but, since it will be relatively low impact for CPU - might as well.  Low priority for now. }
+{ TODO :
+  Done - LPF Samples since I changed libJT65
+}
+
 // (c) 2013 CQZ Electronics
 unit demodulate;
 
@@ -12,6 +15,56 @@ uses
 
 Const
   JT_DLL = 'JT65v5.dll';
+
+  // 19 pole butterworth LPF - good for < ~2.5KHz
+  Const
+    ACoef : array[0..19] of CTypes.cfloat =
+        (
+        0.00001939180997620892,
+        0.00036844438954796945,
+        0.00331599950593172540,
+        0.01879066386694644400,
+        0.07516265546778577700,
+        0.22548796640335733000,
+        0.52613858827450044000,
+        0.97711452108121499000,
+        1.46567178162182250000,
+        1.79137662198222760000,
+        1.79137662198222760000,
+        1.46567178162182250000,
+        0.97711452108121499000,
+        0.52613858827450044000,
+        0.22548796640335733000,
+        0.07516265546778577700,
+        0.01879066386694644400,
+        0.00331599950593172540,
+        0.00036844438954796945,
+        0.00001939180997620892
+        );
+
+    BCoef : array[0..19] of CTypes.cfloat =
+        (
+        1.00000000000000000000,
+        0.30124524681121684000,
+        2.62368718667596430000,
+        0.68183386600980578000,
+        2.71043558836035330000,
+        0.59957920836218892000,
+        1.42524899306136610000,
+        0.26375059355045877000,
+        0.41246083660156979000,
+        0.06237667312611505600,
+        0.06644496002297710400,
+        0.00794483191686967340,
+        0.00575615778774987010,
+        0.00051759803100776295,
+        0.00024561616410988675,
+        0.00001526235709911922,
+        0.00000429882913347158,
+        0.00000015515020059209,
+        0.00000001973933115243,
+        0.00000000023001431849
+        );
 
 type
 
@@ -60,7 +113,8 @@ type
   end;
 
 
-  function demod(Const samps : Array Of CTypes.cint16) : Boolean;
+  //function demod(Const samps : Array Of CTypes.cint16) : Boolean;
+  function ldemod(Const samps : Array Of CTypes.cint16) : Boolean;
 
   Var
      dmical        : CTypes.cint;
@@ -1293,7 +1347,495 @@ Begin
 
 end;
 
-function demod(Const samps : Array Of CTypes.cint16) : Boolean;
+//function demod(Const samps : Array Of CTypes.cint16) : Boolean;
+//Var
+//   glinbuffer    : Array of CTypes.cint;
+//   glf1buffer    : Array of CTypes.cfloat;
+//   glf3buffer    : Array[0..661503] of CTypes.cfloat;
+//   gllpfm        : Array[0..661503] Of Ctypes.cfloat;
+//   dfxa          : Array[0..254] Of CTypes.cfloat;
+//   snrsynca      : Array[0..254] Of CTypes.cfloat;
+//   snrxa         : Array[0..254] Of CTypes.cfloat;
+//   dtxa          : Array[0..254] Of CTypes.cfloat;
+//   decsyms       : Array[0..11] Of Ctypes.cint;
+//   lsym1,lsym2   : Array[0..62] Of CTypes.cint;
+//   lsym1p,lsym2p : Array[0..62] Of CTypes.cint;
+//   rsera         : Array[0..50] Of CTypes.cint;
+//   rsecount      : CTypes.cint;
+//   rscount       : CTypes.cint;
+//   i,jz2,k       : CTypes.cint;
+//   nave,jz       : CTypes.cint;
+//   lical,idf,j   : CTypes.cint;
+//   lmousedf,bw   : CTypes.cint;
+//   mousedf2,afc  : CTypes.cint;
+//   syncount      : CTypes.cint;
+//   foo,ver       : String;
+//   wif           : PChar;
+//   fsum,ave,sq   : CTypes.cfloat;
+//   ffoo,avesq    : CTypes.cfloat;
+//   basevb        : CTypes.cfloat;
+//   lflag,ljdf    : CTypes.cint;
+//   lnsync,lnsnr  : CTypes.cint;
+//   lddtx         : CTypes.cfloat;
+//   wc,passcount  : Integer;
+//   foo1,foo2     : String;
+//   bins          : Array[0..100] Of CTypes.cint;
+//   clearList     : TStringList;
+//   kvdat         : kvrec;
+//   kvfile        : File Of kvrec;
+//   dmtimestamp   : String;
+//   dmthisutc,sf  : String;
+//   thisUTC       : TSystemTime;
+//   dmenter       : TDateTime;
+//   dmexit        : TDateTime;
+//   lnc1,lnc2,lng : LongWord;
+//   wisPath       : String;
+//   rawcount      : Integer;
+//begin
+//     dmenter      := Now;
+//     dmdemodBusy  := True;
+//     dmhaveDecode := False;
+//     thisUTC      := utcTime;
+//
+//     bw           := dmbw;  // Sets decoder bin space in hertz
+//     if (bw<20) Or (bw>200) Then bw := 100;
+//
+//     dmtimestamp := '';
+//     dmtimestamp := dmtimestamp + IntToStr(thisUTC.Year);
+//     if thisUTC.Month < 10 Then dmtimestamp := dmtimestamp + '0' + IntToStr(thisUTC.Month) else dmtimestamp := dmtimestamp + IntToStr(thisUTC.Month);
+//     if thisUTC.Day < 10 Then dmtimestamp := dmtimestamp + '0' + IntToStr(thisUTC.Day) else dmtimestamp := dmtimestamp + IntToStr(thisUTC.Day);
+//     if thisUTC.Hour < 10 Then dmtimestamp := dmtimestamp + '0' + IntToStr(thisUTC.Hour) else dmtimestamp := dmtimestamp + IntToStr(thisUTC.Hour);
+//     if thisUTC.Minute < 10 Then dmtimestamp := dmtimestamp + '0' + IntToStr(thisUTC.Minute) else dmtimestamp := dmtimestamp + IntToStr(thisUTC.Minute);
+//     dmtimestamp := dmtimestamp + '00';
+//
+//     dmthisutc := '';
+//     if thisUTC.Hour < 10 then dmthisutc := '0' + IntToStr(thisUTC.hour) else dmthisutc := IntToStr(thisUTC.hour);
+//     if thisUTC.Minute < 10 then dmthisutc := dmthisutc + ':0' + IntToStr(thisUTC.minute) else dmthisutc := dmthisutc + ':' + IntToStr(thisUTC.minute);
+//
+//     clearList := TStringList.Create;
+//     clearList.CaseSensitive := False;
+//     clearList.Sorted := False;
+//     clearList.Duplicates := Types.dupAccept;
+//
+//     Result := False;
+//     //
+//     // ical =  0 = FFTW_ESTIMATE set, no load/no save wisdom.  Use ical = 0 when all else fails.
+//     // ical =  1 = FFTW_MEASURE set, yes load/no save wisdom.  Use ical = 1 to load saved wisdom.
+//     // ical = 11 = FFTW_MEASURE set, no load/no save wisdom.  Use ical = 11 when wisdom has been loaded and does not need saving.
+//     // ical = 21 = FFTW_MEASURE set, no load/yes save wisdom.  Use ical = 21 to save wisdom.
+//     //
+//
+//     // Clear the bins
+//     for i := 0 to 100 do
+//     begin
+//          bins[i] := 0;
+//     end;
+//
+//     if dmical > -1 Then
+//     Begin
+//          if dmical = 1 Then
+//          Begin
+//               if dmfirstPass Then lical := 1 else lical := 11;
+//          End;
+//          if dmical = 21 Then
+//          Begin
+//               if dmfirstPass Then lical := 21 else lical := 11;
+//          End;
+//     End;
+//
+//     // DEBUG - Following may be a mistake.... I may need to rebuild
+//     // the pchar variable each time.. let's see. - seems not - leaving this
+//     // for now though.
+//     if dmFirstPass Then
+//     Begin
+//          wif := StrAlloc(256);
+//          wisPath := dmwisPath;
+//          wisPath := PadRight(wisPath,255);
+//          StrPCopy (wif,wisPath);
+//     end;
+//
+//     dmfirstPass := False;
+//
+//     // Clean the decoder returns array/record
+//     // Yes, 500 entries is a lot. Method, madness and etc.  :)
+//     for i := 0 to 499 do
+//     begin
+//          dmdecodes[i].ts   := '';
+//          dmdecodes[i].utc  := '';
+//          dmdecodes[i].sync := '';
+//          dmdecodes[i].db   := '';
+//          dmdecodes[i].dt   := '';
+//          dmdecodes[i].df   := '';
+//          dmdecodes[i].ec   := '';
+//          dmdecodes[i].dec  := '';
+//          dmdecodes[i].clr  := true;
+//          dmlastraw[i]      := '';
+//     end;
+//     dmdecodecount := 0;
+//     rawcount := 0; // Index for saving raw decoder outputs
+//
+//     // Setup temporary spaces
+//     setLength(glInBuffer,661504);
+//     setLength(glf1Buffer,661504);
+//
+//     // Clear internal buffers
+//     for i := 0 to 661503 do
+//     Begin
+//          glInBuffer[i] := 0;
+//          glf1Buffer[i] := 0.0;
+//          glf3Buffer[i] := 0.0;
+//          gllpfM[i] := 0.0;
+//          //if i < 101 Then bins[i] := 0;
+//          if i < 12 then decsyms[i] := 0;
+//     end;
+//
+//     // samps[] contains 16 bit signed integer input samples
+//     // Convert samps to f1buffer (int16 to float)
+//     fsum := 0.0;
+//     nave := 0;
+//     jz := 524287;  // This truncates the last symbol to get a POT transform - otherwise I have to move up to 1048575 - can't see a problem with that so far
+//     // This also effectively removes any DC component for purposes of FFT operations.
+//     for i := 0 to jz do fsum := fsum + samps[i];
+//     nave := Round(fsum/(jz+1));
+//     if nave <> 0 Then
+//     Begin
+//          for i := 0 to jz do glinBuffer[i] := min(32766,max(-32766,samps[i]-nave));
+//     End
+//     Else
+//     Begin
+//          for i := 0 to jz do glinBuffer[i] := min(32766,max(-32766,samps[i]));
+//     End;
+//     fsum := 0.0;
+//     ave := 0.0;
+//     for i := 0 to jz do
+//     Begin
+//          glf1Buffer[i] := 0.1 * glinBuffer[i];
+//          fsum := fsum + glf3Buffer[i];
+//     End;
+//     ave := fsum/(jz+1);
+//     if ave <> 0.0 Then for i := 0 to jz do glf1Buffer[i] := glf1Buffer[i]-ave;
+//
+//     // If I enter with pre-made floating symbols this would be the spot to start
+//
+//     // From this point on f1Buffer becomes sole sample holder.
+//     // Figure average level
+//     sq := 0.0;
+//     for i := 0 to jz do
+//     begin
+//          ffoo := glf1Buffer[i];
+//          if ffoo <> 0 Then sq := sq + power(ffoo,2);
+//     end;
+//     avesq := sq/jz;
+//     basevb := db(avesq) - 44;
+//     //decCount := 0;
+//     if (avesq <> 0.0) And (basevb > -16.0) And (basevb < 21.0) Then
+//     Begin
+//          set65;
+//          // Run msync
+//          lmousedf := 0;
+//          jz2 := 0;
+//          mousedf2 := 0;
+//          for i := 0 to jz do gllpfM[i] := glf1Buffer[i];
+//          // lpf1 downsamples from 11025 S/S to 5512.5 S/S
+//          lpf1(CTypes.pcfloat(@gllpfM[0]),CTypes.pcint(@jz),CTypes.pcint(@jz2),CTypes.pcint(@lmousedf),CTypes.pcint(@mousedf2),CTypes.pcint(@lical),PChar(wif));
+//          // msync will want a downsampled and lpf version of data.
+//          // Copy lpfM to f3Buffer
+//          for j := 0 to jz2 do glf3Buffer[j] := gllpfM[j];
+//          for j := jz2+1 to 661503 do glf3Buffer[j] := 0.0;
+//          for i := 0 to 254 do
+//          begin
+//               dtxa[i]     := 0.0;
+//               dfxa[i]     := 0.0;
+//               snrxa[i]    := 0.0;
+//               snrsynca[i] := 0.0;
+//          end;
+//
+//          {
+//            TODO Think about squashing doing a decode at x then x+20 hz or x then x+50 hz
+//            for those 2 resolutions.  Tho I would like to do this by picking the strongest
+//            bin for the points.  This would effectively give a dynamic decoder resolution
+//            where I look for sync at a fine resolution then "decide" if it's likely I'm
+//            seeing leakage to bins adjacent.  Might be a good thing.
+//
+//            So I have dt,df,? and snr of sync - right now I'm just doing a decode anywhere I see a potential
+//            and not looking at the snr... maybeeeeee if I look at that I can shave some needless decode passes
+//            on the 20/50 Hz resolutions.
+//
+//            Say I have a hit at x-20, x, x+20 - that may well be two signals overlapping or spectral leakage
+//            amongst the bins on strong signals.  The trick will be in squashing images of strong ones without
+//            killing ability to pull out a weak one that may be intermixed.
+//
+//            I think - maybe the way will be to say I have a strong hit at X - do not do a pass at X-20 (or 50) or at
+//            X+20 (or 50).  Once I move to 100+ spacing there's little advantage to thinking about any of this.
+//
+//            So - if I walk the bins and look for clusters of x-20 x x+20 (or -/+ 50) where x is strongest I should
+//            likely not do a decode at -x or +x since that seems pretty clearly to be leakage.  And if it's not -
+//            probably wouldn't get a decode anyways.  Gut tells me this might be a (very) good thing for 20 less so
+//            on 50 hz spacing.
+//
+//            First deal with above then research next.
+//
+//            Now wait - there's another thing.  It's not 20,50,100,200 Hz etc spacing - let me (later) think about
+//            what the bins actually space to in terms of the FFT resolution - I can still call it 20,50 and etc but....
+//            it may be more grief is caused pushing these integer centers to the decoder since it may be splitting
+//            bins or, worse, missing some.
+//
+//            }
+//
+//          syncount := 0;
+//          msync(CTypes.pcfloat(@glf3Buffer[0]),CTypes.pcint(@jz2),CTypes.pcint(@syncount),CTypes.pcfloat(@dtxa[0]),CTypes.pcfloat(@dfxa[0]),CTypes.pcfloat(@snrxa[0]),CTypes.pcfloat(@snrsynca[0]),CTypes.pcint(@lical),PChar(wif));
+//
+//          // Time to start USING the data I'm getting from msync.
+//          // 1 - If snrx < -29 kill it.
+//          // 2 - if dtx > 5 or < -5 kill it.
+//          // snrsync not needed
+//          // 3 - if dfx < -1100 or > 1100 kill it.
+//          // Just set dfx to -9999 then populate bins will ignore it.
+//
+//          for i := 0 to 254 do
+//          begin
+//               if (dtxa[i] < -5.5) Or (dtxa[i] > 5.5) Or (snrxa[i] < -29.6) Or (dfxa[i] < -1100.0) Or (dfxa[i] > 1100.0) Then dfxa[i] := -9999.0;
+//          end;
+//
+//          populateBins(dfxa, syncount, bw, bins);
+//
+//          passcount := 0;
+//          for i := 0 to 100 do if bins[i] > 0 Then inc(passcount);
+//          // Passcount is number of potential bins with sync detected.
+//
+//          i := -1000;
+//          j := 0;
+//          // Walk the passband -1000 ... +1000 Hertz in (2000/bin spacing) + 1 steps.
+//          // bins[0...100] has been set for bins needing a decode
+//          // Bin space = 100 steps = (2000/100)+1 = 21
+//          // Bin space =  50 steps = (2000/50)+1  = 41
+//
+//          while i < 1001 do
+//          begin
+//               if bins[j] > 0 Then
+//               Begin
+//                    // This bin needs a decode
+//                    dmlastraw[rawcount] := '* Dec CF ' + IntToStr(i) + ' bin ' + IntToStr(j);
+//                    //ListBox2.Items.Insert(0,'Decode at Center DF = ' + IntToStr(i) + ' for bin = ' + IntToStr(j));
+//                    // Copy lpfM to f3Buffer
+//                    for k := 0 to jz2 do glf3Buffer[k] := gllpfM[k];
+//                    for k := jz2+1 to 661503 do glf3Buffer[k] := 0.0;
+//                    // Call decoder
+//                    for k := 0 to 62 do
+//                    begin
+//                         lsym1[k] := 0;
+//                         lsym2[k] := 0;
+//                         lsym1p[k] := 0;
+//                         lsym2p[k] := 0;
+//                    end;
+//
+//                    lflag    := 0;
+//                    ljdf     := 0;
+//                    lnsync   := 0;
+//                    lnsnr    := 0;
+//                    lddtx    := 0.0;
+//                    mouseDF2 := i;
+//                    afc      := 1;
+//
+//                    cqz65(CTypes.pcfloat(@glf3buffer[4096]),
+//                          CTypes.pcint(@jz2),
+//                          CTypes.pcint(@bw),
+//                          CTypes.pcint(@MouseDF2),
+//                          CTypes.pcint(@afc),
+//                          PChar(wif),
+//                          CTypes.pcint(@lical),
+//                          CTypes.pcint(@idf),
+//                          CTypes.pcint(@lsym1[0]),
+//                          CTypes.pcint(@lsym2[0]),
+//                          CTypes.pcint(@lsym1p[0]),
+//                          CTypes.pcint(@lsym2p[0]),
+//                          CTypes.pcint(@lflag),
+//                          CTypes.pcint(@ljdf),
+//                          CTypes.pcint(@lnsync),
+//                          CTypes.pcint(@lnsnr),
+//                          CTypes.pcfloat(@lddtx)
+//                         );
+//                    for k := 0 to 50 do rsera[k]  := 0;
+//                    for k:= 0 to 11 do decsyms[k] := 0;
+//
+//                    rsecount := 0;
+//                    rscount  := 0;
+//                    if lflag > -1 Then
+//                    Begin
+//                         rsdecode(CTypes.pcint(@lsym1[0]),CTypes.pcint(@rsera[0]),CTypes.pcint(@rsecount),CTypes.pcint(@decsyms[0]),CTypes.pcint(@rscount));
+//                         foo := IntToStr(ljdf) + ',' + IntToStr(lnsnr) + ',' + FormatFloat('0.0',lddtx) + ',' + IntToStr(lnsync);
+//                         dmlastraw[rawcount] := dmlastraw[rawcount] + ': ' + foo;
+//                         if rscount > -1 Then
+//                         Begin
+//                              dmlastraw[rawcount] := dmlastraw[rawcount] + ' BM Passes : ';
+//                              foo1 := '';
+//                              sf   := '';
+//                              ver  := '';
+//                              lnc1 := 0;
+//                              lnc2 := 0;
+//                              lng  := 0;
+//                              If decode(decsyms,foo1,sf,ver,lnc1,lnc2,lng) Then
+//                              Begin
+//                                   inc(dmdecodecount);
+//                                   foo := foo + ',B,';
+//                                   foo := foo + foo1;
+//                                   dmlastraw[rawcount] := dmlastraw[rawcount] + foo1;
+//                                   wc  := WordCount(foo,[',']);
+//                                   if wc = 6 Then
+//                                   Begin
+//                                        Try
+//                                           clearList.Add(foo + ',' + sf + ',' + ver + ',' + IntToStr(lnc1) + ',' + IntToStr(lnc2) + ',' + IntToStr(lng)); // Unsorted to maintain proper order
+//                                        except
+//                                           // Nada (Any error in adding is ignored as it's likely a dupe reject or bad decode)
+//                                        end;
+//                                   end;
+//                              end
+//                              else
+//                              begin
+//                                   dmlastraw[rawcount] := dmlastraw[rawcount] + ' Data Invalid ';
+//                              end;
+//                         end
+//                         else
+//                         begin
+//                              dmlastraw[rawcount] := dmlastraw[rawcount] + ' BM Fails : ';
+//                              // This is where I try KV
+//                              // Build the data record
+//                              kvdat.nsec1    := 1;
+//                              kvdat.xlambda  := 12.0;
+//                              kvdat.maxe     := 8;
+//                              kvdat.naddsynd := 50;
+//                              for k := 0 to 62 do kvdat.mrsym[k]  := lsym1[k];
+//                              for k := 0 to 62 do kvdat.mrprob[k] := lsym1p[k];
+//                              for k := 0 to 62 do kvdat.mr2sym[k]  := lsym2[k];
+//                              for k := 0 to 62 do kvdat.mr2prob[k] := lsym2p[k];
+//                              AssignFile(kvfile,dmtmpdir+'kvasd.dat');
+//                              //AssignFile(kvfile,'kvasd.dat');
+//                              Rewrite(kvfile);
+//                              write(kvfile,kvdat);
+//                              CloseFile(kvfile);
+//                              //ListBox2.Items.Insert(0,'Wrote kvasd.dat');
+//                              // Now attempt the KV process.
+//                              foo2 := '';
+//                              sf   := '';
+//                              ver  := '';
+//                              lnc1 := 0;
+//                              lnc2 := 0;
+//                              lng  := 0;
+//                              { TODO :
+//                                Done - pending confirmation my idea works.
+//                                MUST place kvasd.dat in a proper place and have KV pull from that - not the launch time current directory!
+//                              }
+//                              if evalKV('kvasd.dat',foo2,sf,ver,lnc1,lnc2,lng) Then
+//                              Begin
+//                                   inc(dmdecodecount);
+//                                   dmlastraw[rawcount] := dmlastraw[rawcount] + ' KV Passes : ';
+//                                   //ListBox2.Items.Insert(0,'KV Says:  ' + foo2);
+//                                   foo := foo + ',K,';
+//                                   foo := foo + foo2;
+//                                   dmlastraw[rawcount] := dmlastraw[rawcount] + foo2;
+//                                   wc  := WordCount(foo,[',']);
+//                                   if wc = 6 Then
+//                                   Begin
+//                                        Try
+//                                           clearList.Add(foo + ',' + sf + ',' + ver + ',' + IntToStr(lnc1) + ',' + IntToStr(lnc2) + ',' + IntToStr(lng)); // Unsorted to maintain proper order
+//                                        except
+//                                           // Nada (Any error in adding is ignored as it's likely a dupe reject or bad decode)
+//                                        end;
+//                                   end;
+//                              end
+//                              else
+//                              begin
+//                                   dmlastraw[rawcount] := dmlastraw[rawcount] + ' KV Fails ';
+//                              end;
+//                         end;
+//                    end;
+//                    inc(rawcount);
+//               end;
+//               inc(j);
+//               i := i + bw;
+//          end;
+//
+//          if clearList.Count > 0 Then
+//          Begin
+//               dmhaveDecode := True;
+//               for j := 0 to clearList.Count-1 do
+//               begin
+//                    for k := 0 to 499 do
+//                    Begin
+//                         If dmdecodes[k].clr Then
+//                         Begin
+//                              dmdecodes[k].ts   := TrimLeft(TrimRight(dmtimestamp));
+//                              dmdecodes[k].utc  := TrimLeft(TrimRight(dmthisutc));
+//                              dmdecodes[k].sync := PadLeft(TrimLeft(TrimRight(ExtractWord(4,clearList.Strings[j],[',']))),2);
+//                              dmdecodes[k].db   := PadLeft(TrimLeft(TrimRight(ExtractWord(2,clearList.Strings[j],[',']))),3);
+//                              dmdecodes[k].dt   := PadLeft(TrimLeft(TrimRight(ExtractWord(3,clearList.Strings[j],[',']))),4);
+//                              dmdecodes[k].df   := PadLeft(TrimLeft(TrimRight(ExtractWord(1,clearList.Strings[j],[',']))),5);
+//                              dmdecodes[k].ec   := TrimLeft(TrimRight(ExtractWord(5,clearList.Strings[j],[','])));
+//                              dmdecodes[k].dec  := TrimLeft(TrimRight(ExtractWord(6,clearList.Strings[j],[','])));
+//                              dmdecodes[k].sf   := TrimLeft(TrimRight(ExtractWord(7,clearList.Strings[j],[','])));
+//                              dmdecodes[k].ver  := TrimLeft(TrimRight(ExtractWord(8,clearList.Strings[j],[','])));
+//                              dmdecodes[k].nc1  := StrToInt(TrimLeft(TrimRight(ExtractWord(9,clearList.Strings[j],[',']))));
+//                              dmdecodes[k].nc2  := StrToInt(TrimLeft(TrimRight(ExtractWord(10,clearList.Strings[j],[',']))));
+//                              dmdecodes[k].ng   := StrToInt(TrimLeft(TrimRight(ExtractWord(11,clearList.Strings[j],[',']))));
+//                              dmdecodes[k].clr  := False;
+//                              break;
+//                         end;
+//                    end;
+//               end;
+//
+//          end;
+//          clearList.Clear;
+//          Result := True;
+//     End
+//     Else
+//     Begin
+//          Result := False;
+//     End;
+//
+//     //if decCount = 0 Then
+//     //Begin
+//     //     // This was a single decode pass with no decode.  Run the shorthand
+//     //     // decoder just in case.  Remember.. shdec wants the float samples
+//     //     // BEFORE LPF application!  This data just happens to be still sitting
+//     //     // in glf1Buffer[x]
+//     //     nspecial := 0;
+//     //     nstest := 0;
+//     //     dfsh := 0;
+//     //     iderrsh := 0;
+//     //     idriftsh := 0;
+//     //     snrsh := 0;
+//     //     nwsh := 0;
+//     //     idfsh := 0;
+//     //     be := 0;
+//     //     lmousedf := 0;
+//     //     binspace := 100;
+//     //     ListBox1.Items.Add('Attempting SH Decode.');
+//     //     shdec(@glf1Buffer[0],@be,@lMouseDF,@binspace,@nspecial,@nstest,@dfsh,@iderrsh,@idriftsh,@snrsh,@nwsh,@idfsh,@lical);
+//     //     if nspecial > 0 Then
+//     //     Begin
+//     //          foo := '';
+//     //          if nspecial = 1 Then foo := 'ATT';
+//     //          if nspecial = 2 Then foo := 'RO';
+//     //          if nspecial = 3 Then foo := 'RRR';
+//     //          if nspecial = 4 Then foo := '73';
+//     //          ListBox1.Items.Add('Message:  ' + TrimLeft(TrimRight(foo)));
+//     //     End
+//     //     Else
+//     //     Begin
+//     //          ListBox1.Items.Add('No SH message found.');
+//     //     End;
+//     //End;
+//     setLength(glInBuffer,0);
+//     setLength(glf1Buffer,0);
+//     clearList.Destroy;
+//     dmexit      := Now;
+//     dmruntime   := MilliSecondSpan(dmenter,dmexit);
+//     dmarun      := dmarun + dmruntime;
+//     Inc(dmrcount);
+//     dmdemodBusy := False;
+//End;
+
+function ldemod(Const samps : Array Of CTypes.cint16) : Boolean;
 Var
    glinbuffer    : Array of CTypes.cint;
    glf1buffer    : Array of CTypes.cfloat;
@@ -1303,7 +1845,6 @@ Var
    snrsynca      : Array[0..254] Of CTypes.cfloat;
    snrxa         : Array[0..254] Of CTypes.cfloat;
    dtxa          : Array[0..254] Of CTypes.cfloat;
-   fffoo         : CTypes.cfloat;
    decsyms       : Array[0..11] Of Ctypes.cint;
    lsym1,lsym2   : Array[0..62] Of CTypes.cint;
    lsym1p,lsym2p : Array[0..62] Of CTypes.cint;
@@ -1338,6 +1879,7 @@ Var
    lnc1,lnc2,lng : LongWord;
    wisPath       : String;
    rawcount      : Integer;
+   x,y           : Array[0..19] of CTypes.cfloat;
 begin
      dmenter      := Now;
      dmdemodBusy  := True;
@@ -1391,13 +1933,19 @@ begin
      End;
 
      // DEBUG - Following may be a mistake.... I may need to rebuild
-     // the pchar variable each time.. let's see.
+     // the pchar variable each time.. let's see. - seems not - leaving this
+     // for now though.
      if dmFirstPass Then
      Begin
           wif := StrAlloc(256);
           wisPath := dmwisPath;
           wisPath := PadRight(wisPath,255);
           StrPCopy (wif,wisPath);
+          for i := 0 to 19 do
+          begin
+               x[i] := 0.0;
+               y[i] := 0.0;
+          end;
      end;
 
      dmfirstPass := False;
@@ -1440,7 +1988,7 @@ begin
      fsum := 0.0;
      nave := 0;
      jz := 524287;  // This truncates the last symbol to get a POT transform - otherwise I have to move up to 1048575 - can't see a problem with that so far
-
+     // This also effectively removes any DC component for purposes of FFT operations.
      for i := 0 to jz do fsum := fsum + samps[i];
      nave := Round(fsum/(jz+1));
      if nave <> 0 Then
@@ -1460,6 +2008,26 @@ begin
      End;
      ave := fsum/(jz+1);
      if ave <> 0.0 Then for i := 0 to jz do glf1Buffer[i] := glf1Buffer[i]-ave;
+
+     // Attempt to LPF
+     for i := 0 to jz do
+     begin
+          // Push each sample through the 19 pole LPF
+          // Shift old samples in x[] and y[]
+          for k := 19 downto 1 do
+          begin
+               x[k] := x[k-1];
+               y[k] := y[k-1];
+          end;
+          // Calculate new sample
+          x[0] := glf1Buffer[i];
+          y[0] := ACoef[0] * x[0];
+          for k := 0 to 19 do
+          begin
+               y[0] := y[0] + ((ACoef[k] * x[k]) - (BCoef[k] * y[k]));
+          end;
+          glf1Buffer[i] := y[0];
+     end;
 
      // From this point on f1Buffer becomes sole sample holder.
      // Figure average level
@@ -1665,7 +2233,10 @@ begin
                               lnc1 := 0;
                               lnc2 := 0;
                               lng  := 0;
-                              { TODO : MUST place kvasd.dat in a proper place and have KV pull from that - not the launch time current directory! }
+                              { TODO :
+                                Done - pending confirmation my idea works.
+                                MUST place kvasd.dat in a proper place and have KV pull from that - not the launch time current directory!
+                              }
                               if evalKV('kvasd.dat',foo2,sf,ver,lnc1,lnc2,lng) Then
                               Begin
                                    inc(dmdecodecount);
