@@ -6,7 +6,9 @@ Validate validate validate message input, callsigns, grids, QRGs etc. - In progr
 
 Fill in RB call from Station call if user does not manually set. - In progress - weak, needs better implementation
 
-Look into issue with loss of net leading to program hang on exit if RB on
+Begin to graft sound output code in
+
+Look into issue with loss of net leading to program hang on exit if RB on - timeout too long on attempt to http is problem
 
 Fix reversed prefix/suffix in decoder
 
