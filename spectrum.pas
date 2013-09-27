@@ -7,6 +7,70 @@ interface
 uses
   Classes, SysUtils, CTypes, cmaps, fftw_jl, globalData, graphics, Math;
 
+Const
+  JT_DLL = 'JT65v5.dll';
+  // 19 pole butterworth LPF - good for < ~2.5KHz (This is an IIR type)
+  LACoef : array[0..19] of CTypes.cfloat =
+      (
+      0.00001939180997620892,
+      0.00036844438954796945,
+      0.00331599950593172540,
+      0.01879066386694644400,
+      0.07516265546778577700,
+      0.22548796640335733000,
+      0.52613858827450044000,
+      0.97711452108121499000,
+      1.46567178162182250000,
+      1.79137662198222760000,
+      1.79137662198222760000,
+      1.46567178162182250000,
+      0.97711452108121499000,
+      0.52613858827450044000,
+      0.22548796640335733000,
+      0.07516265546778577700,
+      0.01879066386694644400,
+      0.00331599950593172540,
+      0.00036844438954796945,
+      0.00001939180997620892
+      );
+  LBCoef : array[0..19] of CTypes.cfloat =
+      (
+      1.00000000000000000000,
+      0.30124524681121684000,
+      2.62368718667596430000,
+      0.68183386600980578000,
+      2.71043558836035330000,
+      0.59957920836218892000,
+      1.42524899306136610000,
+      0.26375059355045877000,
+      0.41246083660156979000,
+      0.06237667312611505600,
+      0.06644496002297710400,
+      0.00794483191686967340,
+      0.00575615778774987010,
+      0.00051759803100776295,
+      0.00024561616410988675,
+      0.00001526235709911922,
+      0.00000429882913347158,
+      0.00000015515020059209,
+      0.00000001973933115243,
+      0.00000000023001431849
+      );
+  // 3 pole butterworth HPF - good for > ~400Hz (This is an IIR type)
+  HACoef : array[0..3] of CTypes.cfloat =
+      (
+      0.79309546371795214000,
+      -2.37928639115385640000,
+      2.37928639115385640000,
+      -0.79309546371795214000
+      );
+  HBCoef : array[0..3] of CTypes.cfloat =
+      (
+      1.00000000000000000000,
+      -2.54502682052873870000,
+      2.18780625843708300000,
+      -0.63322898404546324000
+      );
 Type
     RGBPixel = Packed Record
              r : Byte;
@@ -35,17 +99,6 @@ Type
     End;
 
     RGBArray = Array[0..749] of RGBPixel;
-
-const
-  {$IFDEF WIN32}
-          JT_DLL = 'JT65v5.dll';
-  {$ENDIF}
-  {$IFDEF LINUX}
-          JT_DLL = 'JT65';
-  {$ENDIF}
-  {$IFDEF DARWIN}
-          JT_DLL = 'JT65';
-  {$ENDIF}
 
 procedure computeSpectrum(Const dBuffer : Array of CTypes.cint16);
 
@@ -234,7 +287,7 @@ End;
 
 procedure computeSpectrum(Const dBuffer : Array of CTypes.cint16);
 Var
-   i, x, y, z, intVar, nh, nfmid, iadj : CTypes.cint;
+   i,x,y,z,intVar,nh,nfmid,iadj,k      : CTypes.cint;
    gamma, offset, fac, fsum, d, fi     : CTypes.cfloat;
    ave, df, fvar, pw1, pw2             : CTypes.cfloat;
    rgbSpectra                          : RGBArray;
@@ -246,6 +299,7 @@ Var
    fftOut65                            : Array[0..2047] of fftw_jl.complex_single;
    fftIn65                             : Array[0..4095] of Single;
    srealArray165                       : Array[0..4095] of Single;
+   lxa,lya,hxa,hya                     : Array[0..19] of Single;
    pfftIn65                            : PSingle;
    pfftOut65                           : fftw_jl.Pcomplex_single;
    p                                   : fftw_plan_single;
@@ -277,6 +331,14 @@ Begin
                rgbSpectra[i].g := 0;
                rgbSpectra[i].b := 0;
           End;
+          // clear lpf accumulators
+          for i := 0 to 19 do
+          begin
+               lxa[i] := 0.0;
+               lya[i] := 0.0;
+               hxa[i] := 0.0;
+               hya[i] := 0.0;
+          end;
           cmaps.buildCMaps();
      End;
      Try
@@ -301,25 +363,46 @@ Begin
                   srealArray165[i] := fac * d;
              end;
 
+             // HPF 3rd order
+             for i := 0 to 4095 do
+             begin
+                  // Shift old samples in x[] and y[]
+                  for k := 3 downto 1 do
+                  begin
+                       hxa[k] := hxa[k-1];
+                       hya[k] := hya[k-1];
+                  end;
+                  // Calculate new sample
+                  hxa[0] := srealArray165[i];
+                  hya[0] := HACoef[0] * hxa[0];
+                  for k := 0 to 3 do
+                  begin
+                       hya[0] := hya[0] + ((HACoef[k] * hxa[k]) - (HBCoef[k] * hya[k]));
+                  end;
+                  srealArray165[i] := hya[0];
+             end;
+
+             // LPF 19th order
+             for i := 0 to 4095 do
+             begin
+                  // Shift old samples in x[] and y[]
+                  for k := 19 downto 1 do
+                  begin
+                       lxa[k] := lxa[k-1];
+                       lya[k] := lya[k-1];
+                  end;
+                  // Calculate new sample
+                  lxa[0] := srealArray165[i];
+                  lya[0] := LACoef[0] * lxa[0];
+                  for k := 0 to 19 do
+                  begin
+                       lya[0] := lya[0] + ((LACoef[k] * lxa[k]) - (LBCoef[k] * lya[k]));
+                  end;
+                  srealArray165[i] := lya[0];
+             end;
+
              // Clear FFT Input array
              for i := 0 to length(fftIn65)-1 do fftIn65[i] := 0.0;
-
-             // Apply the resampler here so the spectrum display is a
-             // touch more accurate if SR correction enabled.
-             //if globalData.d65samfacin <> 1.0 Then
-             //Begin
-                  //samratio := 1.0/globalData.d65samfacin;
-                  //sampconv.data_in  := srealArray165;
-                  //sampconv.data_out := fftIn65;
-                  //sampconv.input_frames  := 4096;
-                  //sampconv.output_frames := 4096;
-                  //sampconv.src_ratio     := samratio;
-                  //samplerate.src_simple(@sampconv,2,1);
-             //End
-             //Else
-             //Begin
-                  //for i := 0 to 4095 do fftIn65[i] := srealArray165[i];
-             //End;
 
              for i := 0 to 4095 do fftIn65[i] := srealArray165[i];
 

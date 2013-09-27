@@ -94,6 +94,7 @@ type
     bRReport: TButton;
     bRRR: TButton;
     Button1: TButton;
+    Memo3: TMemo;
     txControl: TButton;
     Button10: TButton;
     Button11: TButton;
@@ -166,9 +167,6 @@ type
     Label115: TLabel;
     Label116: TLabel;
     Label117: TLabel;
-    Label118: TLabel;
-    Label119: TLabel;
-    Label120: TLabel;
     Label121: TLabel;
     Label122: TLabel;
     Label24: TLabel;
@@ -350,6 +348,7 @@ type
     procedure LogQSOClick(Sender: TObject);
     procedure Memo1DblClick(Sender: TObject);
     procedure Memo2DblClick(Sender: TObject);
+    procedure Memo3DblClick(Sender: TObject);
     procedure PageControlChange(Sender: TObject);
     procedure qrgdbAfterPost(DataSet: TDataSet);
     procedure edTXMsgDblClick(Sender: TObject);
@@ -1877,6 +1876,8 @@ Var
 Begin
      if demodulate.dmhaveDecode Then
      Begin
+          memo3.Clear;
+          for i := 0 to 499 do if length(demodulate.dmlastraw[i])>0 Then memo3.Append(demodulate.dmlastraw[i]);
           dcount := 0;
           //ListBox2.Items.Insert(0,'Enter display decodes');
 
@@ -1969,7 +1970,7 @@ Begin
                                     tvalid := False;
                                     breakOutFields(demodulate.dmdecodes[i].utc + ' ' + demodulate.dmdecodes[i].sync + ' ' + demodulate.dmdecodes[i].db + ' ' + afoo + ' ' + demodulate.dmdecodes[i].df + '  ' + demodulate.dmdecodes[i].ec + '  ' + demodulate.dmdecodes[i].dec, tvalid);
                                     if not tvalid then inc(pfails);
-                                    if not tvalid then Label119.Caption := IntToStr(pfails);
+                                    //if not tvalid then Label119.Caption := IntToStr(pfails);
                                     if not tvalid then
                                     Begin
                                          Memo1.Append('Failed to build - input:  ' + demodulate.dmdecodes[i].utc + ' ' + demodulate.dmdecodes[i].sync + ' ' + demodulate.dmdecodes[i].db + ' ' + afoo + ' ' + demodulate.dmdecodes[i].df + '  ' + demodulate.dmdecodes[i].ec + '  ' + demodulate.dmdecodes[i].dec);
@@ -4697,6 +4698,11 @@ end;
 procedure TForm1.Memo2DblClick(Sender: TObject);
 begin
      memo2.Clear;
+end;
+
+procedure TForm1.Memo3DblClick(Sender: TObject);
+begin
+     Memo3.Clear;
 end;
 
 procedure TForm1.PageControlChange(Sender: TObject);

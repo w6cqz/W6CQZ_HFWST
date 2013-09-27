@@ -1640,11 +1640,11 @@ object Form1: TForm1
   end
   object GroupBox16: TGroupBox
     Left = 1000
-    Height = 456
+    Height = 290
     Top = 6
     Width = 296
     Caption = 'Decoder Statistics'
-    ClientHeight = 438
+    ClientHeight = 272
     ClientWidth = 292
     Font.Height = -13
     Font.Name = 'Arial'
@@ -1785,7 +1785,7 @@ object Form1: TForm1
     object Label97: TLabel
       Left = 85
       Height = 17
-      Top = 272
+      Top = 250
       Width = 81
       Caption = 'Average DT'
       Font.Height = -13
@@ -1796,7 +1796,7 @@ object Form1: TForm1
     object Label98: TLabel
       Left = 176
       Height = 17
-      Top = 272
+      Top = 250
       Width = 41
       Caption = '    0'
       Font.Height = -13
@@ -1888,39 +1888,6 @@ object Form1: TForm1
       Width = 41
       Caption = '    0'
       Font.Height = -13
-      Font.Name = 'Courier New'
-      ParentColor = False
-      ParentFont = False
-    end
-    object Label118: TLabel
-      Left = 43
-      Height = 17
-      Top = 248
-      Width = 121
-      Caption = 'Parser Failures'
-      Font.Height = -13
-      Font.Name = 'Courier New'
-      ParentColor = False
-      ParentFont = False
-    end
-    object Label119: TLabel
-      Left = 176
-      Height = 17
-      Top = 248
-      Width = 41
-      Caption = '    0'
-      Font.Height = -13
-      Font.Name = 'Courier New'
-      ParentColor = False
-      ParentFont = False
-    end
-    object Label120: TLabel
-      Left = 11
-      Height = 136
-      Top = 296
-      Width = 232
-      Caption = 'Frame types C1, C2, U1, U2, S1'#13#10'C = Compressed/structured message'#13#10'U = Free format text/uncompressed'#13#10'S = Shorthand'#13#10'# = JT65 Protocol version 1 or 2'#13#10#13#10'EC (Error Correction) B, K'#13#10'B = Basic RS Decoder'#13#10'K = Advanced KVASD RS Decoder'
-      Font.Height = -12
       Font.Name = 'Courier New'
       ParentColor = False
       ParentFont = False
@@ -2560,6 +2527,17 @@ object Form1: TForm1
     OnDblClick = Memo2DblClick
     ScrollBars = ssAutoBoth
     TabOrder = 18
+  end
+  object Memo3: TMemo
+    Left = 1000
+    Height = 162
+    Top = 304
+    Width = 296
+    Font.Height = -11
+    Font.Name = 'Arial'
+    OnDblClick = Memo3DblClick
+    ParentFont = False
+    TabOrder = 19
   end
   object Timer1: TTimer
     Enabled = False
