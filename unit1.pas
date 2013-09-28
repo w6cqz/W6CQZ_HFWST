@@ -1895,14 +1895,13 @@ Begin
                dstrings.CaseSensitive := False;
                dstrings.Sorted := False;
                dstrings.Duplicates := Types.dupAccept;
-               j := 0;
-               for i := 0 to 499 do if not demodulate.dmdecodes[i].clr then inc(j);
-               //ListBox2.Items.Insert(0,'Dupes to remove:  ' + IntToStr(j));
+               //Memo2.Append('Dupes to remove:  ' + IntToStr(j));
                removeDupes(dstrings,removes);
                dstrings.Destroy;
 
                for i := 0 to length(removes) - 1 do
                begin
+                    //Memo2.Append('removes['+IntToStr(i)+'] is ' + IntToStr(removes[i]));
                     if removes[i] > -1 Then
                     Begin
                          demodulate.dmdecodes[removes[i]].clr := True;
@@ -5412,7 +5411,7 @@ Begin
 
           if havedupe then
           begin
-               // I know I have duplicate(s) member(s) if make it here.  Lets do it like so...
+               // I know I have duplicate(s) member(s) if I make it here.  Lets do it like so...
                // Comapre all other items in list.strings[] substring exchange to s1 (excluding
                // index c4 which is the original) to find if s1/c1 idx c4 is the strongest dupe.  If
                // s1/c1 idx c4 is strongest remove all other duplicate entries leaving only
@@ -5440,10 +5439,11 @@ Begin
                     End;
                end;
 
+               if dcount>0 Then
                // At this point I have a duplicate count (1...x) and will know if s1/c1 idx c4
                // is strongest.  If not strongest I go one way - If strongest I go another.
 
-               if (dcount > 0) and ostrong Then
+               if (dcount > 0) and ostrong Then Memo2.Append('Removing dupes ['+ IntToStr(dcount) + ']');
                Begin
                     // Have at least 1 dupe and s1/c1 idx c4 is strongest.
                     // Walk the list again and set all dupes that are not s1/c1 idx c4 to
@@ -5456,6 +5456,7 @@ Begin
                               Begin
                                    // Update this string to remove status.
                                    list.Strings[i] := ExtractWord(1,list.strings[i],[',']) + ',REMOVE ME,' + ExtractWord(3,list.strings[i],[',']);
+                                   Memo2.Append(list.Strings[i]);
                               End;
                          End;
                     end;
@@ -5465,6 +5466,7 @@ Begin
                Begin
                     // Have at least 1 dupe and s1/c1 idx c4 is NOT strongest so - flag s1/c1 idx c4 as removed.
                     list.Strings[c4] := ExtractWord(1,list.strings[c4],[',']) + ',REMOVE ME,' + ExtractWord(3,list.strings[c4],[',']);
+                    Memo2.Append(list.Strings[i]);
                end;
                // Keep repeating until havedupe false
           end;

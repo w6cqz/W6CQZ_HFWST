@@ -287,28 +287,23 @@ End;
 
 procedure computeSpectrum(Const dBuffer : Array of CTypes.cint16);
 Var
-   i,x,y,z,intVar,nh,nfmid,iadj,k      : CTypes.cint;
-   gamma, offset, fac, fsum, d, fi     : CTypes.cfloat;
-   ave, df, fvar, pw1, pw2             : CTypes.cfloat;
-   rgbSpectra                          : RGBArray;
-   doSpec                              : Boolean;
-   bmpH                                : BMP_Header;
-   Bytes_Per_Raster                    : LongInt;
-   Raster_Pad, nfrange, j              : Integer;
-   auBuff65                            : Packed Array[0..4095] Of smallint;
-   fftOut65                            : Array[0..2047] of fftw_jl.complex_single;
-   fftIn65                             : Array[0..4095] of Single;
-   srealArray165                       : Array[0..4095] of Single;
-   lxa,lya,hxa,hya                     : Array[0..19] of Single;
-   pfftIn65                            : PSingle;
-   pfftOut65                           : fftw_jl.Pcomplex_single;
-   p                                   : fftw_plan_single;
-   ss65                                : Array[0..2047] of CTypes.cfloat;
-   ss65b                               : Array[0..2047] of CTypes.cfloat;
-   floatSpectra                        : Array[0..749] of CTypes.cfloat;
-   integerSpectra                      : Array[0..749] of CTypes.cint32;
-   //samratio                            : CTypes.cdouble;
-   //sampconv                            : samplerate.SRC_DATA;
+   i,x,y,z,intVar,nh,nfmid,iadj,k  : CTypes.cint;
+   gamma,offset,fi,df,fvar,pw1,pw2 : CTypes.cfloat;
+   rgbSpectra                      : RGBArray;
+   doSpec                          : Boolean;
+   bmpH                            : BMP_Header;
+   Bytes_Per_Raster                : LongInt;
+   Raster_Pad, nfrange, j          : Integer;
+   auBuff65                        : Packed Array[0..4095] Of smallint;
+   fftOut65                        : Array[0..2047] of fftw_jl.complex_single;
+   fftIn65,srealArray165           : Array[0..4095] of Single;
+   lxa,lya,hxa,hya                 : Array[0..19] of Single;
+   pfftIn65                        : PSingle;
+   pfftOut65                       : fftw_jl.Pcomplex_single;
+   p                               : fftw_plan_single;
+   ss65,ss65b                      : Array[0..2047] of CTypes.cfloat;
+   floatSpectra                    : Array[0..749] of CTypes.cfloat;
+   integerSpectra                  : Array[0..749] of CTypes.cint32;
 Begin
      // Compute spectrum display.  Expects 4096 samples in dBuffer
      globalData.spectrumComputing65 := True;
@@ -349,21 +344,7 @@ Begin
              globalData.specNewSpec65 := False;
              // Copy input
              for i := 0 to 4095 do auBuff65[i] := min(32766,max(-32766,dBuffer[i]));
-             // Convert integer16 input buffer to floating point for fft use.
-             fac := 2.0/10000;
-             fsum := 0.0;
-             ave := 0.0;
-             d := 0.0;
-             for i := 0 to 4095 do srealArray165[i] := 0.5 * 2.0 * auBuff65[i];
-             for i := 0 to 4095 do fsum := fsum + srealArray165[i];
-             ave := fsum/4096.0;
-             for i := 0 to 4095 do
-             begin
-                  d := srealArray165[i]-ave;
-                  srealArray165[i] := fac * d;
-             end;
-
-             // HPF 3rd order
+             // HPF 3rd order (also converts int16 to float)
              for i := 0 to 4095 do
              begin
                   // Shift old samples in x[] and y[]
@@ -373,7 +354,7 @@ Begin
                        hya[k] := hya[k-1];
                   end;
                   // Calculate new sample
-                  hxa[0] := srealArray165[i];
+                  hxa[0] := auBuff65[i];
                   hya[0] := HACoef[0] * hxa[0];
                   for k := 0 to 3 do
                   begin
@@ -381,7 +362,6 @@ Begin
                   end;
                   srealArray165[i] := hya[0];
              end;
-
              // LPF 19th order
              for i := 0 to 4095 do
              begin
@@ -400,19 +380,15 @@ Begin
                   end;
                   srealArray165[i] := lya[0];
              end;
-
              // Clear FFT Input array
              for i := 0 to length(fftIn65)-1 do fftIn65[i] := 0.0;
-
              for i := 0 to 4095 do fftIn65[i] := srealArray165[i];
-
              // Clear FFT output array
              for i := 0 to 2047 do
              begin
                   fftOut65[i].re := 0.0;
                   fftOut65[i].im := 0.0;
              end;
-
              // Compute 4096 point FFT
              pfftIn65  := @fftIn65;
              pfftOut65 := @fftOut65;

@@ -197,9 +197,9 @@ object Form1: TForm1
   end
   object ListBox2: TListBox
     Left = 1000
-    Height = 71
-    Top = 472
-    Width = 296
+    Height = 39
+    Top = 504
+    Width = 360
     Anchors = [akTop, akLeft, akBottom]
     Font.Height = -11
     Font.Name = 'Arial'
@@ -1640,11 +1640,11 @@ object Form1: TForm1
   end
   object GroupBox16: TGroupBox
     Left = 1000
-    Height = 290
+    Height = 210
     Top = 6
     Width = 296
     Caption = 'Decoder Statistics'
-    ClientHeight = 272
+    ClientHeight = 192
     ClientWidth = 292
     Font.Height = -13
     Font.Name = 'Arial'
@@ -1664,7 +1664,7 @@ object Form1: TForm1
     object Label80: TLabel
       Left = 11
       Height = 17
-      Top = 56
+      Top = 41
       Width = 153
       Caption = 'Longest decode time'
       Font.Height = -13
@@ -1675,7 +1675,7 @@ object Form1: TForm1
     object Label81: TLabel
       Left = 3
       Height = 17
-      Top = 32
+      Top = 25
       Width = 161
       Caption = 'Shortest decode time'
       Font.Height = -13
@@ -1697,7 +1697,7 @@ object Form1: TForm1
     object Label83: TLabel
       Left = 176
       Height = 17
-      Top = 56
+      Top = 41
       Width = 41
       Caption = '    0'
       Font.Height = -13
@@ -1708,7 +1708,7 @@ object Form1: TForm1
     object Label84: TLabel
       Left = 176
       Height = 17
-      Top = 32
+      Top = 25
       Width = 41
       Caption = '    0'
       Font.Height = -13
@@ -1719,7 +1719,7 @@ object Form1: TForm1
     object Label85: TLabel
       Left = 11
       Height = 17
-      Top = 80
+      Top = 57
       Width = 153
       Caption = 'Average decode time'
       Font.Height = -13
@@ -1730,7 +1730,7 @@ object Form1: TForm1
     object Label86: TLabel
       Left = 176
       Height = 17
-      Top = 80
+      Top = 57
       Width = 41
       Caption = '    0'
       Font.Height = -13
@@ -1741,7 +1741,7 @@ object Form1: TForm1
     object Label93: TLabel
       Left = 101
       Height = 17
-      Top = 128
+      Top = 90
       Width = 65
       Caption = 'KV Count'
       Font.Height = -13
@@ -1752,7 +1752,7 @@ object Form1: TForm1
     object Label94: TLabel
       Left = 99
       Height = 17
-      Top = 104
+      Top = 73
       Width = 65
       Caption = 'BM Count'
       Font.Height = -13
@@ -1763,7 +1763,7 @@ object Form1: TForm1
     object Label95: TLabel
       Left = 176
       Height = 17
-      Top = 128
+      Top = 90
       Width = 41
       Caption = '    0'
       Font.Height = -13
@@ -1774,7 +1774,7 @@ object Form1: TForm1
     object Label96: TLabel
       Left = 176
       Height = 17
-      Top = 104
+      Top = 73
       Width = 41
       Caption = '    0'
       Font.Height = -13
@@ -1785,7 +1785,7 @@ object Form1: TForm1
     object Label97: TLabel
       Left = 85
       Height = 17
-      Top = 250
+      Top = 170
       Width = 81
       Caption = 'Average DT'
       Font.Height = -13
@@ -1796,7 +1796,7 @@ object Form1: TForm1
     object Label98: TLabel
       Left = 176
       Height = 17
-      Top = 250
+      Top = 170
       Width = 41
       Caption = '    0'
       Font.Height = -13
@@ -1807,7 +1807,7 @@ object Form1: TForm1
     object Label110: TLabel
       Left = 11
       Height = 17
-      Top = 150
+      Top = 107
       Width = 153
       Caption = 'Structured Messages'
       Font.Height = -13
@@ -1818,7 +1818,7 @@ object Form1: TForm1
     object Label111: TLabel
       Left = 59
       Height = 17
-      Top = 176
+      Top = 122
       Width = 105
       Caption = 'Text Messages'
       Font.Height = -13
@@ -1829,7 +1829,7 @@ object Form1: TForm1
     object Label112: TLabel
       Left = 176
       Height = 17
-      Top = 152
+      Top = 109
       Width = 41
       Caption = '    0'
       Font.Height = -13
@@ -1840,7 +1840,7 @@ object Form1: TForm1
     object Label113: TLabel
       Left = 176
       Height = 17
-      Top = 176
+      Top = 122
       Width = 41
       Caption = '    0'
       Font.Height = -13
@@ -1851,7 +1851,7 @@ object Form1: TForm1
     object Label114: TLabel
       Left = 107
       Height = 17
-      Top = 200
+      Top = 138
       Width = 57
       Caption = 'JT65 V1'
       Font.Height = -13
@@ -1862,7 +1862,7 @@ object Form1: TForm1
     object Label115: TLabel
       Left = 107
       Height = 17
-      Top = 224
+      Top = 154
       Width = 57
       Caption = 'JT65 V2'
       Font.Height = -13
@@ -1873,7 +1873,7 @@ object Form1: TForm1
     object Label116: TLabel
       Left = 176
       Height = 17
-      Top = 201
+      Top = 139
       Width = 41
       Caption = '    0'
       Font.Height = -13
@@ -1884,7 +1884,7 @@ object Form1: TForm1
     object Label117: TLabel
       Left = 176
       Height = 17
-      Top = 224
+      Top = 154
       Width = 41
       Caption = '    0'
       Font.Height = -13
@@ -1916,7 +1916,7 @@ object Form1: TForm1
     ParentFont = False
   end
   object Memo1: TMemo
-    Left = 1304
+    Left = 1368
     Height = 522
     Top = 6
     Width = 248
@@ -2515,7 +2515,7 @@ object Form1: TForm1
     end
   end
   object Memo2: TMemo
-    Left = 1304
+    Left = 1368
     Height = 131
     Top = 536
     Width = 248
@@ -2530,9 +2530,9 @@ object Form1: TForm1
   end
   object Memo3: TMemo
     Left = 1000
-    Height = 162
-    Top = 304
-    Width = 296
+    Height = 274
+    Top = 224
+    Width = 360
     Font.Height = -11
     Font.Name = 'Arial'
     OnDblClick = Memo3DblClick

@@ -1,4 +1,10 @@
 { TODO :
+
+  Compared to decoder circa JT65-HF 1.0.9.x this is somewhat less efficient
+  at getting decodes but a quantum leap ahead in speed.  I need to ponder why
+  the decoder is failing to pick out some it should and I have a feeling but
+  need to think it through.  For now - it's good enough to get going with.
+
   Done - LPF Samples since I changed libJT65 - Confirmed working properly by
   applying to spectrum display with a 1.5K LPF - a -9 db signal above 1.5K
   did not appear ;)  Also added HPF with a 400 Hz edge - it's 3 pole so 400
@@ -1231,15 +1237,14 @@ Var
    rsera         : Array[0..50] Of CTypes.cint;
    rsecount      : CTypes.cint;
    rscount       : CTypes.cint;
-   i,jz2,k       : CTypes.cint;
-   nave,jz       : CTypes.cint;
+   i,jz2,k,jz    : CTypes.cint;
    lical,idf,j   : CTypes.cint;
    lmousedf,bw   : CTypes.cint;
    mousedf2,afc  : CTypes.cint;
    syncount      : CTypes.cint;
    foo,ver       : String;
    wif           : PChar;
-   fsum,ave,sq   : CTypes.cfloat;
+   ave,sq        : CTypes.cfloat;
    ffoo,avesq    : CTypes.cfloat;
    basevb        : CTypes.cfloat;
    lflag,ljdf    : CTypes.cint;
@@ -1367,31 +1372,8 @@ begin
 
      // samps[] contains 16 bit signed integer input samples
      // Convert samps to f1buffer (int16 to float)
-     fsum := 0.0;
-     nave := 0;
      jz := 524287;  // This truncates the last symbol to get a POT transform - otherwise I have to move up to 1048575 - can't see a problem with that so far
-     // This also effectively removes any DC component for purposes of FFT operations.
-     for i := 0 to jz do fsum := fsum + samps[i];
-     nave := Round(fsum/(jz+1));
-     if nave <> 0 Then
-     Begin
-          for i := 0 to jz do glinBuffer[i] := min(32766,max(-32766,samps[i]-nave));
-     End
-     Else
-     Begin
-          for i := 0 to jz do glinBuffer[i] := min(32766,max(-32766,samps[i]));
-     End;
-     fsum := 0.0;
-     ave := 0.0;
-     for i := 0 to jz do
-     Begin
-          glf1Buffer[i] := 0.1 * glinBuffer[i];
-          fsum := fsum + glf3Buffer[i];
-     End;
-     ave := fsum/(jz+1);
-     if ave <> 0.0 Then for i := 0 to jz do glf1Buffer[i] := glf1Buffer[i]-ave;
-
-     // HPF 3rd order
+     // HPF 3rd order also converts int16 to float
      for i := 0 to jz do
      begin
           // Shift old samples in x[] and y[]
@@ -1401,7 +1383,8 @@ begin
                hy[k] := hy[k-1];
           end;
           // Calculate new sample
-          hx[0] := glf1Buffer[i];
+          //hx[0] := glf1Buffer[i];
+          hx[0] := samps[i];
           hy[0] := HACoef[0] * hx[0];
           for k := 0 to 3 do
           begin
@@ -1409,7 +1392,6 @@ begin
           end;
           glf1Buffer[i] := hy[0];
      end;
-
      // LPF 19th order
      for i := 0 to jz do
      begin
