@@ -47,7 +47,7 @@ uses
   ExtCtrls, Math, StrUtils, CTypes, Windows, lconvencoding, ComCtrls, EditBtn,
   DbCtrls, TAGraph, TASeries, TAChartUtils, Types, Process, portaudio,
   globalData, adc, spectrum, waterfall1, spot, demodulate, db, BufDataset,
-  sqlite3conn, sqldb, valobject;
+  sqlite3conn, sqldb, valobject, synaser;
 
 Const
   JT_DLL = 'JT65v5.dll';
@@ -94,6 +94,8 @@ type
     bRReport: TButton;
     bRRR: TButton;
     Button1: TButton;
+    comboTTYPorts: TComboBox;
+    Label12: TLabel;
     Memo3: TMemo;
     txControl: TButton;
     Button10: TButton;
@@ -340,6 +342,7 @@ type
     procedure Button2Click(Sender: TObject);
     procedure buttonConfigClick(Sender: TObject);
     procedure Button4Click(Sender: TObject);
+    procedure comboTTYPortsChange(Sender: TObject);
     procedure edRXDFChange(Sender: TObject);
     procedure edRXDFDblClick(Sender: TObject);
     procedure edTXDFDblClick(Sender: TObject);
@@ -533,8 +536,11 @@ var
   canTX          : Boolean; // Only true if callsign and grid is ok
   couldTX        : Boolean; // If one could TX this period (it matches even/odd selection)
   txrequested    : Boolean; // Is a request to TX in place?
+  haveRebel      : Boolean; // Rebel selected and active/present?
   tmpdir         : String; // Path to user's temporary files directory
   homedir        : String; // Path to user's home directory
+  tty            : TBlockSerial;
+  ttyPorts       : TStringList;
 
 implementation
 
@@ -589,6 +595,25 @@ Var
    basedir   : String;
    mustcfg   : Boolean;
 Begin
+     tty := TBlockSerial.Create;
+     foo := '';
+     foo := synaser.GetSerialPortNames;
+     ttyPorts := TStringList.Create;
+     ttyPorts.Clear;
+     ttyPorts.CaseSensitive := False;
+     ttyPorts.Sorted := False;
+     ttyPorts.Duplicates := Types.dupIgnore;
+     if length(foo)>0 Then ttyPorts.CommaText := foo;
+     comboTTYPorts.Clear;
+     comboTTYPorts.Items.Add('None');
+     if ttyPorts.Count > 0 Then
+     Begin
+          if ttyPorts.Count > 1 Then foo := 'Found ' + IntToStr(ttyPorts.Count) + ' ports.' + sLineBreak else foo := 'Found 1 Port' + sLineBreak;
+          for i := 0 to ttyPorts.Count-1 do
+          begin
+               comboTTYPorts.Items.Add(ttyPorts.Strings[i]);
+          end;
+     end;
      // This runs on first timer interrupt once per run session
      tmpdir := GetTempDir(false);
      //dmtmpdir := tmpdir; // For KV files -sigh- not.
@@ -1286,6 +1311,78 @@ Begin
      forceCAT := True;
 
      firstTick := False;
+     { TODO : Create routine for serial RX/TX that's callable so I can simplify the following mess. }
+     if rigRebel.Checked Then
+     Begin
+          // Attempt to find rebel
+          If edPort.Text = '-1' Then
+          Begin
+               ShowMessage('Rebel selected but serial port not defined.  Please fix');
+               rigNone.Checked := True;
+               haveRebel := False;
+          end;
+          if rigRebel.Checked Then
+          Begin
+               ShowMessage('Connecting to Rebel on COM' + edPort.Text + sLineBreak + sLineBreak + 'Be sure it is powered on, connected' + sLineBreak + 'and loaded with JT65 firmware before' + sLineBreak + 'dismissing this dialog.');
+               // This is where I would open a port and talk to Rebel
+               haveRebel := True;
+               tty.Connect('COM'+edPort.Text);
+               if tty.InstanceActive Then
+               Begin
+                    foo := '';
+                    ShowMessage('Port opened');
+                    tty.Config(115200,8,'N',synaser.SB1,False,False);
+                    showMessage(tty.LastErrorDesc);
+                    // Send VER and wait for response
+                    tty.SendString('VER'+sLineBreak);
+                    showMessage(tty.LastErrorDesc);
+                    foo := tty.Recvstring(1000); // Expects a CR/LF terminated string.
+                    if tty.LastError = synaser.ErrTimeout then foo := tty.Recvstring(1000); // 1 retry
+                    if tty.LastError <> 0 then
+                    Begin
+                         showMessage('Rebel did not respond.' + sLineBreak + 'Check power, connection and firmware.' + sLineBreak + 'Rig set to no rig.');
+                         rigNone.Checked := true;
+                         haveRebel := False;
+                    end
+                    else
+                    begin
+                         if foo = 'JT65QRV' Then
+                         begin
+                              showMessage('Rebel JT65 Firmware loaded and ready.');
+                              haveRebel := True;
+                              // Load RX to last QRG
+                              tty.SendString('SRX'+ sLineBreak);
+                              foo := '';
+                              foo := tty.Recvstring(1000); // Expects a CR/LF terminated string.
+                              if tty.LastError = synaser.ErrTimeout then foo := tty.Recvstring(1000); // 1 retry
+                              if tty.LastError <> 0 then
+                              Begin
+                                   // No response
+                              end
+                              else
+                              begin
+                                   if foo = '...' Then
+                                   Begin
+                                        // Good to go
+                                        tty.SendString(lastQRG.text + sLineBreak);
+                                   end
+                                   else
+                                   begin
+                                        // Incorrect response
+                                   end;
+                              end;
+                         end
+                         else
+                         begin
+                              showMessage('Incorrect Response - Rebel is not enabled.');
+                              rigNone.Checked := true;
+                              haveRebel := False;
+                         end;
+                    end;
+               end;
+               tty.CloseSocket;
+          end;
+     end;
 
 end;
 
@@ -1664,8 +1761,9 @@ Begin
           // Run a rig control cycle
           forceCAT  := False;
           readQRG   := True;
-          //catmethod := xdbRigController.Text;
-          catmethod := 'None';
+          if rigNone.Checked Then catMethod := 'None';
+          if rigRebel.Checked Then catMethod := 'Rebel';
+          //if rigCommander.Checked Then catMethod := 'Commander';
           doCAT     := True;
      end;
 
@@ -3426,18 +3524,17 @@ begin
           if cbUseMono.Checked Then adc.adcMono := True else adc.adcMono := False;
           audioChange(TObject(comboAudioIn));
      end;
+     { TODO : Validate then validate then validate more on the important ones. }
      // PageControl Maybe not on these now....????
      //If Sender = edPrefix     Then edPrefix.Text  := TrimLeft(TrimRight(UpCase(edPrefix.Text)));
      //If Sender = edCall       Then edCall.Text  := TrimLeft(TrimRight(UpCase(edCall.Text)));
      //If Sender = edSuffix     Then edSuffix.Text  := TrimLeft(TrimRight(UpCase(edSuffix.Text)));
      //If Sender = edGrid       Then edGrid.Text  := TrimLeft(TrimRight(UpCase(edGrid.Text)));
-     //If Sender = edPort       Then edPort.Text := TrimLeft(TrimRight(UpCase(edPort.Text)));
+
      //If Sender = edTXWD       Then edTXWD.Text  := TrimLeft(TrimRight(UpCase(edTXWD.Text)));
      //If Sender = edADIFMode   Then edADIFMode.Text := edADIFMode.Text;
      //If Sender = edRBCall     Then edRBCall.Text := TrimLeft(TrimRight(UpCase(edRBCall.Text)));
      //If Sender = edStationInfo Then edStationInfo.Text := edStationInfo.Text;
-     //if Sender = rigNone      Then rigController.Text := 'None';
-     //if Sender = rigRebel     Then rigController.Text := 'Rebel';
 
      //if Sender = edCWID then CWCall.Text := edCWID.Text;
      if Sender = edDialQRG then LastQRG.Text := edDialQRG.Text;
@@ -3447,6 +3544,14 @@ begin
           if rbUseLeftAudio.Checked Then adc.adcChan  := 1;
           if rbUseRightaudio.Checked Then adc.adcChan := 2;
      end;
+
+     If Sender = rigNone Then catMethod := 'None';
+     If Sender = rigRebel Then
+     Begin
+          catMethod := 'Rebel';
+          if cbUseSerial.Checked Then cbUseSerial.Checked := False;
+     end;
+     // If Sender = rigCommander Then catMethod := 'Commander';
 
 end;
 
@@ -4945,6 +5050,20 @@ begin
      updateDB;
 end;
 
+procedure TForm1.comboTTYPortsChange(Sender: TObject);
+begin
+     if comboTTYPorts.Items.Strings[comboTTYPorts.ItemIndex] = 'None' Then
+     Begin
+          edPort.Text := '-1';
+     end
+     else
+     begin
+          if length(comboTTYPorts.Items.Strings[comboTTYPorts.ItemIndex]) = 4 Then edPort.Text := comboTTYPorts.Items.Strings[comboTTYPorts.ItemIndex][4];
+          if length(comboTTYPorts.Items.Strings[comboTTYPorts.ItemIndex]) = 5 Then edPort.Text := comboTTYPorts.Items.Strings[comboTTYPorts.ItemIndex][4..5];
+          if length(comboTTYPorts.Items.Strings[comboTTYPorts.ItemIndex]) = 6 Then edPort.Text := comboTTYPorts.Items.Strings[comboTTYPorts.ItemIndex][4..6];
+     end;
+end;
+
 procedure TForm1.FormClose(Sender: TObject; var CloseAction: TCloseAction);
 Var
    foo   : String;
@@ -5197,10 +5316,6 @@ begin
                     // jt65hfrc.exe for everything but hamlib or hamlib command line
                     // util
                     if catMethod = 'Commander' Then commandline := 'jt65hfrc.exe -c COMMANDER -d . -s ' + IntToStr(qsyQRG);
-                    if catMethod = 'HRD'       Then commandline := 'jt65hfrc.exe -c HRD -d . -s ' + IntToStr(qsyQRG);
-                    if catMethod = 'Omni1'     Then commandline := 'jt65hfrc.exe -c OMNI -d . -u 1 -s ' + IntToStr(qsyQRG);
-                    if catMethod = 'Omni2'     Then commandline := 'jt65hfrc.exe -c OMNI -d . -u 2 -s ' + IntToStr(qsyQRG);
-                    if catMethod = 'HamLib'    Then commandline := '';
                     if length(commandline)>0 Then
                     Begin
                          MemStream := TMemoryStream.Create;

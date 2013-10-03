@@ -406,8 +406,8 @@ object Form1: TForm1
     Height = 216
     Top = 35
     Width = 747
-    ActivePage = TabSheet1
-    TabIndex = 0
+    ActivePage = TabSheet9
+    TabIndex = 9
     TabOrder = 6
     Visible = False
     OnChange = PageControlChange
@@ -724,14 +724,13 @@ object Form1: TForm1
       Caption = 'PTT/Rig Control'
       ClientHeight = 187
       ClientWidth = 739
-      TabVisible = False
       object GroupBox3: TGroupBox
         Left = 4
         Height = 136
         Top = 47
-        Width = 240
+        Width = 592
         ClientHeight = 118
-        ClientWidth = 236
+        ClientWidth = 588
         TabOrder = 0
         object Label18: TLabel
           Left = 142
@@ -778,6 +777,24 @@ object Form1: TForm1
           State = cbChecked
           TabOrder = 2
         end
+        object comboTTYPorts: TComboBox
+          Left = 454
+          Height = 24
+          Top = 9
+          Width = 100
+          ItemHeight = 16
+          OnChange = comboTTYPortsChange
+          TabOrder = 3
+          Text = 'comboTTYPorts'
+        end
+        object Label12: TLabel
+          Left = 270
+          Height = 17
+          Top = 12
+          Width = 172
+          Caption = 'Ports Found (May not find all)'
+          ParentColor = False
+        end
       end
       object GroupBox5: TGroupBox
         Left = 4
@@ -804,11 +821,12 @@ object Form1: TForm1
           Top = 0
           Width = 53
           Caption = 'Rebel'
+          OnChange = rigControlSet
           TabOrder = 1
         end
       end
       object Button5: TButton
-        Left = 252
+        Left = 604
         Height = 40
         Top = 143
         Width = 129
