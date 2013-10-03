@@ -1,14 +1,22 @@
 { TODO :
 
+FIX - dupes being passed to main gui - these are true dupes as in exact
+same signal values and call.  kill kill kill them.
+}
+
+{
   Compared to decoder circa JT65-HF 1.0.9.x this is somewhat less efficient
   at getting decodes but a quantum leap ahead in speed.  I need to ponder why
   the decoder is failing to pick out some it should and I have a feeling but
   need to think it through.  For now - it's good enough to get going with.
 
-  Done - LPF Samples since I changed libJT65 - Confirmed working properly by
+  LPF Samples since I changed libJT65 - Confirmed working properly by
   applying to spectrum display with a 1.5K LPF - a -9 db signal above 1.5K
   did not appear ;)  Also added HPF with a 400 Hz edge - it's 3 pole so 400
   is fine.
+
+  Removed all calls to lpf1 - replaced with a simple 2x decimate and above
+  referenced BPF action.
 }
 
 // (c) 2013 CQZ Electronics
@@ -24,6 +32,7 @@ uses
 
 Const
   JT_DLL = 'JT65v5.dll';
+
   // 19 pole butterworth LPF - good for < ~2.5KHz (this is an IIR type)
   LACoef : array[0..19] of CTypes.cfloat =
         (
@@ -157,7 +166,7 @@ type
 implementation
 
 procedure set65; cdecl; external JT_DLL name 'setup65_';
-procedure lpf1(dat : CTypes.pcfloat; jz : CTypes.pcint; nz : CTypes.pcint; mousedf : CTypes.pcint; mousedf2 : CTypes.pcint; ical : CTypes.pcint; wisfile : PChar); cdecl; external JT_DLL name 'lpf1_';
+//procedure lpf1(dat : CTypes.pcfloat; jz : CTypes.pcint; nz : CTypes.pcint; mousedf : CTypes.pcint; mousedf2 : CTypes.pcint; ical : CTypes.pcint; wisfile : PChar); cdecl; external JT_DLL name 'lpf1_';
 procedure msync(dat : CTypes.pcfloat; jz : CTypes.pcint; syncount : CTypes.pcint; dtxa : CTypes.pcfloat; dfxa : CTypes.pcfloat; snrxa : CTypes.pcfloat; snrsynca : CTypes.pcfloat; ical : CTypes.pcint; wisfile : PChar); cdecl; external JT_DLL name 'msync65_';
 procedure cqz65(dat         : CTypes.pcfloat;
                 jz          : CTypes.pcint;
@@ -1431,7 +1440,24 @@ begin
           mousedf2 := 0;
           for i := 0 to jz do gllpfM[i] := glf1Buffer[i];
           // lpf1 downsamples from 11025 S/S to 5512.5 S/S
-          lpf1(CTypes.pcfloat(@gllpfM[0]),CTypes.pcint(@jz),CTypes.pcint(@jz2),CTypes.pcint(@lmousedf),CTypes.pcint(@mousedf2),CTypes.pcint(@lical),PChar(wif));
+          //lpf1(CTypes.pcfloat(@gllpfM[0]),CTypes.pcint(@jz),CTypes.pcint(@jz2),CTypes.pcint(@lmousedf),CTypes.pcint(@mousedf2),CTypes.pcint(@lical),PChar(wif));
+
+          // HAVE to at least try this :) 262,144 is decimated buffer size
+          // Wow... simple decimate seems to work fine.  No more call to the costly lpf1 routine.
+          // This starts to put JT65 decoding within range of some DSP chips as all FFT ops but
+          // for lpf1 are small size 2K or smaller transforms (I think).  Certainly none left as
+          // costly as that done in lpf1.  DEBUG - watch this and make sure it doesn't go to hell
+          // once the band picks up - it's fairly dead hours now.
+
+          // Simple 2x decimate on the LPF filtered sample data.
+          j := 0;
+          jz2 := 262143;
+          for i := 0 to jz2 do
+          begin
+               gllpfM[i] := gllpfM[j];
+               j := j+2;
+          end;
+
           // msync will want a downsampled and lpf version of data.
           // Copy lpfM to f3Buffer
           for j := 0 to jz2 do glf3Buffer[j] := gllpfM[j];
@@ -1473,7 +1499,6 @@ begin
             what the bins actually space to in terms of the FFT resolution - I can still call it 20,50 and etc but....
             it may be more grief is caused pushing these integer centers to the decoder since it may be splitting
             bins or, worse, missing some.
-
             }
 
           syncount := 0;

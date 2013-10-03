@@ -406,7 +406,7 @@ type
 
     //procedure genTX(const msg : String; const txdf : Integer; const plevel : Integer; var samples : Array of CTypes.cint16);
     procedure genTX(const msg : String; const txdf : Integer; const plevel : Integer);
-    procedure earlySync(Const samps : Array Of CTypes.cint16; Const endpoint : Integer);
+    //procedure earlySync(Const samps : Array Of CTypes.cint16; Const endpoint : Integer);
 
     procedure removeDupes(var list : TStringList; var removes : Array of Integer);
 
@@ -547,12 +547,12 @@ implementation
 procedure rscode(Psyms : CTypes.pcint; Ptsyms : CTypes.pcint); cdecl; external JT_DLL name 'rs_encode_';
 procedure interleave(Ptsyms : CTypes.pcint; Pdirection : CTypes.pcint); cdecl; external JT_DLL name 'interleave63_';
 procedure graycode(Ptsyms : CTypes.pcint; Pcount : CTypes.pcint; Pdirection : CTypes.pcint); cdecl; external JT_DLL name 'graycode_';
-//procedure gSamps(Ptxdf : CTypes.pcint; Ptsysms : CTypes.pcint; Pshmsg : CTypes.pcint; Psamples : CTypes.pcint16; Psamplescount : CTypes.pcint; level : CTypes.pcint); cdecl; external JT_DLL name 'g65_';
 procedure set65; cdecl; external JT_DLL name 'setup65_';
-procedure msync(dat : CTypes.pcfloat; jz : CTypes.pcint; syncount : CTypes.pcint; dtxa : CTypes.pcfloat; dfxa : CTypes.pcfloat; snrxa : CTypes.pcfloat; snrsynca : CTypes.pcfloat; ical : CTypes.pcint; wisfile : PChar); cdecl; external JT_DLL name 'msync65_';
-procedure lpf1(dat : CTypes.pcfloat; jz : CTypes.pcint; nz : CTypes.pcint; mousedf : CTypes.pcint; mousedf2 : CTypes.pcint; ical : CTypes.pcint; wisfile : PChar); cdecl; external JT_DLL name 'lpf1_';
 procedure packgrid(saveGrid : PChar; ng : CTypes.pcint; text : CTypes.pcbool); cdecl; external JT_DLL name 'packgrid_';
 function  ptt(nport : CTypes.pcint; msg : CTypes.pcschar; ntx : CTypes.pcint; iptt : CTypes.pcint) : CTypes.cint; cdecl; external JT_DLL name 'ptt_';
+//procedure gSamps(Ptxdf : CTypes.pcint; Ptsysms : CTypes.pcint; Pshmsg : CTypes.pcint; Psamples : CTypes.pcint16; Psamplescount : CTypes.pcint; level : CTypes.pcint); cdecl; external JT_DLL name 'g65_';
+//procedure msync(dat : CTypes.pcfloat; jz : CTypes.pcint; syncount : CTypes.pcint; dtxa : CTypes.pcfloat; dfxa : CTypes.pcfloat; snrxa : CTypes.pcfloat; snrsynca : CTypes.pcfloat; ical : CTypes.pcint; wisfile : PChar); cdecl; external JT_DLL name 'msync65_';
+//procedure lpf1(dat : CTypes.pcfloat; jz : CTypes.pcint; nz : CTypes.pcint; mousedf : CTypes.pcint; mousedf2 : CTypes.pcint; ical : CTypes.pcint; wisfile : PChar); cdecl; external JT_DLL name 'lpf1_';
 
 {$R *.lfm}
 
@@ -991,7 +991,7 @@ Begin
 
      if inIcal >-1 then demodulate.dmical := inIcal else demodulate.dmical := 0;
 
-     set65;
+//     set65;
      paActive := False;
      thisTXCall := '';
      thisTXGrid := '';
@@ -4034,262 +4034,262 @@ Begin
      end;
 end;
 
-procedure TForm1.earlySync(Const samps : Array Of CTypes.cint16; Const endpoint : Integer);
-Var
-   fBuffer  : Array of CTypes.cfloat;
-   lBuffer  : Array of CTypes.cfloat;
-   iBuffer  : Array of CTypes.cint16;
-   i,j      : Integer;
-   fsum     : CTypes.cfloat;
-   ave      : CTypes.cfloat;
-   nave,jz  : CTypes.cint;
-   lmousedf : CTypes.cint;
-   jz2      : CTypes.cint;
-   mousedf2 : CTypes.cint;
-   lical    : CTypes.cint;
-   syncount : CTypes.cint;
-   wif      : PChar;
-   dtxa     : Array[0..254] Of CTypes.cfloat;
-   dfxa     : Array[0..254] Of CTypes.cfloat;
-   snrxa    : Array[0..254] Of CTypes.cfloat;
-   snrsynca : Array[0..254] Of CTypes.cfloat;
-   idfxa    : Array[0..254] Of CTypes.cint;
-   nsnr     : Array[0..254] Of CTypes.cint;
-   nsync    : Array[0..254] Of CTypes.cint;
-   bins     : Array[0..20] Of CTypes.cint;
-   added    : Boolean;
-   wispath  : String;
-Begin
-     // Attempt to find sync points early.  Experimental stuff.  :)
-     setLength(fBuffer,661504);
-     for i := 0 to Length(fBuffer)-1 do fBuffer[i] := 0.0;
-     setLength(lBuffer,661504);
-     for i := 0 to Length(lBuffer)-1 do lBuffer[i] := 0.0;
-     setLength(iBuffer,661504);
-     for i := 0 to Length(iBuffer)-1 do iBuffer[i] := 0;
-     // Convert to float
-     fsum := 0.0;
-     nave := 0;
-     for i := 0 to endpoint do fsum := fsum + samps[i];
-     nave := Round(fsum/(endpoint+1));
-     if nave <> 0 Then
-     Begin
-          for i := 0 to endpoint do iBuffer[i] := min(32766,max(-32766,samps[i]-nave));
-     End
-     Else
-     Begin
-          for i := 0 to endpoint do iBuffer[i] := min(32766,max(-32766,samps[i]));
-     End;
-     fsum := 0.0;
-     ave := 0.0;
-     for i := 0 to endpoint do
-     Begin
-          fBuffer[i] := 0.1 * iBuffer[i];
-          fsum := fsum + fBuffer[i];
-     End;
-     ave := fsum/(endpoint+1);
-     if ave <> 0.0 Then for i := 0 to endpoint do fBuffer[i] := fBuffer[i]-ave;
-     jz := endpoint;
-
-     // Samples now converted to float, apply lpf
-     lmousedf := 0;
-     jz2 := 0;
-     mousedf2 := 0;
-     lical := 0;
-     wif := StrAlloc(256);
-     wisPath := TrimFilename(cfgDir+'wisdom2.dat');
-     wisPath := PadRight(wisPath,255);
-     StrPCopy (wif,wisPath);
-     for i := 0 to jz do lBuffer[i] := fBuffer[i];
-     lpf1(CTypes.pcfloat(@lBuffer[0]),CTypes.pcint(@jz),CTypes.pcint(@jz2),CTypes.pcint(@lmousedf),CTypes.pcint(@mousedf2),CTypes.pcint(@lical),PChar(wif));
-
-     // Clear fBuffer
-     for i := 0 to Length(fBuffer)-1 do fBuffer[i] := 0.0;
-
-     // msync will want a downsampled and lpf version of data.
-
-     // Copy lBuffer to fBuffer
-     for i := 0 to jz2 do fBuffer[i] := lBuffer[i];
-     // Clear returns
-     for i := 0 to 254 do
-     begin
-          dtxa[i]     := 0.0;
-          dfxa[i]     := 0.0;
-          snrxa[i]    := 0.0;
-          snrsynca[i] := 0.0;
-          idfxa[i]     := 0;
-          nsnr[i]     := 0;
-          nsync[i]    := 0;
-     end;
-
-     syncount := 0;
-     msync(CTypes.pcfloat(@fBuffer[0]),CTypes.pcint(@jz2),CTypes.pcint(@syncount),CTypes.pcfloat(@dtxa[0]),CTypes.pcfloat(@dfxa[0]),CTypes.pcfloat(@snrxa[0]),CTypes.pcfloat(@snrsynca[0]),CTypes.pcint(@lical),PChar(wif));
-
-     for i := 0 to 254 do
-     begin
-          idfxa[i]    := trunc(dfxa[i]);
-          nsnr[i]     := trunc(snrxa[i]);
-          nsync[i]    := trunc(snrsynca[i]-3.0);
-     end;
-
-     for i := 0 to 20 do bins[i] := 0;
-
-     //  Low     CF      High     Bin
-     // -1050 . -1000 . -950      0
-     //  -949 . -900  . -850      1
-     //  -849 . -800  . -750      2
-     //  -749 . -700  . -650      3
-     //  -649 . -600  . -550      4
-     //  -549 . -500  . -450      5
-     //  -449 . -400  . -350      6
-     //  -349 . -300  . -250      7
-     //  -249 . -200  . -150      8
-     //  -149 . -100  . -50       9
-     //   -49 .  0    .  50       10
-     //    51    100  .  150      11
-     //   151    200  .  250      12
-     //   251    300  .  350      13
-     //   351    400  .  450      14
-     //   451    500  .  550      15
-     //   551    600  .  650      16
-     //   651    700  .  750      17
-     //   751    800  .  850      18
-     //   851    900  .  950      19
-     //   951   1000  .  1050     20
-
-     added := False;
-     for i := 0 to 254 do
-     begin
-          If (nsnr[i] > -33) and (nsync[i] > 0) Then
-          Begin
-               //ListBox1.Items.Insert(0,'dt:  ' + IntToStr(thisSecond) + ' ' + IntToStr(i) + ' dtxa:  ' + IntToStr(idtxa[i]) + ' dfxa:  ' + IntToStr(idfxa[i]) + ' nsnr:  ' + IntToStr(nsnr[i]) + ' nsync:  ' + IntToStr(nsync[i]));
-               added := True;
-               if (idfxa[i] > -1051) And (idfxa[i] < -951) Then
-               Begin
-                    Inc(bins[0]);   // -1050 ... -950 CF = -1000
-               End;
-
-               if (idfxa[i] > -950)  And (idfxa[i] < -851) Then
-               Begin
-                    Inc(bins[1]);   //  -951 ... -850 CF =  -900
-               End;
-
-               if (idfxa[i] > -850)  And (idfxa[i] < -751) Then
-               Begin
-                    Inc(bins[2]);   //  -851 ... -750 CF =  -800
-               End;
-
-               if (idfxa[i] > -750)  And (idfxa[i] < -651) Then
-               Begin
-                    Inc(bins[3]);   //  -751 ... -650 CF =  -700
-               End;
-
-               if (idfxa[i] > -650)  And (idfxa[i] < -551) Then
-               Begin
-                    Inc(bins[4]);   //  -651 ... -550 CF =  -600
-               End;
-
-               if (idfxa[i] > -550)  And (idfxa[i] < -451) Then
-               Begin
-                    Inc(bins[5]);   //  -551 ... -450 CF =  -500
-               End;
-
-               if (idfxa[i] > -450)  And (idfxa[i] < -351) Then
-               Begin
-                    Inc(bins[6]);   //  -451 ... -350 CF =  -400
-               End;
-
-               if (idfxa[i] > -350)  And (idfxa[i] < -251) Then
-               Begin
-                    Inc(bins[7]);   //  -351 ... -250 CF =  -300
-               End;
-
-               if (idfxa[i] > -250)  And (idfxa[i] < -151) Then
-               Begin
-                    Inc(bins[8]);   //  -251 ... -150 CF =  -200
-               End;
-
-               if (idfxa[i] > -150)  And (idfxa[i] < -51)  Then
-               Begin
-                    Inc(bins[9]);   //  -151 ... -50  CF =  -100
-               End;
-
-               if (idfxa[i] > -50)   And (idfxa[i] < 51)  Then
-               Begin
-                    Inc(bins[10]);   //  -51  ...  50  CF =  0
-               End;
-
-               if (idfxa[i] > 50)    And (idfxa[i] < 151) Then
-               Begin
-                    Inc(bins[11]);   //   51 ...  150  CF =  100
-               End;
-
-               if (idfxa[i] > 150)   And (idfxa[i] < 251) Then
-               Begin
-                    Inc(bins[12]);   //   151 ... 250 CF  =  200
-               End;
-
-               if (idfxa[i] > 250)   And (idfxa[i] < 351) Then
-               Begin
-                    Inc(bins[13]);   //   251 ... 350 CF  =  300
-               End;
-
-               if (idfxa[i] > 350)   And (idfxa[i] < 451) Then
-               Begin
-                    Inc(bins[14]);   //   351 ... 450 CF  =  400
-               End;
-
-               if (idfxa[i] > 450)   And (idfxa[i] < 551) Then
-               Begin
-                    Inc(bins[15]);   //   451 ... 550 CF  =  500
-               End;
-
-               if (idfxa[i] > 550)   And (idfxa[i] < 651) Then
-               Begin
-                    Inc(bins[16]);   //   551 ... 650 CF  =  600
-               End;
-
-               if (idfxa[i] > 650)   And (idfxa[i] < 751) Then
-               Begin
-                    Inc(bins[17]);   //   651 ... 750 CF  =  700
-               End;
-
-               if (idfxa[i] > 750)   And (idfxa[i] < 851) Then
-               Begin
-                    Inc(bins[18]);   //   751 ... 850 CF  =  800
-               End;
-
-               if (idfxa[i] > 850)   And (idfxa[i] < 951) Then
-               Begin
-                    Inc(bins[19]);   //   851 ... 950 CF  =  900
-               End;
-
-               if (idfxa[i] > 950)   And (idfxa[i] < 1051) Then
-               Begin
-                    Inc(bins[20]);  //   951 ... 1050 CF =  1000
-               End;
-          end;
-     end;
-
-     if added Then
-     Begin
-          FBar1.Clear;
-          j := -10;
-          For i := 0 to 20 do
-          Begin
-               FBar1.AddXY(j, bins[i]);
-               inc(j);
-          end;
-     end;
-
-     for i := 0 to 20 do bins[i] := 0;
-
-     wif := StrAlloc(0);
-     setLength(fBuffer,0);
-     setLength(lBuffer,0);
-     setLength(iBuffer,0);
-
-end;
+//procedure TForm1.earlySync(Const samps : Array Of CTypes.cint16; Const endpoint : Integer);
+//Var
+//   fBuffer  : Array of CTypes.cfloat;
+//   lBuffer  : Array of CTypes.cfloat;
+//   iBuffer  : Array of CTypes.cint16;
+//   i,j      : Integer;
+//   fsum     : CTypes.cfloat;
+//   ave      : CTypes.cfloat;
+//   nave,jz  : CTypes.cint;
+//   lmousedf : CTypes.cint;
+//   jz2      : CTypes.cint;
+//   mousedf2 : CTypes.cint;
+//   lical    : CTypes.cint;
+//   syncount : CTypes.cint;
+//   wif      : PChar;
+//   dtxa     : Array[0..254] Of CTypes.cfloat;
+//   dfxa     : Array[0..254] Of CTypes.cfloat;
+//   snrxa    : Array[0..254] Of CTypes.cfloat;
+//   snrsynca : Array[0..254] Of CTypes.cfloat;
+//   idfxa    : Array[0..254] Of CTypes.cint;
+//   nsnr     : Array[0..254] Of CTypes.cint;
+//   nsync    : Array[0..254] Of CTypes.cint;
+//   bins     : Array[0..20] Of CTypes.cint;
+//   added    : Boolean;
+//   wispath  : String;
+//Begin
+//     // Attempt to find sync points early.  Experimental stuff.  :)
+//     setLength(fBuffer,661504);
+//     for i := 0 to Length(fBuffer)-1 do fBuffer[i] := 0.0;
+//     setLength(lBuffer,661504);
+//     for i := 0 to Length(lBuffer)-1 do lBuffer[i] := 0.0;
+//     setLength(iBuffer,661504);
+//     for i := 0 to Length(iBuffer)-1 do iBuffer[i] := 0;
+//     // Convert to float
+//     fsum := 0.0;
+//     nave := 0;
+//     for i := 0 to endpoint do fsum := fsum + samps[i];
+//     nave := Round(fsum/(endpoint+1));
+//     if nave <> 0 Then
+//     Begin
+//          for i := 0 to endpoint do iBuffer[i] := min(32766,max(-32766,samps[i]-nave));
+//     End
+//     Else
+//     Begin
+//          for i := 0 to endpoint do iBuffer[i] := min(32766,max(-32766,samps[i]));
+//     End;
+//     fsum := 0.0;
+//     ave := 0.0;
+//     for i := 0 to endpoint do
+//     Begin
+//          fBuffer[i] := 0.1 * iBuffer[i];
+//          fsum := fsum + fBuffer[i];
+//     End;
+//     ave := fsum/(endpoint+1);
+//     if ave <> 0.0 Then for i := 0 to endpoint do fBuffer[i] := fBuffer[i]-ave;
+//     jz := endpoint;
+//
+//     // Samples now converted to float, apply lpf
+//     lmousedf := 0;
+//     jz2 := 0;
+//     mousedf2 := 0;
+//     lical := 0;
+//     wif := StrAlloc(256);
+//     wisPath := TrimFilename(cfgDir+'wisdom2.dat');
+//     wisPath := PadRight(wisPath,255);
+//     StrPCopy (wif,wisPath);
+//     for i := 0 to jz do lBuffer[i] := fBuffer[i];
+//     lpf1(CTypes.pcfloat(@lBuffer[0]),CTypes.pcint(@jz),CTypes.pcint(@jz2),CTypes.pcint(@lmousedf),CTypes.pcint(@mousedf2),CTypes.pcint(@lical),PChar(wif));
+//
+//     // Clear fBuffer
+//     for i := 0 to Length(fBuffer)-1 do fBuffer[i] := 0.0;
+//
+//     // msync will want a downsampled and lpf version of data.
+//
+//     // Copy lBuffer to fBuffer
+//     for i := 0 to jz2 do fBuffer[i] := lBuffer[i];
+//     // Clear returns
+//     for i := 0 to 254 do
+//     begin
+//          dtxa[i]     := 0.0;
+//          dfxa[i]     := 0.0;
+//          snrxa[i]    := 0.0;
+//          snrsynca[i] := 0.0;
+//          idfxa[i]     := 0;
+//          nsnr[i]     := 0;
+//          nsync[i]    := 0;
+//     end;
+//
+//     syncount := 0;
+//     msync(CTypes.pcfloat(@fBuffer[0]),CTypes.pcint(@jz2),CTypes.pcint(@syncount),CTypes.pcfloat(@dtxa[0]),CTypes.pcfloat(@dfxa[0]),CTypes.pcfloat(@snrxa[0]),CTypes.pcfloat(@snrsynca[0]),CTypes.pcint(@lical),PChar(wif));
+//
+//     for i := 0 to 254 do
+//     begin
+//          idfxa[i]    := trunc(dfxa[i]);
+//          nsnr[i]     := trunc(snrxa[i]);
+//          nsync[i]    := trunc(snrsynca[i]-3.0);
+//     end;
+//
+//     for i := 0 to 20 do bins[i] := 0;
+//
+//     //  Low     CF      High     Bin
+//     // -1050 . -1000 . -950      0
+//     //  -949 . -900  . -850      1
+//     //  -849 . -800  . -750      2
+//     //  -749 . -700  . -650      3
+//     //  -649 . -600  . -550      4
+//     //  -549 . -500  . -450      5
+//     //  -449 . -400  . -350      6
+//     //  -349 . -300  . -250      7
+//     //  -249 . -200  . -150      8
+//     //  -149 . -100  . -50       9
+//     //   -49 .  0    .  50       10
+//     //    51    100  .  150      11
+//     //   151    200  .  250      12
+//     //   251    300  .  350      13
+//     //   351    400  .  450      14
+//     //   451    500  .  550      15
+//     //   551    600  .  650      16
+//     //   651    700  .  750      17
+//     //   751    800  .  850      18
+//     //   851    900  .  950      19
+//     //   951   1000  .  1050     20
+//
+//     added := False;
+//     for i := 0 to 254 do
+//     begin
+//          If (nsnr[i] > -33) and (nsync[i] > 0) Then
+//          Begin
+//               //ListBox1.Items.Insert(0,'dt:  ' + IntToStr(thisSecond) + ' ' + IntToStr(i) + ' dtxa:  ' + IntToStr(idtxa[i]) + ' dfxa:  ' + IntToStr(idfxa[i]) + ' nsnr:  ' + IntToStr(nsnr[i]) + ' nsync:  ' + IntToStr(nsync[i]));
+//               added := True;
+//               if (idfxa[i] > -1051) And (idfxa[i] < -951) Then
+//               Begin
+//                    Inc(bins[0]);   // -1050 ... -950 CF = -1000
+//               End;
+//
+//               if (idfxa[i] > -950)  And (idfxa[i] < -851) Then
+//               Begin
+//                    Inc(bins[1]);   //  -951 ... -850 CF =  -900
+//               End;
+//
+//               if (idfxa[i] > -850)  And (idfxa[i] < -751) Then
+//               Begin
+//                    Inc(bins[2]);   //  -851 ... -750 CF =  -800
+//               End;
+//
+//               if (idfxa[i] > -750)  And (idfxa[i] < -651) Then
+//               Begin
+//                    Inc(bins[3]);   //  -751 ... -650 CF =  -700
+//               End;
+//
+//               if (idfxa[i] > -650)  And (idfxa[i] < -551) Then
+//               Begin
+//                    Inc(bins[4]);   //  -651 ... -550 CF =  -600
+//               End;
+//
+//               if (idfxa[i] > -550)  And (idfxa[i] < -451) Then
+//               Begin
+//                    Inc(bins[5]);   //  -551 ... -450 CF =  -500
+//               End;
+//
+//               if (idfxa[i] > -450)  And (idfxa[i] < -351) Then
+//               Begin
+//                    Inc(bins[6]);   //  -451 ... -350 CF =  -400
+//               End;
+//
+//               if (idfxa[i] > -350)  And (idfxa[i] < -251) Then
+//               Begin
+//                    Inc(bins[7]);   //  -351 ... -250 CF =  -300
+//               End;
+//
+//               if (idfxa[i] > -250)  And (idfxa[i] < -151) Then
+//               Begin
+//                    Inc(bins[8]);   //  -251 ... -150 CF =  -200
+//               End;
+//
+//               if (idfxa[i] > -150)  And (idfxa[i] < -51)  Then
+//               Begin
+//                    Inc(bins[9]);   //  -151 ... -50  CF =  -100
+//               End;
+//
+//               if (idfxa[i] > -50)   And (idfxa[i] < 51)  Then
+//               Begin
+//                    Inc(bins[10]);   //  -51  ...  50  CF =  0
+//               End;
+//
+//               if (idfxa[i] > 50)    And (idfxa[i] < 151) Then
+//               Begin
+//                    Inc(bins[11]);   //   51 ...  150  CF =  100
+//               End;
+//
+//               if (idfxa[i] > 150)   And (idfxa[i] < 251) Then
+//               Begin
+//                    Inc(bins[12]);   //   151 ... 250 CF  =  200
+//               End;
+//
+//               if (idfxa[i] > 250)   And (idfxa[i] < 351) Then
+//               Begin
+//                    Inc(bins[13]);   //   251 ... 350 CF  =  300
+//               End;
+//
+//               if (idfxa[i] > 350)   And (idfxa[i] < 451) Then
+//               Begin
+//                    Inc(bins[14]);   //   351 ... 450 CF  =  400
+//               End;
+//
+//               if (idfxa[i] > 450)   And (idfxa[i] < 551) Then
+//               Begin
+//                    Inc(bins[15]);   //   451 ... 550 CF  =  500
+//               End;
+//
+//               if (idfxa[i] > 550)   And (idfxa[i] < 651) Then
+//               Begin
+//                    Inc(bins[16]);   //   551 ... 650 CF  =  600
+//               End;
+//
+//               if (idfxa[i] > 650)   And (idfxa[i] < 751) Then
+//               Begin
+//                    Inc(bins[17]);   //   651 ... 750 CF  =  700
+//               End;
+//
+//               if (idfxa[i] > 750)   And (idfxa[i] < 851) Then
+//               Begin
+//                    Inc(bins[18]);   //   751 ... 850 CF  =  800
+//               End;
+//
+//               if (idfxa[i] > 850)   And (idfxa[i] < 951) Then
+//               Begin
+//                    Inc(bins[19]);   //   851 ... 950 CF  =  900
+//               End;
+//
+//               if (idfxa[i] > 950)   And (idfxa[i] < 1051) Then
+//               Begin
+//                    Inc(bins[20]);  //   951 ... 1050 CF =  1000
+//               End;
+//          end;
+//     end;
+//
+//     if added Then
+//     Begin
+//          FBar1.Clear;
+//          j := -10;
+//          For i := 0 to 20 do
+//          Begin
+//               FBar1.AddXY(j, bins[i]);
+//               inc(j);
+//          end;
+//     end;
+//
+//     for i := 0 to 20 do bins[i] := 0;
+//
+//     wif := StrAlloc(0);
+//     setLength(fBuffer,0);
+//     setLength(lBuffer,0);
+//     setLength(iBuffer,0);
+//
+//end;
 
 //procedure TForm1.genTX(const msg : String; const txdf : Integer; const plevel : Integer; var samples : Array of CTypes.cint16);
 procedure TForm1.genTX(const msg : String; const txdf : Integer; const plevel : Integer);
