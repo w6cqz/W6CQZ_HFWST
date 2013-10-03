@@ -601,4 +601,5 @@ Begin
      globalData.spectrumComputing65 := False;
      specFirstRun := False;
 End;
+
 end.

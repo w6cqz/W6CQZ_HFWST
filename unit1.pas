@@ -595,6 +595,16 @@ Var
    basedir   : String;
    mustcfg   : Boolean;
 Begin
+     // Profile timers for demodulator
+     demodulate.dmprofile := TStringList.Create;
+     demodulate.dmprofile.Clear;
+     demodulate.dmprofile.CaseSensitive := False;
+     demodulate.dmprofile.Sorted := False;
+     demodulate.dmprofile.Duplicates := Types.dupIgnore;
+
+     // Let adc know it is on first run so it can do its init
+     adc.adcFirst := True;
+
      tty := TBlockSerial.Create;
      foo := '';
      foo := synaser.GetSerialPortNames;
@@ -1937,6 +1947,8 @@ Begin
      If adc.haveSpec And (not demodulate.dmdemodBusy) Then
      Begin
           // Can do spectrum...
+          { TODO : FIX NOW - only looking at left ADC channel!!!!!!! }
+          //spectrum.computeFSpectrum(adc.adclastF4k1);
           spectrum.computeSpectrum(adc.adclast4k1);
           adc.haveSpec := False;
      end;
@@ -1964,6 +1976,8 @@ procedure TForm1.displayDecodes;
 Var
    i,j,k    : Integer;
    dstrings : TStringList;
+   estrings : TStringList;
+   fstrings : TStringList;
    removes  : Array of Integer;
    afoo     : String;
    bfoo     : String;
@@ -1972,6 +1986,13 @@ Var
    tvalid   : Boolean;
    dcount   : Integer;
 Begin
+     //if not demodulate.dmdemodBusy And (demodulate.dmprofile.Count > 0) Then
+     //Begin
+     //     for i := 0 to demodulate.dmprofile.Count-1 do Memo2.Append(demodulate.dmprofile.Strings[i]);
+     //     Memo2.Append('--------------------');
+     //     demodulate.dmprofile.Clear;
+     //end;
+
      if demodulate.dmhaveDecode Then
      Begin
           memo3.Clear;
@@ -1985,6 +2006,11 @@ Begin
 
           //if j=1 then showmessage('j=1');
 
+          { TODO :
+          DEBUG This - I'm so not handling this dupe removal correctly.
+          Think about using hashed values...
+          }
+
           if j > 1 Then
           Begin
                SetLength(removes,j);
@@ -1993,9 +2019,38 @@ Begin
                dstrings.CaseSensitive := False;
                dstrings.Sorted := False;
                dstrings.Duplicates := Types.dupAccept;
+
+               estrings := TStringList.Create;
+               estrings.Clear;
+               estrings.CaseSensitive := False;
+               estrings.Sorted := True;
+               estrings.Duplicates := Types.dupIgnore;
+
+               fstrings := TStringList.Create;
+               fstrings.Clear;
+               fstrings.CaseSensitive := False;
+               fstrings.Sorted := False;
+               fstrings.Duplicates := Types.dupAccept;
+
+               k := 0;
+               for i := 0 to 499 do
+               begin
+                    if not demodulate.dmdecodes[i].clr Then
+                    begin
+                         // The input stringist contains db,exchange,index of array member
+                         dstrings.Add(demodulate.dmdecodes[i].db + ',' + demodulate.dmdecodes[i].dec + ',' + IntToStr(k));
+                         estrings.Add(demodulate.dmdecodes[i].db + ',' + demodulate.dmdecodes[i].dec);
+                         fstrings.Add(demodulate.dmdecodes[i].db + ',' + demodulate.dmdecodes[i].dec);
+                         removes[k] := i;
+                         inc(k);
+                    end;
+               end;
+               //if estrings.Count <> fstrings.Count Then ShowMessage('estrings != fstrings count.');
                //Memo2.Append('Dupes to remove:  ' + IntToStr(j));
                removeDupes(dstrings,removes);
                dstrings.Destroy;
+               estrings.Destroy;
+               fstrings.Destroy;
 
                for i := 0 to length(removes) - 1 do
                begin
@@ -2134,20 +2189,20 @@ Begin
           for i := 0 to 499 do if not demodulate.dmdecodes[i].clr Then inc(k);
           If k>0 Then Memo1.Append('Items not cleared at end of display pass - this is wrong.');
           //ListBox2.Items.Insert(0,'Exit display decodes');
-          if demodulate.dmdecodecount <> dcount Then
-          Begin
-               Memo2.Append('Count? Dec=' + IntToStr(demodulate.dmdecodecount) + ' Dis=' + IntToStr(dcount));
-               for i := 0 to 499 do
-               begin
-                    if length(demodulate.dmlastraw[i])>0 Then
-                    Begin
-                         memo2.Append(demodulate.dmlastraw[i]);
-                         demodulate.dmlastraw[i] := '';
-                    End;
-               end;
+          //if demodulate.dmdecodecount <> dcount Then
+          //Begin
+               //Memo2.Append('Count? Dec=' + IntToStr(demodulate.dmdecodecount) + ' Dis=' + IntToStr(dcount));
+               //for i := 0 to 499 do
+               //begin
+                    //if length(demodulate.dmlastraw[i])>0 Then
+                    //Begin
+                         //memo2.Append(demodulate.dmlastraw[i]);
+                         //demodulate.dmlastraw[i] := '';
+                    //End;
+               //end;
                // Maybe this next line is not such a great idea.... DEBUG
-               demodulate.dmhaveDecode := False;
-          end;
+               //demodulate.dmhaveDecode := False;
+          //end;
      end;
 end;
 
@@ -5176,7 +5231,7 @@ end;
 procedure decodeThread.Execute;
 Var
    rxb : Packed Array of CTypes.cint16;
-//   rxf : Packed Array of CTypes.cfloat;
+   rxf : Packed Array of CTypes.cfloat;
    i   : Integer;
 begin
      while not Terminated and not Suspended and not decoderBusy do
@@ -5191,13 +5246,18 @@ begin
                     if i > 25 then break;
                     sleep(1);
                end;
-               setLength(rxb,length(adc.d65rxBuffer1));
-               if adc.adcChan = 0 Then for i := 0 to length(adc.d65rxBuffer1)-1 do rxb[i] := adc.d65rxBuffer1[i];
-               if adc.adcChan = 1 Then for i := 0 to length(adc.d65rxBuffer1)-1 do rxb[i] := adc.d65rxBuffer1[i];
-               if adc.adcChan = 2 Then for i := 0 to length(adc.d65rxBuffer2)-1 do rxb[i] := adc.d65rxBuffer2[i];
 
-               //demodulate.demod(rxb);
-               demodulate.ldemod(rxb);
+//               setLength(rxb,length(adc.d65rxBuffer1));
+//               if adc.adcChan = 0 Then for i := 0 to length(adc.d65rxBuffer1)-1 do rxb[i] := adc.d65rxBuffer1[i];
+//               if adc.adcChan = 1 Then for i := 0 to length(adc.d65rxBuffer1)-1 do rxb[i] := adc.d65rxBuffer1[i];
+//               if adc.adcChan = 2 Then for i := 0 to length(adc.d65rxBuffer2)-1 do rxb[i] := adc.d65rxBuffer2[i];
+
+               setLength(rxf,length(adc.d65rxFBuffer1));
+               if adc.adcChan = 0 Then for i := 0 to length(adc.d65rxFBuffer1)-1 do rxf[i] := adc.d65rxFBuffer1[i];
+               if adc.adcChan = 1 Then for i := 0 to length(adc.d65rxFBuffer1)-1 do rxf[i] := adc.d65rxFBuffer1[i];
+               if adc.adcChan = 2 Then for i := 0 to length(adc.d65rxFBuffer2)-1 do rxf[i] := adc.d65rxFBuffer2[i];
+
+               demodulate.fdemod(rxf);
 
                inc(decodeping);
                setLength(rxb,0);
@@ -5558,8 +5618,9 @@ Begin
                // At this point I have a duplicate count (1...x) and will know if s1/c1 idx c4
                // is strongest.  If not strongest I go one way - If strongest I go another.
 
-               if (dcount > 0) and ostrong Then Memo2.Append('Removing dupes ['+ IntToStr(dcount) + ']');
+               if (dcount > 0) and ostrong Then
                Begin
+                    Memo1.Append('Removing dupes ['+ IntToStr(dcount) + ']');
                     // Have at least 1 dupe and s1/c1 idx c4 is strongest.
                     // Walk the list again and set all dupes that are not s1/c1 idx c4 to
                     // sig,REMOVE ME,idx instead of sig,EXCHANGE,idx
@@ -5571,7 +5632,7 @@ Begin
                               Begin
                                    // Update this string to remove status.
                                    list.Strings[i] := ExtractWord(1,list.strings[i],[',']) + ',REMOVE ME,' + ExtractWord(3,list.strings[i],[',']);
-                                   Memo2.Append(list.Strings[i]);
+                                   Memo1.Append(list.Strings[i]);
                               End;
                          End;
                     end;
@@ -5581,7 +5642,7 @@ Begin
                Begin
                     // Have at least 1 dupe and s1/c1 idx c4 is NOT strongest so - flag s1/c1 idx c4 as removed.
                     list.Strings[c4] := ExtractWord(1,list.strings[c4],[',']) + ',REMOVE ME,' + ExtractWord(3,list.strings[c4],[',']);
-                    Memo2.Append(list.Strings[i]);
+                    Memo1.Append(list.Strings[i]);
                end;
                // Keep repeating until havedupe false
           end;
