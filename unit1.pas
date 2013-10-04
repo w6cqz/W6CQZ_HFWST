@@ -1095,8 +1095,7 @@ Begin
           // Fire up portaudio using default in/out devices.
           // But first clear the i/o buffers in adc/dac
           ListBox2.Items.Add('Setting up PortAudio');
-          for i := 0 to Length(adc.d65rxBuffer1)-1 do adc.d65rxBuffer1[i] := 0;
-          for i := 0 to Length(adc.d65rxBuffer2)-1 do adc.d65rxBuffer2[i] := 0;
+          for i := 0 to Length(adc.d65rxFBuffer)-1 do adc.d65rxFBuffer[i] := 0.0;
           //for i := 0 to Length(dac.d65txBuffer)-1 do dac.d65txBuffer[i] := 0;
 
           // Init PA.  If this doesn't work there's no reason to continue.
@@ -1947,9 +1946,14 @@ Begin
      If adc.haveSpec And (not demodulate.dmdemodBusy) Then
      Begin
           // Can do spectrum...
-          { TODO : FIX NOW - only looking at left ADC channel!!!!!!! }
-          //spectrum.computeFSpectrum(adc.adclastF4k1);
-          spectrum.computeSpectrum(adc.adclast4k1);
+          if adc.adcMono Then
+          Begin
+               spectrum.computeSpectrum(adc.adclast4k1);
+          end
+          else
+          begin
+               if adc.adcChan = 1 Then spectrum.computeSpectrum(adc.adclast4k1) else spectrum.computeSpectrum(adc.adclast4k2);
+          end;
           adc.haveSpec := False;
      end;
 end;
@@ -5252,11 +5256,12 @@ begin
 //               if adc.adcChan = 1 Then for i := 0 to length(adc.d65rxBuffer1)-1 do rxb[i] := adc.d65rxBuffer1[i];
 //               if adc.adcChan = 2 Then for i := 0 to length(adc.d65rxBuffer2)-1 do rxb[i] := adc.d65rxBuffer2[i];
 
-               setLength(rxf,length(adc.d65rxFBuffer1));
-               if adc.adcChan = 0 Then for i := 0 to length(adc.d65rxFBuffer1)-1 do rxf[i] := adc.d65rxFBuffer1[i];
-               if adc.adcChan = 1 Then for i := 0 to length(adc.d65rxFBuffer1)-1 do rxf[i] := adc.d65rxFBuffer1[i];
-               if adc.adcChan = 2 Then for i := 0 to length(adc.d65rxFBuffer2)-1 do rxf[i] := adc.d65rxFBuffer2[i];
+               setLength(rxf,length(adc.d65rxFBuffer));
+//               if adc.adcChan = 0 Then for i := 0 to length(adc.d65rxFBuffer1)-1 do rxf[i] := adc.d65rxFBuffer1[i];
+//               if adc.adcChan = 1 Then for i := 0 to length(adc.d65rxFBuffer1)-1 do rxf[i] := adc.d65rxFBuffer1[i];
+//               if adc.adcChan = 2 Then for i := 0 to length(adc.d65rxFBuffer2)-1 do rxf[i] := adc.d65rxFBuffer2[i];
 
+               for i := 0 to length(adc.d65rxFBuffer)-1 do rxf[i] := adc.d65rxFBuffer[i];
                demodulate.fdemod(rxf);
 
                inc(decodeping);

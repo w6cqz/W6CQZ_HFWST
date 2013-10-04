@@ -1,4 +1,12 @@
 // (c) 2013 CQZ Electronics
+{
+   Added BPF filtering here
+   Removed integer buffers for samples - all FP now other than audio level/spectrum
+   Cleaned up buffering - now using one FP buffer and only running BPF for stream
+   actually being used.  Still computing audio level for both channels (unless it's
+   running mono) and saving spectrum samples for both.  This is *necessary* for
+   spectrum - otherwise it doesn't gracefully switch audio channels on the fly.
+}
 unit adc;
 {$mode objfpc}{$H+}
 
@@ -78,20 +86,12 @@ Const
       );
 
 Var
-   d65rxBuffer1    : Packed Array[0..661503] of CTypes.cint16;   // This is slightly more than 60*11025 to make it evenly divided by 2048
-   d65rxBuffer2    : Packed Array[0..661503] of CTypes.cint16;   // This is slightly more than 60*11025 to make it evenly divided by 2048
-
-   d65rxFBuffer1   : Packed Array[0..661503] of CTypes.cfloat;   // Float buffers will (I hope) soon replace 2 above.
-   d65rxFBuffer2   : Packed Array[0..661503] of CTypes.cfloat;
-
-   adclast2k1      : Packed Array[0..2047] of CTypes.cint16;     // ^^^ 1 holds left ADC channel samples - 2 holds right.
+   d65rxFBuffer    : Packed Array[0..661503] of CTypes.cfloat;   // Frame sample buffer
+   adclast2k1      : Packed Array[0..2047] of CTypes.cint16;     // For computing audio levels
    adclast2k2      : Packed Array[0..2047] of CTypes.cint16;
-   adclast4k1      : Packed Array[0..4095] of CTypes.cint16;
+   adclast4k1      : Packed Array[0..4095] of CTypes.cint16;     // For computing spectrum
    adclast4k2      : Packed Array[0..4095] of CTypes.cint16;
-
-   l1x,l1y,h1x,h1y : Array[0..19] of CTypes.cfloat; // IIR accumulators
-   l2x,l2y,h2x,h2y : Array[0..19] of CTypes.cfloat;
-
+   l1x,l1y,h1x,h1y : Array[0..19] of CTypes.cfloat;              // IIR accumulators
    d65rxBufferIdx  : Integer;
    adcChan         : Integer;  // 1 = Left, 2 = Right
    adcFirst        : Boolean;  // Flag so I can init some things on first call to this
@@ -103,12 +103,12 @@ Var
    adcMono         : Boolean;
    auIDX           : Integer;
    specIDX         : Integer;
-   haveAU          : Boolean;
-   haveSpec        : Boolean;
+   haveAU          : Boolean; // Flag indicating 2048 samples ready for audio level computation
+   haveSpec        : Boolean; // Flag indicating 4096 samples ready for spectrum computation
 
 implementation
 
-function bpf1(input : CTypes.cint16) : CTypes.Cfloat;
+function bpf(input : CTypes.cint16) : CTypes.Cfloat;
 Var
    hf          : CTypes.cfloat;
    k : Integer;
@@ -148,45 +148,6 @@ Begin
      Result := l1y[0];
 end;
 
-function bpf2(input : CTypes.cint16) : CTypes.Cfloat;
-Var
-   hf          : CTypes.cfloat;
-   k : Integer;
-Begin
-     // HPF 3rd order also converts int16 to float
-     // Shift old samples in x[] and y[]
-     for k := 3 downto 1 do
-     begin
-          h2x[k] := h2x[k-1];
-          h2y[k] := h2y[k-1];
-     end;
-     // Calculate new sample
-     //hx[0] := glf1Buffer[i];
-     h2x[0] := input;
-     h2y[0] := HACoef[0] * h2x[0];
-
-     for k := 0 to 3 do
-     begin
-          h2y[0] := h2y[0] + ((HACoef[k] * h2x[k]) - (HBCoef[k] * h2y[k]));
-     end;
-     hf := h2y[0];
-     // LPF 19th order
-     // Shift old samples in x[] and y[]
-     for k := 19 downto 1 do
-     begin
-          l2x[k] := l2x[k-1];
-          l2y[k] := l2y[k-1];
-     end;
-     // Calculate new sample
-     l2x[0] := hf;
-     l2y[0] := LACoef[0] * l2x[0];
-     for k := 0 to 19 do
-     begin
-          l2y[0] := l2y[0] + ((LACoef[k] * l2x[k]) - (LBCoef[k] * l2y[k]));
-     end;
-     Result := l2y[0];
-end;
-
 function adcCallback(input: Pointer; output: Pointer; frameCount: Longword;
                        timeInfo: PPaStreamCallbackTimeInfo;
                        statusFlags: TPaStreamCallbackFlags;
@@ -211,10 +172,6 @@ Begin
                   h1x[i] := 0.0;
                   l1y[i] := 0.0;
                   h1y[i] := 0.0;
-                  l2x[i] := 0.0;
-                  h2x[i] := 0.0;
-                  l2y[i] := 0.0;
-                  h2y[i] := 0.0;
              end;
              adcFirst := False;
         end;
@@ -228,6 +185,8 @@ Begin
         // By the way.... at 64 samples per frame (11025 S/S) this routine is called every ~5.805 mS best not
         // get too greedy here doing things.
         lpidx := 0;
+        tempInt1 := 0;
+        tempInt2 := 0;
         For i := 1 to z do
         Begin
              // inptr is a pointer ^ indicates read value at pointer address NOT the pointer's value. :)
@@ -241,10 +200,18 @@ Begin
                if auIDX >      2047 Then auIDX          := 0;
                if specIDX >    4095 Then specIDX        := 0;
                // Save samples to mono buffer (1)
-               d65rxBuffer1[localIdx] := min(32766,max(-32766,tempInt1));
-               d65rxFBuffer1[localIdx] := bpf1(d65rxBuffer1[localIdx]);
-               if not haveAU Then adclast2k1[auIDX] := min(32766,max(-32766,tempInt1));
-               if not haveSpec Then adclast4k1[specIDX] := d65rxBuffer1[localIdx];
+               tempInt1 := min(32766,max(-32766,tempInt1));
+               d65rxFBuffer[localIdx] := bpf(tempInt1);
+               if not haveAU Then
+               Begin
+                    adclast2k1[auIDX] := tempInt1;
+                    adclast2k2[auIDX] := tempInt1;
+               end;
+               if not haveSpec Then
+               Begin
+                    adclast4k1[specIDX] := tempInt1;
+                    adclast4k2[specIDX] := tempInt1;
+               end;
                // Update index values
                inc(d65rxBufferIdx);
                inc(localIdx);
@@ -262,21 +229,27 @@ Begin
                   inc(inptr);
                   tempInt2 := inptr^;  // Right channel data
                   inc(inptr);
+                  tempint1 := min(32766,max(-32766,tempInt1));
+                  tempint2 := min(32766,max(-32766,tempInt2));
                   if localIdx > 661503 Then localIdx       := 0;
                   if localIdx > 661503 Then d65rxBufferIdx := 0;
                   if auIDX >      2047 Then auIDX          := 0;
                   if specIDX >    4095 Then specIDX        := 0;
-                  // Save samples to left (1) and right(2) buffers
-                  // Left
-                  d65rxBuffer1[localIdx] := min(32766,max(-32766,tempInt1));
-                  d65rxFBuffer1[localIdx] := bpf1(d65rxBuffer1[localIdx]);
-                  if not haveAU Then adclast2k1[auIDX] := min(32766,max(-32766,tempInt1));
-                  if not haveSpec Then adclast4k1[specIDX] := d65rxBuffer1[localIdx];
-                  // Right
-                  d65rxBuffer2[localIdx] := min(32766,max(-32766,tempInt2));
-                  d65rxFBuffer2[localIdx] := bpf2(d65rxBuffer2[localIdx]);
-                  if not haveAU Then adclast2k2[auIDX] := min(32766,max(-32766,tempInt2));
-                  if not haveSpec Then adclast4k2[specIDX] := d65rxBuffer2[localIdx];
+                  // Save samples from selected active channel 1L or 2R
+                  if adcChan = 1 Then d65rxFBuffer[localIdx] := bpf(tempInt1); // Left
+                  if adcChan = 2 Then d65rxFBuffer[localIdx] := bpf(tempInt2); // Right
+                  // Update both streams audio level and spectrum buffers - solves an oddity
+                  // when switching for those 2 functions.
+                  if not haveAU Then
+                  Begin
+                       adclast2k1[auIDX] := tempInt1;
+                       adclast2k2[auIDX] := tempInt2;
+                  end;
+                  if not haveSpec Then
+                  Begin
+                       adclast4k1[specIDX] := tempInt1;
+                       adclast4k2[specIDX] := tempInt2;
+                  end;
                   // Update index values
                   inc(d65rxBufferIdx);
                   inc(localIdx);
