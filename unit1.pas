@@ -5625,7 +5625,7 @@ Begin
 
                if (dcount > 0) and ostrong Then
                Begin
-                    Memo1.Append('Removing dupes ['+ IntToStr(dcount) + ']');
+                    //Memo1.Append('Removing dupes ['+ IntToStr(dcount) + ']');
                     // Have at least 1 dupe and s1/c1 idx c4 is strongest.
                     // Walk the list again and set all dupes that are not s1/c1 idx c4 to
                     // sig,REMOVE ME,idx instead of sig,EXCHANGE,idx
@@ -5637,7 +5637,7 @@ Begin
                               Begin
                                    // Update this string to remove status.
                                    list.Strings[i] := ExtractWord(1,list.strings[i],[',']) + ',REMOVE ME,' + ExtractWord(3,list.strings[i],[',']);
-                                   Memo1.Append(list.Strings[i]);
+                                   //Memo1.Append(list.Strings[i]);
                               End;
                          End;
                     end;
@@ -5647,7 +5647,7 @@ Begin
                Begin
                     // Have at least 1 dupe and s1/c1 idx c4 is NOT strongest so - flag s1/c1 idx c4 as removed.
                     list.Strings[c4] := ExtractWord(1,list.strings[c4],[',']) + ',REMOVE ME,' + ExtractWord(3,list.strings[c4],[',']);
-                    Memo1.Append(list.Strings[i]);
+                    //Memo1.Append(list.Strings[i]);
                end;
                // Keep repeating until havedupe false
           end;
