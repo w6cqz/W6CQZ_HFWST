@@ -164,7 +164,7 @@ type
      dmlastraw     : Array[0..499] Of String;
      dmdecodecount : Integer;
      dmtmpdir      : String;
-     dmprofile     : TStringList;
+     //dmprofile     : TStringList;
 
 implementation
 

@@ -3,29 +3,25 @@
 Hook decoder output back to double click actions - In progress, needs ***much*** testing.
 
 Validate validate validate message input, callsigns, grids, QRGs etc. - In progress - weak and needs testing.
-
-Fill in RB call from Station call if user does not manually set. - In progress - weak, needs better implementation
-
-Begin to graft sound output code in
-
-Look into issue with loss of net leading to program hang on exit if RB on - timeout too long on attempt to http is problem
-
-Fix reversed prefix/suffix in decoder
-
-Any change to message, dial QRG or TXDF must regenerate the TX Message Data
-
-Work out using single entry box for free text and generated message content
-
 Add serial communications routines for next phase
 
+Work out handlers for working JT65V2 types.  Also need to think about case of where a data item could be
+sent either in V1 or V2 format.
+
+Fix reversed prefix/suffix in decoder
+Any change to message, dial QRG or TXDF must regenerate the TX Message Data
+Work out using single entry box for free text and generated message content
+Look into issue with loss of net leading to program hang on exit if RB on - timeout too long on attempt to http is likely problem
+Begin to graft sound output code in
 Add logging code
-
 Add macro edit/define
-
 Add qrg edit/define
-
 Add worked call tracking taking into consideration a call worked in one grid is not
 worked if in a new one.
+}
+
+{
+Fill in RB call from Station call if user does not manually set. - In progress - weak, needs better implementation
 
 Monitor situation with decodes sometimes being dropped or decoder indicating
 a hit with no data returned... the main problem is corrected and it's likely
@@ -33,7 +29,6 @@ that will fix the other as well.
 
 Tweak UI for small screen size ability [mostly complete - just needs minor
 adjustments and font size testing]
-
 }
 // (c) 2013 CQZ Electronics
 unit Unit1;
@@ -595,16 +590,19 @@ Var
    basedir   : String;
    mustcfg   : Boolean;
 Begin
-     // Profile timers for demodulator
-     demodulate.dmprofile := TStringList.Create;
-     demodulate.dmprofile.Clear;
-     demodulate.dmprofile.CaseSensitive := False;
-     demodulate.dmprofile.Sorted := False;
-     demodulate.dmprofile.Duplicates := Types.dupIgnore;
+     // This runs on first timer interrupt once per run session
+
+     // Setup profile timers for demodulator
+     //demodulate.dmprofile := TStringList.Create;
+     //demodulate.dmprofile.Clear;
+     //demodulate.dmprofile.CaseSensitive := False;
+     //demodulate.dmprofile.Sorted := False;
+     //demodulate.dmprofile.Duplicates := Types.dupIgnore;
 
      // Let adc know it is on first run so it can do its init
      adc.adcFirst := True;
 
+     // Setup serial control
      tty := TBlockSerial.Create;
      foo := '';
      foo := synaser.GetSerialPortNames;
@@ -618,24 +616,21 @@ Begin
      comboTTYPorts.Items.Add('None');
      if ttyPorts.Count > 0 Then
      Begin
-          if ttyPorts.Count > 1 Then foo := 'Found ' + IntToStr(ttyPorts.Count) + ' ports.' + sLineBreak else foo := 'Found 1 Port' + sLineBreak;
+          //if ttyPorts.Count > 1 Then foo := 'Found ' + IntToStr(ttyPorts.Count) + ' ports.' + sLineBreak else foo := 'Found 1 Port' + sLineBreak;
           for i := 0 to ttyPorts.Count-1 do
           begin
                comboTTYPorts.Items.Add(ttyPorts.Strings[i]);
           end;
      end;
-     // This runs on first timer interrupt once per run session
-     tmpdir := GetTempDir(false);
+
+     //tmpdir := GetTempDir(false);
      //dmtmpdir := tmpdir; // For KV files -sigh- not.
+
      homedir := getUserDir;
      dmtmpdir := homedir+'hfwst\';
 
-
-     // PageControl - Playing with fftw threads - this may be a huge mistake.
-     //fftw_jl.fftwf_init_threads();
-     //fftw_jl.fftwf_plan_with_nthreads(4);
-     // End playing :)
      mustcfg := False;
+
      catError := TStringList.Create;
      catError.Clear;
      catError.CaseSensitive := False;
@@ -648,14 +643,27 @@ Begin
           Begin
                showmessage('Could not create data directory' + sLineBreak + 'Program must halt.');
                halt;
+          end
+          else
+          begin
+               showmessage('Created temporary files directory at:' + sLineBreak + homedir+'hfwst\');
           end;
+     end
+     else
+     begin
+          showmessage('Found temporary files directory at:' + sLineBreak + homedir+'hfwst\');
      end;
+     homedir := homedir+'hfwst\';
 
-     homedir := homedir+'\hfwst\';
+     showmessage(homedir);
 
      if not FileExists(homedir+'kvasd.exe') Then
      Begin
-          if not FileUtil.CopyFile('kvasd.exe',homedir+'kvasd.exe') Then showmessage('Need kvasd.exe in data directory.');
+          if not FileUtil.CopyFile('kvasd.exe',homedir+'kvasd.exe') Then showmessage('Need kvasd.exe in data directory.') else showmessage('kvasd.exe copied to its processing location');
+     end
+     else
+     begin
+          ShowMessage('kvasd.exe is in proper location');
      end;
 
      basedir := GetAppConfigDir(false);
@@ -667,7 +675,15 @@ Begin
           begin
                ShowMessage('Could not create base configuration directory' + sLineBreak + 'Program must halt.');
                halt;
+          end
+          else
+          begin
+                showMessage('Created configuration directory');
           end;
+     end
+     else
+     begin
+          ShowMessage('Configuration directory is in place.');
      end;
 
      if basedir[Length(basedir)] = PathDelim Then
@@ -685,7 +701,15 @@ Begin
           begin
                ShowMessage('Could not create instance configuration directory' + sLineBreak + 'Program must halt.');
                halt;
+          end
+          else
+          begin
+                ShowMessage('Instance config dir created.');
           end;
+     end
+     else
+     begin
+          ShowMessage('Instance config dir exists.')
      end;
 
      // Check that path length won't be a problem.  It needs to be < 256 charcters in length with either kvasd.dat or wisdom2.dat appended
@@ -8124,9 +8148,9 @@ Begin
      edRBCall.Text := '';
      edStationInfo.Text := '';
      cbSaveToCSV.Checked := False;
-     edCSVPath.Text := homeDir+'hfwst';
+     edCSVPath.Text := homeDir;
      // Tabsheet 5
-     edADIFPath.Text := homeDir+'hfwst';
+     edADIFPath.Text := homeDir;
      edADIFMode.Text := 'JT65';
      cbRememberComments.Checked := False;
      // Tabsheet 6

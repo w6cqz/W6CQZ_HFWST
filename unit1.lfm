@@ -1507,6 +1507,7 @@ object Form1: TForm1
       Caption = 'Debug'
       ClientHeight = 187
       ClientWidth = 739
+      TabVisible = False
       object xDBText1: TDBText
         Left = 772
         Height = 1
