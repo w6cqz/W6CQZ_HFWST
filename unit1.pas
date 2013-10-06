@@ -8355,23 +8355,40 @@ Begin
           // LTX
           if cmd='LTX' Then
           Begin
-               // Saving this for when I feel better.
-               // But this uses the array of values passed in to clock the QRG settings into the Rebel
-               // All or nothing here... at any point if a NO or X is received back we're done.
-               { TODO : FIX the following mess - ugly and hard to understand. }
-               Try
-                  tty.SendString('LTX' + sLineBreak);
-                  foo := tty.Recvstring(100); // Expects a CR/LF terminated string.
-                  if tty.LastError = synaser.ErrTimeout then foo := tty.Recvstring(100); // 1 retry
-                  if tty.LastError <> 0 then
-                  Begin
-                       error := 'Timeout';
-                       result := False;
-                  end
-                  else
+               try
+                  for i := -1 to 63 do
                   begin
-                       if foo = 'OK' Then
+                       if i = -1 Then
                        Begin
+                            // Send LTX
+                            tty.SendString('LTX' + sLineBreak);
+                            foo := tty.Recvstring(100); // Expects a CR/LF terminated string.
+                            if tty.LastError = synaser.ErrTimeout then foo := tty.Recvstring(100); // 1 retry
+                            if tty.LastError <> 0 then
+                            Begin
+                                 error := 'Timeout';
+                                 result := False;
+                                 break;
+                            end
+                            else
+                            begin
+                                 if foo = 'OK' Then
+                                 Begin
+                                      // Continue on
+                                 end
+                                 else
+                                 begin
+                                      // NAK from Rebel - all is lost
+                                      error := 'Abort';
+                                      result := False;
+                                      break;
+                                 end;
+                            end;
+                       end;
+
+                       if i = 0 Then
+                       Begin
+                            // Send Sync QRG
                             // Can move on to next step - LTX acked load base QRG
                             tty.SendString(ltx[0] + sLineBreak); // Sent sync QRG
                             foo := tty.Recvstring(100); // Expects a CR/LF terminated string.
@@ -8380,77 +8397,86 @@ Begin
                             Begin
                                  error := 'Timeout';
                                  result := False;
+                                 break;
                             end
                             else
                             begin
                                  if foo = 'OK' Then
                                  Begin
-                                      // Base QRG loaded - clock in remaining 63 values getting back a . or an X where X means we're done and failed.
-                                      for i := 1 to 63 do
-                                      begin
-                                           if i < 63 Then
-                                           Begin
-                                                // 1..62 expects a . or X response
-                                                tty.SendString(ltx[i] + sLineBreak); // Sent sync QRG
-                                                foo := tty.Recvstring(100); // Expects a CR/LF terminated string.
-                                                if tty.LastError = synaser.ErrTimeout then foo := tty.Recvstring(100); // 1 retry
-                                                if tty.LastError <> 0 then
-                                                Begin
-                                                     error := 'Timeout';
-                                                     result := False;
-                                                     break; // Terminate the loop - we're dead.
-                                                end
-                                                else
-                                                begin
-                                                     if foo = 'X' Then
-                                                     Begin
-                                                          // Aborted
-                                                          error := 'Aborted';
-                                                          result := False;
-                                                          break; // Terminate the loop - we're dead.
-                                                     end;
-                                                end;
-                                           end
-                                           else
-                                           begin
-                                                // 63 expects a OK or NO response
-                                                tty.SendString(ltx[i] + sLineBreak); // Sent sync QRG
-                                                foo := tty.Recvstring(100); // Expects a CR/LF terminated string.
-                                                if tty.LastError = synaser.ErrTimeout then foo := tty.Recvstring(100); // 1 retry
-                                                if tty.LastError <> 0 then
-                                                Begin
-                                                     error := 'Timeout';
-                                                     result := False;
-                                                     break; // Terminate the loop - we're dead.
-                                                end
-                                                else
-                                                begin
-                                                     if foo = 'NO' Then
-                                                     Begin
-                                                          // Aborted
-                                                          error := 'Aborted';
-                                                          result := False;
-                                                     end;
-                                                end;
-                                           end;
-                                      end;
-                                      result := True;
-                                      error := foo;
+                                      // Continue on
+                                 end
+                                 else
+                                 begin
+                                      // NAK from Rebel - all is lost
+                                      error := 'Abort';
+                                      result := False;
+                                      break;
                                  end;
                             end;
-                       end
-                       else
-                       begin
-                            // Nope
-                            error := 'Aborted';
-                            result := False;
+                       end;
+
+                       if (i>0) And (i<63) Then
+                       Begin
+                            // Send first 62 data QRG values
+                            // 1..62 expects a . or X response
+                            tty.SendString(ltx[i] + sLineBreak); // Sent sync QRG
+                            foo := tty.Recvstring(100); // Expects a CR/LF terminated string.
+                            if tty.LastError = synaser.ErrTimeout then foo := tty.Recvstring(100); // 1 retry
+                            if tty.LastError <> 0 then
+                            Begin
+                                 error := 'Timeout';
+                                 result := False;
+                                 break; // Terminate the loop - we're dead.
+                            end
+                            else
+                            begin
+                                 if foo = '.' Then
+                                 Begin
+                                      // Continue on
+                                 end
+                                 else
+                                 Begin
+                                      // NAK from Rebel - all is lost
+                                      error := 'Abort';
+                                      result := False;
+                                      break;
+                                 end;
+                            end;
+                       end;
+
+                       if i=63 Then
+                       Begin
+                            // Send 63rd data QRG value
+                            tty.SendString(ltx[i] + sLineBreak); // Send last data QRG
+                            foo := tty.Recvstring(100); // Expects a CR/LF terminated string.
+                            if tty.LastError = synaser.ErrTimeout then foo := tty.Recvstring(100); // 1 retry
+                            if tty.LastError <> 0 then
+                            Begin
+                                 error := 'Timeout';
+                                 result := False;
+                                 break; // Terminate the loop - we're dead.
+                            end
+                            else
+                            begin
+                                 if foo = 'OK' Then
+                                 Begin
+                                      error := foo;
+                                      result := True;
+                                 end
+                                 else
+                                 Begin
+                                      // NAK from Rebel - all is lost
+                                      error := 'Abort';
+                                      result := False;
+                                      break;
+                                 end;
+                            end;
                        end;
                   end;
                except
                   error := 'Port error';
                   result := False;
                end;
-
           end;
      end
      else
@@ -8458,6 +8484,7 @@ Begin
           if error='NO' then error  := 'Invalid COM settings';
           Result := False;
      end;
+
      // Clean up
      try
         tty.CloseSocket;
