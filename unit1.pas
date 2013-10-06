@@ -590,6 +590,7 @@ Var
    cfgpath   : String;
    basedir   : String;
    mustcfg   : Boolean;
+   dummy     : Array[0..1] of String; // Will do away with this but need it for the rebel command function for now
 Begin
      // This runs on first timer interrupt once per run session
 
@@ -1368,7 +1369,20 @@ Begin
 
      if rigRebel.Checked Then
      Begin
-          //
+          //function TForm1.rebelCommand(const cmd : String; const value : String; const ltx : Array of String; var error : String) : Boolean;
+          if rebelCommand('VER', '', dummy, foo) Then
+          Begin
+               if foo = 'JT65100' Then
+               begin
+                    haveRebel := True;
+               end;
+          end
+          else
+          begin
+               ShowMessage('Unable to connect to Rebel' + sLineBreak + 'Check settings and firmware' + sLineBreak + 'Error:  ' + foo);
+               haveRebel := False;
+               rigNone.Checked := True;
+          end;
      end;
 
      catFree  := True;
@@ -8169,7 +8183,7 @@ end;
 
 function TForm1.rebelCommand(const cmd : String; const value : String; const ltx : Array of String; var error : String) : Boolean;
 Var
-   rigvalid : Boolean;
+   portvalid : Boolean;
    i        : Integer;
    foo      : String;
 Begin
@@ -8189,13 +8203,13 @@ Begin
      On . load next value - on X retry
      Load remaining 62 values as above - after load of 64th frequency response is OK or NO
      }
-     rigvalid := False;
+     portvalid := False;
      error := 'NO';
      // Check that we have a valid setup to even try this
      If edPort.Text = '-1' Then
      Begin
           error := 'Bad COM Port Value (-1)';
-          rigvalid := False;
+          portvalid := False;
      end
      else
      begin
@@ -8212,146 +8226,33 @@ Begin
                        if tty.InstanceActive Then
                        Begin
                             tty.Config(115200,8,'N',synaser.SB1,False,False);
-                            rigValid := True;
+                            portvalid := True;
                        end
                        else
                        begin
                             error := 'Open of COM' + edPort.Text + ' fails';
-                            rigValid := False;
+                            portvalid := False;
                        end;
                     except
                        error := 'Open of COM' + edPort.Text + ' fails';
-                       rigvalid := False;
+                       portvalid := False;
                     end;
                end
                else
                begin
                     error := 'Bad COM Port Value (-1)';
-                    rigvalid := False;
+                    portvalid := False;
                end;
           end
           else
           begin
                error := 'Open of COM' + edPort.Text + ' fails';
-               rigvalid := False;
+               portvalid := False;
           end;
      end;
 
-     if rigvalid Then
+     if portvalid Then
      Begin
-          // VER
-          if cmd='VER' Then
-          Begin
-               Try
-                  tty.SendString('VER'+sLineBreak);
-                  foo := tty.Recvstring(100); // Expects a CR/LF terminated string.
-                  if tty.LastError = synaser.ErrTimeout then foo := tty.Recvstring(100); // 1 retry
-                  if tty.LastError <> 0 then
-                  Begin
-                       error := 'Timeout';
-                       result := False;
-                  end
-                  else
-                  begin
-                       result := True;
-                       error := foo;
-                  end;
-               except
-                  error := 'Port error';
-                  result := False;
-               end;
-          end;
-
-          // RRX
-          if cmd='RRX' Then
-          Begin
-               Try
-                  tty.SendString('RRX' + sLineBreak);
-                  foo := tty.Recvstring(100); // Expects a CR/LF terminated string.
-                  if tty.LastError = synaser.ErrTimeout then foo := tty.Recvstring(100); // 1 retry
-                  if tty.LastError <> 0 then
-                  Begin
-                       error := 'Timeout';
-                       result := False;
-                  end
-                  else
-                  begin
-                       result := True;
-                       error := foo;
-                  end;
-               except
-                  error := 'Port error';
-                  result := False;
-               end;
-          end;
-
-          // SRX
-          if cmd='SRX' Then
-          Begin
-               Try
-                  tty.SendString('SRX '+ value + sLineBreak);
-                  foo := tty.Recvstring(100); // Expects a CR/LF terminated string.
-                  if tty.LastError = synaser.ErrTimeout then foo := tty.Recvstring(100); // 1 retry
-                  if tty.LastError <> 0 then
-                  Begin
-                       error := 'Timeout';
-                       result := False;
-                  end
-                  else
-                  begin
-                       result := True;
-                       error := foo;
-                  end;
-               except
-                  error := 'Port error';
-                  result := False;
-               end;
-          end;
-
-          // TXE
-          if cmd='TXE' Then
-          Begin
-               Try
-                  tty.SendString('TXE' + sLineBreak);
-                  foo := tty.Recvstring(100); // Expects a CR/LF terminated string.
-                  if tty.LastError = synaser.ErrTimeout then foo := tty.Recvstring(100); // 1 retry
-                  if tty.LastError <> 0 then
-                  Begin
-                       error := 'Timeout';
-                       result := False;
-                  end
-                  else
-                  begin
-                       result := True;
-                       error := foo;
-                  end;
-               except
-                  error := 'Port error';
-                  result := False;
-               end;
-          end;
-          // THX
-          if cmd='TXH' Then
-          Begin
-               Try
-                  tty.SendString('TXH' + sLineBreak);
-                  foo := tty.Recvstring(100); // Expects a CR/LF terminated string.
-                  if tty.LastError = synaser.ErrTimeout then foo := tty.Recvstring(100); // 1 retry
-                  if tty.LastError <> 0 then
-                  Begin
-                       error := 'Timeout';
-                       result := False;
-                  end
-                  else
-                  begin
-                       result := True;
-                       error := foo;
-                  end;
-               except
-                  error := 'Port error';
-                  result := False;
-               end;
-          end;
           // LTX
           if cmd='LTX' Then
           Begin
@@ -8362,6 +8263,7 @@ Begin
                        Begin
                             // Send LTX
                             tty.SendString('LTX' + sLineBreak);
+                            foo := '';
                             foo := tty.Recvstring(100); // Expects a CR/LF terminated string.
                             if tty.LastError = synaser.ErrTimeout then foo := tty.Recvstring(100); // 1 retry
                             if tty.LastError <> 0 then
@@ -8391,6 +8293,7 @@ Begin
                             // Send Sync QRG
                             // Can move on to next step - LTX acked load base QRG
                             tty.SendString(ltx[0] + sLineBreak); // Sent sync QRG
+                            foo := '';
                             foo := tty.Recvstring(100); // Expects a CR/LF terminated string.
                             if tty.LastError = synaser.ErrTimeout then foo := tty.Recvstring(100); // 1 retry
                             if tty.LastError <> 0 then
@@ -8420,6 +8323,7 @@ Begin
                             // Send first 62 data QRG values
                             // 1..62 expects a . or X response
                             tty.SendString(ltx[i] + sLineBreak); // Sent sync QRG
+                            foo := '';
                             foo := tty.Recvstring(100); // Expects a CR/LF terminated string.
                             if tty.LastError = synaser.ErrTimeout then foo := tty.Recvstring(100); // 1 retry
                             if tty.LastError <> 0 then
@@ -8448,6 +8352,7 @@ Begin
                        Begin
                             // Send 63rd data QRG value
                             tty.SendString(ltx[i] + sLineBreak); // Send last data QRG
+                            foo := '';
                             foo := tty.Recvstring(100); // Expects a CR/LF terminated string.
                             if tty.LastError = synaser.ErrTimeout then foo := tty.Recvstring(100); // 1 retry
                             if tty.LastError <> 0 then
@@ -8472,6 +8377,125 @@ Begin
                                  end;
                             end;
                        end;
+                  end;
+               except
+                  error := 'Port error';
+                  result := False;
+               end;
+          end;
+
+          // VER
+          if cmd='VER' Then
+          Begin
+               Try
+                  tty.SendString('VER'+sLineBreak);
+                  foo := '';
+                  foo := tty.Recvstring(100); // Expects a CR/LF terminated string.
+                  if tty.LastError = synaser.ErrTimeout then foo := tty.Recvstring(100); // 1 retry
+                  if tty.LastError <> 0 then
+                  Begin
+                       error := 'Timeout';
+                       result := False;
+                  end
+                  else
+                  begin
+                       result := True;
+                       error := foo;
+                  end;
+               except
+                  error := 'Port error';
+                  result := False;
+               end;
+          end;
+
+          // RRX
+          if cmd='RRX' Then
+          Begin
+               Try
+                  tty.SendString('RRX' + sLineBreak);
+                  foo := '';
+                  foo := tty.Recvstring(100); // Expects a CR/LF terminated string.
+                  if tty.LastError = synaser.ErrTimeout then foo := tty.Recvstring(100); // 1 retry
+                  if tty.LastError <> 0 then
+                  Begin
+                       error := 'Timeout';
+                       result := False;
+                  end
+                  else
+                  begin
+                       result := True;
+                       error := foo;
+                  end;
+               except
+                  error := 'Port error';
+                  result := False;
+               end;
+          end;
+
+          // SRX
+          if cmd='SRX' Then
+          Begin
+               Try
+                  tty.SendString('SRX '+ value + sLineBreak);
+                  foo := '';
+                  foo := tty.Recvstring(100); // Expects a CR/LF terminated string.
+                  if tty.LastError = synaser.ErrTimeout then foo := tty.Recvstring(100); // 1 retry
+                  if tty.LastError <> 0 then
+                  Begin
+                       error := 'Timeout';
+                       result := False;
+                  end
+                  else
+                  begin
+                       result := True;
+                       error := foo;
+                  end;
+               except
+                  error := 'Port error';
+                  result := False;
+               end;
+          end;
+
+          // TXE
+          if cmd='TXE' Then
+          Begin
+               Try
+                  tty.SendString('TXE' + sLineBreak);
+                  foo := '';
+                  foo := tty.Recvstring(100); // Expects a CR/LF terminated string.
+                  if tty.LastError = synaser.ErrTimeout then foo := tty.Recvstring(100); // 1 retry
+                  if tty.LastError <> 0 then
+                  Begin
+                       error := 'Timeout';
+                       result := False;
+                  end
+                  else
+                  begin
+                       result := True;
+                       error := foo;
+                  end;
+               except
+                  error := 'Port error';
+                  result := False;
+               end;
+          end;
+          // THX
+          if cmd='TXH' Then
+          Begin
+               Try
+                  tty.SendString('TXH' + sLineBreak);
+                  foo := '';
+                  foo := tty.Recvstring(100); // Expects a CR/LF terminated string.
+                  if tty.LastError = synaser.ErrTimeout then foo := tty.Recvstring(100); // 1 retry
+                  if tty.LastError <> 0 then
+                  Begin
+                       error := 'Timeout';
+                       result := False;
+                  end
+                  else
+                  begin
+                       result := True;
+                       error := foo;
                   end;
                except
                   error := 'Port error';
