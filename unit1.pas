@@ -601,6 +601,10 @@ Begin
      //demodulate.dmprofile.Sorted := False;
      //demodulate.dmprofile.Duplicates := Types.dupIgnore;
 
+     // Initialize this temp kludge to avoid a warning
+     dummy[0] := '';
+     dummy[1] := '';
+
      // Let adc know it is on first run so it can do its init
      adc.adcFirst := True;
 
@@ -4634,7 +4638,7 @@ begin
                for i := 1 to 63 do
                Begin
                     Memo1.Append(IntToStr(isyms[i-1]));
-                    qrgset[i] := IntToStr(isyms[i-1]));
+                    qrgset[i] := IntToStr(isyms[i-1]);
                end;
                //function TForm1.rebelCommand(const cmd : String; const value : String; const ltx : Array of String; var error : String) : Boolean;
                // Since this only makes sense if I'm working with a Rebel I'd call rebelCommand from here as in
@@ -4845,7 +4849,7 @@ begin
                for i := 1 to 63 do
                Begin
                     Memo1.Append(IntToStr(isyms[i-1]));
-                    qrgset[i] := IntToStr(isyms[i-1]));
+                    qrgset[i] := IntToStr(isyms[i-1]);
                end;
                { TODO : Build TX QRG Array here - doneish needs lots of testing love}
                //gSamps(CTypes.pcint(@i),CTypes.pcint(@tsyms),CTypes.pcint(@shmsg),CTypes.pcint16(@samples[11025]),CTypes.pcint(@nsamps),CTypes.pcint(@plevel));
