@@ -21,7 +21,7 @@ worked if in a new one.
 }
 
 {
-Fill in RB call from Station call if user does not manually set. - In progress - weak, needs better implementation
+Fill in RB call from Station call if user does not manually set. - Done.  Computes RB call from real pfx, call, sfx if nothing manually set.
 
 Monitor situation with decodes sometimes being dropped or decoder indicating
 a hit with no data returned... the main problem is corrected and it's likely
@@ -423,6 +423,7 @@ type
     //procedure mgen(const msg : String; var isValid : Boolean; var isBreakIn : Boolean; var level : Integer; var response : String; var connectTo : String; var fullCall : String; var hisGrid : String; var sdf : String; var sdB : String);
     procedure mgen(const msg : String; var isValid : Boolean; var isBreakIn : Boolean; var level : Integer; var response : String; var connectTo : String; var fullCall : String; var hisGrid : String; var sdf : String; var sdB : String; var txp : Integer);
 
+    function rebelCommand(const cmd : String; const value : String; const ltx : Array of String; var error : String) : Boolean;
     function t(const s : String) : String;
 
   private
@@ -643,27 +644,27 @@ Begin
           Begin
                showmessage('Could not create data directory' + sLineBreak + 'Program must halt.');
                halt;
-          end
-          else
-          begin
-               showmessage('Created temporary files directory at:' + sLineBreak + homedir+'hfwst\');
+          //end
+          //else
+          //begin
+          //     showmessage('Created temporary files directory at:' + sLineBreak + homedir+'hfwst\');
           end;
-     end
-     else
-     begin
-          showmessage('Found temporary files directory at:' + sLineBreak + homedir+'hfwst\');
+     //end
+     //else
+     //begin
+     //     showmessage('Found temporary files directory at:' + sLineBreak + homedir+'hfwst\');
      end;
      homedir := homedir+'hfwst\';
 
-     showmessage(homedir);
+     //showmessage(homedir);
 
      if not FileExists(homedir+'kvasd.exe') Then
      Begin
           if not FileUtil.CopyFile('kvasd.exe',homedir+'kvasd.exe') Then showmessage('Need kvasd.exe in data directory.') else showmessage('kvasd.exe copied to its processing location');
-     end
-     else
-     begin
-          ShowMessage('kvasd.exe is in proper location');
+     //end
+     //else
+     //begin
+     //     ShowMessage('kvasd.exe is in proper location');
      end;
 
      basedir := GetAppConfigDir(false);
@@ -675,15 +676,15 @@ Begin
           begin
                ShowMessage('Could not create base configuration directory' + sLineBreak + 'Program must halt.');
                halt;
-          end
-          else
-          begin
-                showMessage('Created configuration directory');
+          //end
+          //else
+          //begin
+          //      showMessage('Created configuration directory');
           end;
-     end
-     else
-     begin
-          ShowMessage('Configuration directory is in place.');
+     //end
+     //else
+     //begin
+     //     ShowMessage('Configuration directory is in place.');
      end;
 
      if basedir[Length(basedir)] = PathDelim Then
@@ -701,15 +702,15 @@ Begin
           begin
                ShowMessage('Could not create instance configuration directory' + sLineBreak + 'Program must halt.');
                halt;
-          end
-          else
-          begin
-                ShowMessage('Instance config dir created.');
+          //end
+          //else
+          //begin
+          //      ShowMessage('Instance config dir created.');
           end;
-     end
-     else
-     begin
-          ShowMessage('Instance config dir exists.')
+     //end
+     //else
+     //begin
+     //     ShowMessage('Instance config dir exists.')
      end;
 
      // Check that path length won't be a problem.  It needs to be < 256 charcters in length with either kvasd.dat or wisdom2.dat appended
@@ -827,7 +828,6 @@ Begin
      tbWFBright.Position := query.FieldByName('wfbright').AsInteger;
      tbWFGain.Position := query.FieldByName('wfgain').AsInteger;
      cbSpecSmooth.Checked := query.FieldByName('wfsmooth').AsBoolean;
-     //cbWFAutoAGC.Checked := query.FieldByName('wfsmooth').AsBoolean; // this is correct ;) NOT using this now - smooth impies AGC
      edRBCall.Text := query.FieldByName('spotcall').AsString;
      edStationInfo.Text := query.FieldByName('spotinfo').AsString;
      cbSaveToCSV.Checked := query.FieldByName('usecsv').AsBoolean;
@@ -1083,27 +1083,55 @@ Begin
      rbThread  := rbcThread.Create(False);
      if rbOn.Checked Then
      Begin
-          if length(edRBCall.Text) <3 Then edRBCall.Text := edCall.Text;
-          rb.myCall := TrimLeft(TrimRight(UpCase(edRBCall.Text)));
-          rb.myGrid := TrimLeft(TrimRight(edGrid.Text));
-          rb.rbInfo := TrimLeft(TrimRight(edStationInfo.Text));
-          rb.myQRG  := StrToInt(edDialQRG.Text);
-          sopQRG    := StrToInt(edDialQRG.Text);
-          rb.useRB := True;
-          rb.useDBF := False;
-          rbping    := True;
+          if length(edRBCall.Text) <3 Then
+          Begin
+               edRBCall.Text := '';
+               if length(edCall.Text) > 0 Then edRBCall.Text := edCall.Text;
+               if length(edPrefix.Text) > 0 Then edRBCall.Text := edPrefix.Text + '/' + edRBCall.Text;
+               if length(edSuffix.Text) > 0 Then edRBCall.Text := edRBCall.Text + '/' + edSuffix.Text;
+          end;
+          if length(edRBCall.Text) > 2 Then
+          Begin
+               rb.myCall := TrimLeft(TrimRight(UpCase(edRBCall.Text)));
+               rb.myGrid := TrimLeft(TrimRight(edGrid.Text));
+               rb.rbInfo := TrimLeft(TrimRight(edStationInfo.Text));
+               rb.myQRG  := StrToInt(edDialQRG.Text);
+               sopQRG    := StrToInt(edDialQRG.Text);
+               rb.useRB := True;
+               rb.useDBF := False;
+               rbping    := True;
+          end
+          else
+          begin
+               rb.useRB := False;
+               rbping := False;
+          end;
      end
      else
      begin
-          if length(edRBCall.Text) <3 Then edRBCall.Text := edCall.Text;
-          rb.myCall := TrimLeft(TrimRight(UpCase(edRBCall.Text)));
-          rb.myGrid := TrimLeft(TrimRight(edGrid.Text));
-          rb.rbInfo := TrimLeft(TrimRight(edStationInfo.Text));
-          rb.myQRG  := StrToInt(edDialQRG.Text);
-          sopQRG    := StrToInt(edDialQRG.Text);
-          rb.useRB  := False;
-          rb.useDBF := False;
-          rbping    := False;
+          if length(edRBCall.Text) <3 Then
+          Begin
+               edRBCall.Text := '';
+               if length(edCall.Text) > 0 Then edRBCall.Text := edCall.Text;
+               if length(edPrefix.Text) > 0 Then edRBCall.Text := edPrefix.Text + '/' + edRBCall.Text;
+               if length(edSuffix.Text) > 0 Then edRBCall.Text := edRBCall.Text + '/' + edSuffix.Text;
+          end;
+          if length(edRBCall.Text) > 2 Then
+          Begin
+               rb.myCall := TrimLeft(TrimRight(UpCase(edRBCall.Text)));
+               rb.myGrid := TrimLeft(TrimRight(edGrid.Text));
+               rb.rbInfo := TrimLeft(TrimRight(edStationInfo.Text));
+               rb.myQRG  := StrToInt(edDialQRG.Text);
+               sopQRG    := StrToInt(edDialQRG.Text);
+               rb.useRB := False;
+               rb.useDBF := False;
+               rbping    := False;
+          end
+          else
+          begin
+               rb.useRB := False;
+               rbping := False;
+          end;
      end;
 
      // Setup Decoder (thread)
@@ -1338,85 +1366,15 @@ Begin
           //end;
      end;
 
-     catFree  := True;
-
-     readQRG  := True;
-     forceCAT := True;
-
-     firstTick := False;
-     { TODO : Create routine for serial RX/TX that's callable so I can simplify the following mess. }
      if rigRebel.Checked Then
      Begin
-          // Attempt to find rebel
-          If edPort.Text = '-1' Then
-          Begin
-               ShowMessage('Rebel selected but serial port not defined.  Please fix');
-               rigNone.Checked := True;
-               haveRebel := False;
-          end;
-          if rigRebel.Checked Then
-          Begin
-               ShowMessage('Connecting to Rebel on COM' + edPort.Text + sLineBreak + sLineBreak + 'Be sure it is powered on, connected' + sLineBreak + 'and loaded with JT65 firmware before' + sLineBreak + 'dismissing this dialog.');
-               // This is where I would open a port and talk to Rebel
-               haveRebel := True;
-               tty.Connect('COM'+edPort.Text);
-               if tty.InstanceActive Then
-               Begin
-                    foo := '';
-                    ShowMessage('Port opened');
-                    tty.Config(115200,8,'N',synaser.SB1,False,False);
-                    showMessage(tty.LastErrorDesc);
-                    // Send VER and wait for response
-                    tty.SendString('VER'+sLineBreak);
-                    showMessage(tty.LastErrorDesc);
-                    foo := tty.Recvstring(1000); // Expects a CR/LF terminated string.
-                    if tty.LastError = synaser.ErrTimeout then foo := tty.Recvstring(1000); // 1 retry
-                    if tty.LastError <> 0 then
-                    Begin
-                         showMessage('Rebel did not respond.' + sLineBreak + 'Check power, connection and firmware.' + sLineBreak + 'Rig set to no rig.');
-                         rigNone.Checked := true;
-                         haveRebel := False;
-                    end
-                    else
-                    begin
-                         if foo = 'JT65QRV' Then
-                         begin
-                              showMessage('Rebel JT65 Firmware loaded and ready.');
-                              haveRebel := True;
-                              // Load RX to last QRG
-                              tty.SendString('SRX'+ sLineBreak);
-                              foo := '';
-                              foo := tty.Recvstring(1000); // Expects a CR/LF terminated string.
-                              if tty.LastError = synaser.ErrTimeout then foo := tty.Recvstring(1000); // 1 retry
-                              if tty.LastError <> 0 then
-                              Begin
-                                   // No response
-                              end
-                              else
-                              begin
-                                   if foo = '...' Then
-                                   Begin
-                                        // Good to go
-                                        tty.SendString(lastQRG.text + sLineBreak);
-                                   end
-                                   else
-                                   begin
-                                        // Incorrect response
-                                   end;
-                              end;
-                         end
-                         else
-                         begin
-                              showMessage('Incorrect Response - Rebel is not enabled.');
-                              rigNone.Checked := true;
-                              haveRebel := False;
-                         end;
-                    end;
-               end;
-               tty.CloseSocket;
-          end;
+          //
      end;
 
+     catFree  := True;
+     readQRG  := True;
+     forceCAT := True;
+     firstTick := False;
 end;
 
 procedure TForm1.OncePerTick;
@@ -4814,7 +4772,13 @@ end;
 
 procedure TForm1.rbOnChange(Sender: TObject);
 begin
-     if length(edRBCall.Text) < 3 Then edRBCall.Text := edCall.Text;
+     if length(edRBCall.Text) <3 Then
+     Begin
+          edRBCall.Text := '';
+          if length(edCall.Text) > 0 Then edRBCall.Text := edCall.Text;
+          if length(edPrefix.Text) > 0 Then edRBCall.Text := edPrefix.Text + '/' + edRBCall.Text;
+          if length(edSuffix.Text) > 0 Then edRBCall.Text := edRBCall.Text + '/' + edSuffix.Text;
+     end;
 end;
 
 procedure TForm1.edTXMsgDblClick(Sender: TObject);
@@ -5093,7 +5057,13 @@ end;
 procedure TForm1.Button4Click(Sender: TObject);
 begin
      { TODO : Do a little better than the next line does. }
-     if length(edRBCall.Text) < 3 Then edRBCall.Text := edCall.Text;
+     if length(edRBCall.Text) <3 Then
+     Begin
+          edRBCall.Text := '';
+          if length(edCall.Text) > 0 Then edRBCall.Text := edCall.Text;
+          if length(edPrefix.Text) > 0 Then edRBCall.Text := edPrefix.Text + '/' + edRBCall.Text;
+          if length(edSuffix.Text) > 0 Then edRBCall.Text := edRBCall.Text + '/' + edSuffix.Text;
+     end;
      { TODO : Validate everything on the inputs that matters for it }
      canTX := True;
      // Validate prefix (if present)
@@ -8197,4 +8167,302 @@ Begin
      PageControl.Visible := True;
 end;
 
+function TForm1.rebelCommand(const cmd : String; const value : String; const ltx : Array of String; var error : String) : Boolean;
+Var
+   rigvalid : Boolean;
+   i        : Integer;
+   foo      : String;
+Begin
+     { TODO : Create routine for serial RX/TX that's callable so I can simplify the following mess. }
+     {
+     Command         Value                    Response Expected
+     VER                                      JT65100 or something like that - TBD as of now
+     RRX                                      Current RX QRZ as integer Hz (String)
+     SRX             Integr HZ as String      OK or NO   Set RX QRG to value
+     TXE                                      OK or NO   Key and start TX
+     TXH                                      OK or NO   Unkey and stop TX
+     LTX                                      OK or NO   Load TX Values (compound command)
+     On OK to LTX next comes first frequency Hz to 1/10 hz resolution as string - no decimal like 140772705 for 12,077,270.5 Hz
+     140772705                                OK or NO   Load base frequency for sync vector
+     on OK start loading in remaining 63 QRG values same format as above but drop the MHz
+     772758                                   . or X     That 14(or 7),077,275.8 Hz
+     On . load next value - on X retry
+     Load remaining 62 values as above - after load of 64th frequency response is OK or NO
+     }
+     rigvalid := False;
+     error := 'NO';
+     // Check that we have a valid setup to even try this
+     If edPort.Text = '-1' Then
+     Begin
+          error := 'Bad COM Port Value (-1)';
+          rigvalid := False;
+     end
+     else
+     begin
+          // Check to see if we have a valid port
+          if length(edPort.Text) > 0 Then
+          Begin
+               i := -1;
+               If not TryStrToInt(edPort.Text,i) Then i := -2;
+               if (i > 0) And (i < 256) Then
+               Begin
+                    // Seem to have a valid port lets see if we can open it
+                    tty.Connect('COM'+edPort.Text);
+                    try
+                       if tty.InstanceActive Then
+                       Begin
+                            tty.Config(115200,8,'N',synaser.SB1,False,False);
+                            rigValid := True;
+                       end
+                       else
+                       begin
+                            error := 'Open of COM' + edPort.Text + ' fails';
+                            rigValid := False;
+                       end;
+                    except
+                       error := 'Open of COM' + edPort.Text + ' fails';
+                       rigvalid := False;
+                    end;
+               end
+               else
+               begin
+                    error := 'Bad COM Port Value (-1)';
+                    rigvalid := False;
+               end;
+          end
+          else
+          begin
+               error := 'Open of COM' + edPort.Text + ' fails';
+               rigvalid := False;
+          end;
+     end;
+
+     if rigvalid Then
+     Begin
+          // VER
+          if cmd='VER' Then
+          Begin
+               Try
+                  tty.SendString('VER'+sLineBreak);
+                  foo := tty.Recvstring(100); // Expects a CR/LF terminated string.
+                  if tty.LastError = synaser.ErrTimeout then foo := tty.Recvstring(100); // 1 retry
+                  if tty.LastError <> 0 then
+                  Begin
+                       error := 'Timeout';
+                       result := False;
+                  end
+                  else
+                  begin
+                       result := True;
+                       error := foo;
+                  end;
+               except
+                  error := 'Port error';
+                  result := False;
+               end;
+          end;
+
+          // RRX
+          if cmd='RRX' Then
+          Begin
+               Try
+                  tty.SendString('RRX' + sLineBreak);
+                  foo := tty.Recvstring(100); // Expects a CR/LF terminated string.
+                  if tty.LastError = synaser.ErrTimeout then foo := tty.Recvstring(100); // 1 retry
+                  if tty.LastError <> 0 then
+                  Begin
+                       error := 'Timeout';
+                       result := False;
+                  end
+                  else
+                  begin
+                       result := True;
+                       error := foo;
+                  end;
+               except
+                  error := 'Port error';
+                  result := False;
+               end;
+          end;
+
+          // SRX
+          if cmd='SRX' Then
+          Begin
+               Try
+                  tty.SendString('SRX '+ value + sLineBreak);
+                  foo := tty.Recvstring(100); // Expects a CR/LF terminated string.
+                  if tty.LastError = synaser.ErrTimeout then foo := tty.Recvstring(100); // 1 retry
+                  if tty.LastError <> 0 then
+                  Begin
+                       error := 'Timeout';
+                       result := False;
+                  end
+                  else
+                  begin
+                       result := True;
+                       error := foo;
+                  end;
+               except
+                  error := 'Port error';
+                  result := False;
+               end;
+          end;
+
+          // TXE
+          if cmd='TXE' Then
+          Begin
+               Try
+                  tty.SendString('TXE' + sLineBreak);
+                  foo := tty.Recvstring(100); // Expects a CR/LF terminated string.
+                  if tty.LastError = synaser.ErrTimeout then foo := tty.Recvstring(100); // 1 retry
+                  if tty.LastError <> 0 then
+                  Begin
+                       error := 'Timeout';
+                       result := False;
+                  end
+                  else
+                  begin
+                       result := True;
+                       error := foo;
+                  end;
+               except
+                  error := 'Port error';
+                  result := False;
+               end;
+          end;
+          // THX
+          if cmd='TXH' Then
+          Begin
+               Try
+                  tty.SendString('TXH' + sLineBreak);
+                  foo := tty.Recvstring(100); // Expects a CR/LF terminated string.
+                  if tty.LastError = synaser.ErrTimeout then foo := tty.Recvstring(100); // 1 retry
+                  if tty.LastError <> 0 then
+                  Begin
+                       error := 'Timeout';
+                       result := False;
+                  end
+                  else
+                  begin
+                       result := True;
+                       error := foo;
+                  end;
+               except
+                  error := 'Port error';
+                  result := False;
+               end;
+          end;
+          // LTX
+          if cmd='LTX' Then
+          Begin
+               // Saving this for when I feel better.
+               // But this uses the array of values passed in to clock the QRG settings into the Rebel
+               // All or nothing here... at any point if a NO or X is received back we're done.
+               { TODO : FIX the following mess - ugly and hard to understand. }
+               Try
+                  tty.SendString('LTX' + sLineBreak);
+                  foo := tty.Recvstring(100); // Expects a CR/LF terminated string.
+                  if tty.LastError = synaser.ErrTimeout then foo := tty.Recvstring(100); // 1 retry
+                  if tty.LastError <> 0 then
+                  Begin
+                       error := 'Timeout';
+                       result := False;
+                  end
+                  else
+                  begin
+                       if foo = 'OK' Then
+                       Begin
+                            // Can move on to next step - LTX acked load base QRG
+                            tty.SendString(ltx[0] + sLineBreak); // Sent sync QRG
+                            foo := tty.Recvstring(100); // Expects a CR/LF terminated string.
+                            if tty.LastError = synaser.ErrTimeout then foo := tty.Recvstring(100); // 1 retry
+                            if tty.LastError <> 0 then
+                            Begin
+                                 error := 'Timeout';
+                                 result := False;
+                            end
+                            else
+                            begin
+                                 if foo = 'OK' Then
+                                 Begin
+                                      // Base QRG loaded - clock in remaining 63 values getting back a . or an X where X means we're done and failed.
+                                      for i := 1 to 63 do
+                                      begin
+                                           if i < 63 Then
+                                           Begin
+                                                // 1..62 expects a . or X response
+                                                tty.SendString(ltx[i] + sLineBreak); // Sent sync QRG
+                                                foo := tty.Recvstring(100); // Expects a CR/LF terminated string.
+                                                if tty.LastError = synaser.ErrTimeout then foo := tty.Recvstring(100); // 1 retry
+                                                if tty.LastError <> 0 then
+                                                Begin
+                                                     error := 'Timeout';
+                                                     result := False;
+                                                     break; // Terminate the loop - we're dead.
+                                                end
+                                                else
+                                                begin
+                                                     if foo = 'X' Then
+                                                     Begin
+                                                          // Aborted
+                                                          error := 'Aborted';
+                                                          result := False;
+                                                          break; // Terminate the loop - we're dead.
+                                                     end;
+                                                end;
+                                           end
+                                           else
+                                           begin
+                                                // 63 expects a OK or NO response
+                                                tty.SendString(ltx[i] + sLineBreak); // Sent sync QRG
+                                                foo := tty.Recvstring(100); // Expects a CR/LF terminated string.
+                                                if tty.LastError = synaser.ErrTimeout then foo := tty.Recvstring(100); // 1 retry
+                                                if tty.LastError <> 0 then
+                                                Begin
+                                                     error := 'Timeout';
+                                                     result := False;
+                                                     break; // Terminate the loop - we're dead.
+                                                end
+                                                else
+                                                begin
+                                                     if foo = 'NO' Then
+                                                     Begin
+                                                          // Aborted
+                                                          error := 'Aborted';
+                                                          result := False;
+                                                     end;
+                                                end;
+                                           end;
+                                      end;
+                                      result := True;
+                                      error := foo;
+                                 end;
+                            end;
+                       end
+                       else
+                       begin
+                            // Nope
+                            error := 'Aborted';
+                            result := False;
+                       end;
+                  end;
+               except
+                  error := 'Port error';
+                  result := False;
+               end;
+
+          end;
+     end
+     else
+     begin
+          if error='NO' then error  := 'Invalid COM settings';
+          Result := False;
+     end;
+     // Clean up
+     try
+        tty.CloseSocket;
+     except
+        // Probably never opened - safe to ignore.
+     end;
+end;
 end.
