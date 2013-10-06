@@ -1404,17 +1404,7 @@ begin
           jz2 := 0;
           mousedf2 := 0;
           for i := 0 to jz do gllpfM[i] := glf1Buffer[i];
-          // lpf1 downsamples from 11025 S/S to 5512.5 S/S
-          //lpf1(CTypes.pcfloat(@gllpfM[0]),CTypes.pcint(@jz),CTypes.pcint(@jz2),CTypes.pcint(@lmousedf),CTypes.pcint(@mousedf2),CTypes.pcint(@lical),PChar(wif));
-
-          // HAVE to at least try this :) 262,144 is decimated buffer size
-          // Wow... simple decimate seems to work fine.  No more call to the costly lpf1 routine.
-          // This starts to put JT65 decoding within range of some DSP chips as all FFT ops but
-          // for lpf1 are small size 2K or smaller transforms (I think).  Certainly none left as
-          // costly as that done in lpf1.  DEBUG - watch this and make sure it doesn't go to hell
-          // once the band picks up - it's fairly dead hours now.
-
-          // Simple 2x decimate on the LPF filtered sample data.
+          // Simple 2x decimate on the (previously) LPF filtered sample data. SR now 11025/2 = 5512.5
           j := 0;
           jz2 := 262143;
           for i := 0 to jz2 do
@@ -1422,9 +1412,10 @@ begin
                gllpfM[i] := samps[j];
                j := j+2;
           end;
-
-          // msync will want a downsampled and lpf version of data.
-          // Copy lpfM to f3Buffer
+          // For future reference - don't bother trying to window the data here for FFT
+          // It looks like one (or more) is applied in the fortran code, and, it seems
+          // to do little good for the spectrum as well
+          // Copy over to processing buffer
           for j := 0 to jz2 do glf3Buffer[j] := gllpfM[j];
           for j := jz2+1 to 661503 do glf3Buffer[j] := 0.0;
           for i := 0 to 254 do

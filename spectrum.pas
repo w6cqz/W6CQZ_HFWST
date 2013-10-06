@@ -431,9 +431,13 @@ Begin
                   end;
                   srealArray165[i] := lya[0];
              end;
+
              // Clear FFT Input array
-             for i := 0 to length(fftIn65)-1 do fftIn65[i] := 0.0;
+             //for i := 0 to length(fftIn65)-1 do fftIn65[i] := 0.0;
+
+             // Copy data to FFT calculation buffer
              for i := 0 to 4095 do fftIn65[i] := srealArray165[i];
+
              // Clear FFT output array
              for i := 0 to 2047 do
              begin
