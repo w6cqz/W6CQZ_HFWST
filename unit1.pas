@@ -326,7 +326,7 @@ type
     tbWFBright: TTrackBar;
     tbWFGain: TTrackBar;
     Waterfall1: TWaterfallControl1;
-    xDBText1: TDBText; // UGH - this isn't here but if removed breaks a dep - MUST FIND - DEBUG
+    xDBText1: TDBText; { TODO : Understand why I can't remove this as if removed breaks a dep - MUST FIND - DEBUG }
     procedure audioChange(Sender: TObject);
     procedure Button13Click(Sender: TObject);
     procedure Button14Click(Sender: TObject);
@@ -1090,6 +1090,8 @@ Begin
      //rbtick  := 0;
      //rbpings := 0;
      rb := spot.TSpot.create(); // Used even if spotting is disabled
+     // Set RB Version - note - wrong value here will lead to rb.php saying newp.
+     rb.rbVersion := '3000';
      rbThread  := rbcThread.Create(False);
      if rbOn.Checked Then
      Begin
@@ -2160,21 +2162,6 @@ Begin
      k := 0;
      for i := 0 to 499 do if not demodulate.dmdecodes[i].clr Then inc(k);
      If k>0 Then Memo1.Append('Items not cleared at end of display pass - this is wrong.');
-     //ListBox2.Items.Insert(0,'Exit display decodes');
-     //if demodulate.dmdecodecount <> dcount Then
-     //Begin
-            //Memo2.Append('Count? Dec=' + IntToStr(demodulate.dmdecodecount) + ' Dis=' + IntToStr(dcount));
-            //for i := 0 to 499 do
-            //begin
-                   //if length(demodulate.dmlastraw[i])>0 Then
-                   //Begin
-                          //memo2.Append(demodulate.dmlastraw[i]);
-                          //demodulate.dmlastraw[i] := '';
-                   //End;
-            //end;
-            // Maybe this next line is not such a great idea.... DEBUG
-            //demodulate.dmhaveDecode := False;
-     //end;
 end;
 
 function  TForm1.db(x : CTypes.cfloat) : CTypes.cfloat;

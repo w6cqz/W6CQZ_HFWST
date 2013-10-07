@@ -1326,9 +1326,6 @@ begin
           End;
      End;
 
-     // DEBUG - Following may be a mistake.... I may need to rebuild
-     // the pchar variable each time.. let's see. - seems not - leaving this
-     // for now though.
      if dmFirstPass Then
      Begin
           wif := StrAlloc(256);
