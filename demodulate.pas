@@ -1584,10 +1584,6 @@ begin
                               lnc1 := 0;
                               lnc2 := 0;
                               lng  := 0;
-                              { TODO :
-                                Done - pending confirmation my idea works.
-                                MUST place kvasd.dat in a proper place and have KV pull from that - not the launch time current directory!
-                              }
                               if evalKV('kvasd.dat',foo2,sf,ver,lnc1,lnc2,lng) Then
                               Begin
                                    inc(dmdecodecount);

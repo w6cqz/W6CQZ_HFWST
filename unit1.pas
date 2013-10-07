@@ -530,6 +530,7 @@ var
   savedIADC      : Integer;
   txperiod       : Integer; // 1 = Odd 0 = Even
   canTX          : Boolean; // Only true if callsign and grid is ok
+  txDirty        : Boolean; // TX Message content has not been queued since generation if true
   couldTX        : Boolean; // If one could TX this period (it matches even/odd selection)
   txrequested    : Boolean; // Is a request to TX in place?
   haveRebel      : Boolean; // Rebel selected and active/present?
@@ -604,6 +605,9 @@ Begin
      // Initialize this temp kludge to avoid a warning
      dummy[0] := '';
      dummy[1] := '';
+
+     // Mark TX content as clean so any changes will lead to update
+     txDirty := False;
 
      // Let adc know it is on first run so it can do its init
      adc.adcFirst := True;
@@ -1406,13 +1410,14 @@ Var
   s1, s2    : String;
   ff        : Double;
   cqrg      : Integer;
+  valid     : Boolean;
 Begin
      // Runs on each timer tick
      thisUTC     := utcTime;
      thisSecond  := thisUTC.Second;
      thisADCTick := adc.adcTick;
-
-     if not demodulate.dmdemodBusy Then displayDecodes;
+     { TODO : Make sure adding dmhaveDecode wasn't a mistake }
+     if not demodulate.dmdemodBusy and demodulate.dmhaveDecode Then displayDecodes;
 
      cqrg := StrToInt(edDialQRG.Text);
      if (sopQRG = eopQRG) And (sopQRG = cqrg) Then Label122.Caption := 'RB QRG Synchronized' else Label122.Caption := 'RB QRG Not Synchronized';
@@ -1560,6 +1565,33 @@ Begin
 
      { TODO : And canTX with message to TX being valid }
      // canTX is based upon having valid callsign and grid in config & valid message ready to send
+     valid := True;
+     // Validate prefix (if present)
+     if length(edPrefix.Text)>0 Then
+     Begin
+          // Prefix can be up to 4 characters consisting of A...Z and 0...9 - there's no format
+          // to it beyond the character set.
+
+     End;
+     // Validate callsign
+     if not mval.evalCSign(edCall.Text) Then
+     Begin
+          valid := False;
+     end;
+
+     // Validate suffix (if present)
+     if length(edSuffix.Text) >0 Then
+     Begin
+          // Suffix can be up to 4 characters consisting of A...Z and 0...9 - there's no format
+          // to it beyond the character set.
+     End;
+
+     // Validate grid
+     if not mval.evalGrid(edGrid.Text) Then
+     Begin
+          valid := False;
+     end;
+     canTX := valid;
      If canTX Then txControl.Visible := True else txControl.Visible := False;
 
      { TODO Fix }
@@ -1980,8 +2012,6 @@ procedure TForm1.displayDecodes;
 Var
    i,j,k    : Integer;
    dstrings : TStringList;
-   estrings : TStringList;
-   fstrings : TStringList;
    removes  : Array of Integer;
    afoo     : String;
    bfoo     : String;
@@ -1997,212 +2027,168 @@ Begin
      //     demodulate.dmprofile.Clear;
      //end;
 
-     if demodulate.dmhaveDecode Then
+     memo3.Clear;
+     for i := 0 to 499 do if length(demodulate.dmlastraw[i])>0 Then memo3.Append(demodulate.dmlastraw[i]);
+     dcount := 0;
+     //ListBox2.Items.Insert(0,'Enter display decodes');
+     // Remove any duplicates and/or image decodes.
+     j := 0;
+     for i := 0 to 499 do if not demodulate.dmdecodes[i].clr Then inc(j);
+     //if j=1 then showmessage('j=1');
+     if j > 1 Then
      Begin
-          memo3.Clear;
-          for i := 0 to 499 do if length(demodulate.dmlastraw[i])>0 Then memo3.Append(demodulate.dmlastraw[i]);
-          dcount := 0;
-          //ListBox2.Items.Insert(0,'Enter display decodes');
-
-          // Remove any duplicates and/or image decodes.
-          j := 0;
-          for i := 0 to 499 do if not demodulate.dmdecodes[i].clr Then inc(j);
-
-          //if j=1 then showmessage('j=1');
-
-          if j > 1 Then
+          SetLength(removes,j);
+          dstrings := TStringList.Create;
+          dstrings.Clear;
+          dstrings.CaseSensitive := False;
+          dstrings.Sorted := False;
+          dstrings.Duplicates := Types.dupAccept;
+          k := 0;
+          for i := 0 to 499 do
+          begin
+               if not demodulate.dmdecodes[i].clr Then
+               begin
+                    // The input stringist contains db,exchange,index of array member
+                    dstrings.Add(demodulate.dmdecodes[i].db + ',' + demodulate.dmdecodes[i].dec + ',' + IntToStr(k));
+                    removes[k] := i;
+                    inc(k);
+               end;
+          end;
+          removeDupes(dstrings,removes);
+          dstrings.Destroy;
+          for i := 0 to length(removes) - 1 do if removes[i] > -1 Then demodulate.dmdecodes[removes[i]].clr := True;
+          SetLength(removes,0);
+     End;
+     // Have decode results - display them.
+     // Delete any impossible decodes like signal < -30
+     for i := 0 to 499 do
+     begin
+          if not demodulate.dmdecodes[i].clr Then
           Begin
-               SetLength(removes,j);
-               dstrings := TStringList.Create;
-               dstrings.Clear;
-               dstrings.CaseSensitive := False;
-               dstrings.Sorted := False;
-               dstrings.Duplicates := Types.dupAccept;
-
-               estrings := TStringList.Create;
-               estrings.Clear;
-               estrings.CaseSensitive := False;
-               estrings.Sorted := True;
-               estrings.Duplicates := Types.dupIgnore;
-
-               fstrings := TStringList.Create;
-               fstrings.Clear;
-               fstrings.CaseSensitive := False;
-               fstrings.Sorted := False;
-               fstrings.Duplicates := Types.dupAccept;
-
-               k := 0;
-               for i := 0 to 499 do
-               begin
-                    if not demodulate.dmdecodes[i].clr Then
-                    begin
-                         // The input stringist contains db,exchange,index of array member
-                         dstrings.Add(demodulate.dmdecodes[i].db + ',' + demodulate.dmdecodes[i].dec + ',' + IntToStr(k));
-                         estrings.Add(demodulate.dmdecodes[i].db + ',' + demodulate.dmdecodes[i].dec);
-                         fstrings.Add(demodulate.dmdecodes[i].db + ',' + demodulate.dmdecodes[i].dec);
-                         removes[k] := i;
-                         inc(k);
-                    end;
+               k := Abs(StrToInt(demodulate.dmdecodes[i].db));
+               if k > 30 Then
+               Begin
+                    Memo1.Append('Skipped:  ' + demodulate.dmdecodes[i].db + ',' + demodulate.dmdecodes[i].dec);
+                    demodulate.dmdecodes[i].clr := True;
                end;
-               //if estrings.Count <> fstrings.Count Then ShowMessage('estrings != fstrings count.');
-               //Memo2.Append('Dupes to remove:  ' + IntToStr(j));
-               removeDupes(dstrings,removes);
-               dstrings.Destroy;
-               estrings.Destroy;
-               fstrings.Destroy;
-
-               for i := 0 to length(removes) - 1 do
-               begin
-                    //Memo2.Append('removes['+IntToStr(i)+'] is ' + IntToStr(removes[i]));
-                    if removes[i] > -1 Then
-                    Begin
-                         demodulate.dmdecodes[removes[i]].clr := True;
-                    End;
+               k := Abs(StrToInt(demodulate.dmdecodes[i].sync));
+               if k < 1 Then
+               Begin
+                    Memo1.Append('Skipped:  ' + demodulate.dmdecodes[i].db + ',' + demodulate.dmdecodes[i].dec);
+                    demodulate.dmdecodes[i].clr := True;
                end;
-               SetLength(removes,0);
-          End;
-
-          // Have decode results - display them.
-          // Delete any impossible decodes like signal < -30
-          j:=0;
+          end;
+     end;
+     k := 0;
+     for i := 0 to 499 do if not demodulate.dmdecodes[i].clr Then inc(k);
+     If k>0 Then
+     Begin
+          if cbDivideDecodes.Checked Then ListBox1.Items.Insert(0,'------------------------------------------------------------');
           for i := 0 to 499 do
           begin
                if not demodulate.dmdecodes[i].clr Then
                Begin
-                    k := Abs(StrToInt(demodulate.dmdecodes[i].db));
-                    if k > 30 Then
+                    inc(dcount);
+                    // Adjust the decimal point to what it "should" be for user's display.
+                    afoo := demodulate.dmdecodes[i].dt;
+                    bfoo := ExtractWord(1,afoo,[',','.']);
+                    cfoo := ExtractWord(2,afoo,[',','.']);
+                    afoo := bfoo + dChar + cfoo;
+                    avgdt := StrToFloat(afoo) + avgdt;
+                    if demodulate.dmdecodes[i].ec = 'K' then inc(kvcount);
+                    if demodulate.dmdecodes[i].ec = 'B' then inc(bmcount);
+                    if demodulate.dmdecodes[i].ver = '1' Then inc(v1c);
+                    if demodulate.dmdecodes[i].ver = '2' Then inc(v2c);
+                    if demodulate.dmdecodes[i].sf = 'S' Then inc(msc);
+                    if demodulate.dmdecodes[i].sf = 'F' Then inc(mfc);
+                    if not ((demodulate.dmdecodes[i].nc1 = 0) And (demodulate.dmdecodes[i].nc2 = 0) And (demodulate.dmdecodes[i].ng = 0)) Then
                     Begin
-                         Memo1.Append('Skipped:  ' + demodulate.dmdecodes[i].db + ',' + demodulate.dmdecodes[i].dec);
-                         demodulate.dmdecodes[i].clr := True;
+                         if demodulate.dmdecodes[i].sf = 'S' Then
+                         Begin
+                              ListBox1.Items.Insert(0, demodulate.dmdecodes[i].utc + ' ' + demodulate.dmdecodes[i].sync + ' ' + demodulate.dmdecodes[i].db + ' ' + afoo + ' ' + demodulate.dmdecodes[i].df + '  ' + demodulate.dmdecodes[i].ec + '  ' + demodulate.dmdecodes[i].dec);
+                              tvalid := False;
+                              breakOutFields(demodulate.dmdecodes[i].utc + ' ' + demodulate.dmdecodes[i].sync + ' ' + demodulate.dmdecodes[i].db + ' ' + afoo + ' ' + demodulate.dmdecodes[i].df + '  ' + demodulate.dmdecodes[i].ec + '  ' + demodulate.dmdecodes[i].dec, tvalid);
+                              if not tvalid then inc(pfails);
+                              //if not tvalid then Label119.Caption := IntToStr(pfails);
+                              if not tvalid then
+                              Begin
+                                   Memo1.Append('Failed to build - input:  ' + demodulate.dmdecodes[i].utc + ' ' + demodulate.dmdecodes[i].sync + ' ' + demodulate.dmdecodes[i].db + ' ' + afoo + ' ' + demodulate.dmdecodes[i].df + '  ' + demodulate.dmdecodes[i].ec + '  ' + demodulate.dmdecodes[i].dec);
+                              end;
+                              if demodulate.dmdecodes[i].ver = '2' Then
+                              Begin
+                                   // Diag dump the V2 string so I can track who's using V2! :)
+                                   Memo1.Append('V2 Frame:  ' + demodulate.dmdecodes[i].utc + ' ' + demodulate.dmdecodes[i].sync + ' ' + demodulate.dmdecodes[i].db + ' ' + afoo + ' ' + demodulate.dmdecodes[i].df + '  ' + demodulate.dmdecodes[i].ec + '  ' + demodulate.dmdecodes[i].dec);
+                              end;
+                         end
+                         else
+                         begin
+                              ListBox1.Items.Insert(0, demodulate.dmdecodes[i].utc + ' ' + demodulate.dmdecodes[i].sync + ' ' + demodulate.dmdecodes[i].db + ' ' + afoo + ' ' + demodulate.dmdecodes[i].df + '  ' + demodulate.dmdecodes[i].ec + '  ' + demodulate.dmdecodes[i].dec);
+                         end;
+                         if (rbOn.Checked) And (sopQRG = eopQRG) And (StrToInt(edDialQRG.Text) > 0) Then
+                         Begin
+                              // Post to RB
+                              // Adjust the decimal point to what it "should" be. And here is should be .
+                              afoo := bfoo + '.' + cfoo;
+                              srec.qrg      := StrToInt(edDialQRG.Text);
+                              srec.date     := TrimLeft(TrimRight(demodulate.dmdecodes[i].ts));
+                              srec.time     := '';
+                              srec.sync     := StrToInt(TrimLeft(TrimRight(demodulate.dmdecodes[i].sync)));
+                              srec.db       := StrToInt(TrimLeft(TrimRight(demodulate.dmdecodes[i].db)));
+                              srec.dt       := TrimLeft(TrimRight(afoo));
+                              srec.df       := StrToInt(TrimLeft(TrimRight(demodulate.dmdecodes[i].df)));
+                              srec.decoder  := TrimLeft(TrimRight(demodulate.dmdecodes[i].ec));
+                              srec.decoder  := srec.decoder[1];
+                              srec.exchange := TrimLeft(TrimRight(demodulate.dmdecodes[i].dec));
+                              srec.mode     := '65A';
+                              srec.rbsent   := False;
+                              srec.dbfsent  := False;
+                              rb.addSpot(srec);
+                              inc(rbposted);
+                         end;
                     end;
-                    k := Abs(StrToInt(demodulate.dmdecodes[i].sync));
-                    if k < 1 Then
-                    Begin
-                         Memo1.Append('Skipped:  ' + demodulate.dmdecodes[i].db + ',' + demodulate.dmdecodes[i].dec);
-                         demodulate.dmdecodes[i].clr := True;
+                    // Free record for demodulator's use next round.
+                    //ListBox2.Items.Insert(0,'Cleared dmdecodes:  ' + IntToStr(i));
+                    demodulate.dmdecodes[i].clr := True;
+               end;
+          end;
+          demodulate.dmhaveDecode := False;
+          if cbCompactDivides.Checked and cbDivideDecodes.Checked Then
+          Begin
+               // Remove extra --- divider lines
+               j := 0;
+               for i := 0 to ListBox1.Items.Count-1 do if ListBox1.Items.Strings[i] = '------------------------------------------------------------' Then inc(j);
+               if j>1 then
+               Begin
+                    for i := ListBox1.Items.Count-1 downto 0 do
+                    begin
+                         if ListBox1.Items.Strings[i] = '------------------------------------------------------------' Then
+                         Begin
+                              ListBox1.Items.Delete(i);
+                              dec(j);
+                              if j < 2 Then break;
+                         end;
                     end;
                end;
-               if not demodulate.dmdecodes[i].clr Then inc(j);
           end;
-
-          //if j < 2 then showmessage('j is ' + IntToStr(j));
-
-          k := 0;
-          for i := 0 to 499 do if not demodulate.dmdecodes[i].clr Then inc(k);
-          //if k = 0 then showmessage('k is zero');
-          If k>0 Then
-          Begin
-               if cbDivideDecodes.Checked Then ListBox1.Items.Insert(0,'------------------------------------------------------------');
-
-               for i := 0 to 499 do
-               begin
-                     if not demodulate.dmdecodes[i].clr Then
-                     Begin
-                          inc(dcount);
-                          // Adjust the decimal point to what it "should" be for user's display.
-                          afoo := demodulate.dmdecodes[i].dt;
-                          bfoo := ExtractWord(1,afoo,[',','.']);
-                          cfoo := ExtractWord(2,afoo,[',','.']);
-                          afoo := bfoo + dChar + cfoo;
-                          avgdt := StrToFloat(afoo) + avgdt;
-
-                          if demodulate.dmdecodes[i].ec = 'K' then inc(kvcount);
-                          if demodulate.dmdecodes[i].ec = 'B' then inc(bmcount);
-                          if demodulate.dmdecodes[i].ver = '1' Then inc(v1c);
-                          if demodulate.dmdecodes[i].ver = '2' Then inc(v2c);
-                          if demodulate.dmdecodes[i].sf = 'S' Then inc(msc);
-                          if demodulate.dmdecodes[i].sf = 'F' Then inc(mfc);
-
-                          if not ((demodulate.dmdecodes[i].nc1 = 0) And (demodulate.dmdecodes[i].nc2 = 0) And (demodulate.dmdecodes[i].ng = 0)) Then
-                          Begin
-                               if demodulate.dmdecodes[i].sf = 'S' Then
-                               Begin
-                                    ListBox1.Items.Insert(0, demodulate.dmdecodes[i].utc + ' ' + demodulate.dmdecodes[i].sync + ' ' + demodulate.dmdecodes[i].db + ' ' + afoo + ' ' + demodulate.dmdecodes[i].df + '  ' + demodulate.dmdecodes[i].ec + '  ' + demodulate.dmdecodes[i].dec);
-                                    tvalid := False;
-                                    breakOutFields(demodulate.dmdecodes[i].utc + ' ' + demodulate.dmdecodes[i].sync + ' ' + demodulate.dmdecodes[i].db + ' ' + afoo + ' ' + demodulate.dmdecodes[i].df + '  ' + demodulate.dmdecodes[i].ec + '  ' + demodulate.dmdecodes[i].dec, tvalid);
-                                    if not tvalid then inc(pfails);
-                                    //if not tvalid then Label119.Caption := IntToStr(pfails);
-                                    if not tvalid then
-                                    Begin
-                                         Memo1.Append('Failed to build - input:  ' + demodulate.dmdecodes[i].utc + ' ' + demodulate.dmdecodes[i].sync + ' ' + demodulate.dmdecodes[i].db + ' ' + afoo + ' ' + demodulate.dmdecodes[i].df + '  ' + demodulate.dmdecodes[i].ec + '  ' + demodulate.dmdecodes[i].dec);
-                                    end;
-                                    if demodulate.dmdecodes[i].ver = '2' Then
-                                    Begin
-                                         // Diag dump the V2 string so I can track who's using V2! :)
-                                         Memo1.Append('V2 Frame:  ' + demodulate.dmdecodes[i].utc + ' ' + demodulate.dmdecodes[i].sync + ' ' + demodulate.dmdecodes[i].db + ' ' + afoo + ' ' + demodulate.dmdecodes[i].df + '  ' + demodulate.dmdecodes[i].ec + '  ' + demodulate.dmdecodes[i].dec);
-                                    end;
-                               end
-                               else
-                               begin
-                                    ListBox1.Items.Insert(0, demodulate.dmdecodes[i].utc + ' ' + demodulate.dmdecodes[i].sync + ' ' + demodulate.dmdecodes[i].db + ' ' + afoo + ' ' + demodulate.dmdecodes[i].df + '  ' + demodulate.dmdecodes[i].ec + '  ' + demodulate.dmdecodes[i].dec);
-                               end;
-
-                               if (rbOn.Checked) And (sopQRG = eopQRG) And (StrToInt(edDialQRG.Text) > 0) Then
-                               Begin
-                                    // Post to RB
-                                    // Adjust the decimal point to what it "should" be. And here is should be .
-                                    afoo := bfoo + '.' + cfoo;
-                                    srec.qrg      := StrToInt(edDialQRG.Text);
-                                    srec.date     := TrimLeft(TrimRight(demodulate.dmdecodes[i].ts));
-                                    srec.time     := '';
-                                    srec.sync     := StrToInt(TrimLeft(TrimRight(demodulate.dmdecodes[i].sync)));
-                                    srec.db       := StrToInt(TrimLeft(TrimRight(demodulate.dmdecodes[i].db)));
-                                    srec.dt       := TrimLeft(TrimRight(afoo));
-                                    srec.df       := StrToInt(TrimLeft(TrimRight(demodulate.dmdecodes[i].df)));
-                                    srec.decoder  := TrimLeft(TrimRight(demodulate.dmdecodes[i].ec));
-                                    srec.decoder  := srec.decoder[1];
-                                    srec.exchange := TrimLeft(TrimRight(demodulate.dmdecodes[i].dec));
-                                    srec.mode     := '65A';
-                                    srec.rbsent   := False;
-                                    srec.dbfsent  := False;
-                                    rb.addSpot(srec);
-                                    inc(rbposted);
-                               end;
-                          end;
-                          // Free record for demodulator's use next round.
-                          //ListBox2.Items.Insert(0,'Cleared dmdecodes:  ' + IntToStr(i));
-                          demodulate.dmdecodes[i].clr := True;
-                     end;
-                end;
-               demodulate.dmhaveDecode := False;
-                //if xdbCompactDivides.Checked and xdbDivideDecodes.Checked Then
-                //Begin
-                     // Remove extra --- divider lines
-                     j := 0;
-                     for i := 0 to ListBox1.Items.Count-1 do if ListBox1.Items.Strings[i] = '------------------------------------------------------------' Then inc(j);
-                     if j>1 then
-                     Begin
-                          for i := ListBox1.Items.Count-1 downto 0 do
-                          begin
-                               if ListBox1.Items.Strings[i] = '------------------------------------------------------------' Then
-                               Begin
-                                    ListBox1.Items.Delete(i);
-                                    dec(j);
-                                    if j < 2 Then break;
-                               end;
-                          end;
-                     end;
-                //end;
-          end;
-          k := 0;
-          for i := 0 to 499 do if not demodulate.dmdecodes[i].clr Then inc(k);
-          If k>0 Then Memo1.Append('Items not cleared at end of display pass - this is wrong.');
-          //ListBox2.Items.Insert(0,'Exit display decodes');
-          //if demodulate.dmdecodecount <> dcount Then
-          //Begin
-               //Memo2.Append('Count? Dec=' + IntToStr(demodulate.dmdecodecount) + ' Dis=' + IntToStr(dcount));
-               //for i := 0 to 499 do
-               //begin
-                    //if length(demodulate.dmlastraw[i])>0 Then
-                    //Begin
-                         //memo2.Append(demodulate.dmlastraw[i]);
-                         //demodulate.dmlastraw[i] := '';
-                    //End;
-               //end;
-               // Maybe this next line is not such a great idea.... DEBUG
-               //demodulate.dmhaveDecode := False;
-          //end;
      end;
+     k := 0;
+     for i := 0 to 499 do if not demodulate.dmdecodes[i].clr Then inc(k);
+     If k>0 Then Memo1.Append('Items not cleared at end of display pass - this is wrong.');
+     //ListBox2.Items.Insert(0,'Exit display decodes');
+     //if demodulate.dmdecodecount <> dcount Then
+     //Begin
+            //Memo2.Append('Count? Dec=' + IntToStr(demodulate.dmdecodecount) + ' Dis=' + IntToStr(dcount));
+            //for i := 0 to 499 do
+            //begin
+                   //if length(demodulate.dmlastraw[i])>0 Then
+                   //Begin
+                          //memo2.Append(demodulate.dmlastraw[i]);
+                          //demodulate.dmlastraw[i] := '';
+                   //End;
+            //end;
+            // Maybe this next line is not such a great idea.... DEBUG
+            //demodulate.dmhaveDecode := False;
+     //end;
 end;
 
 function  TForm1.db(x : CTypes.cfloat) : CTypes.cfloat;
@@ -3522,7 +3508,7 @@ begin
                edTXDF.Text := sdf;
                if cbTXeqRXDF.Checked Then edRXDF.Text := sdf;
                if txp=0 then rbTxEven.Checked := True else rbTxOdd.Checked := True;
-               { TODO : mgen is not taking suffix/prefix into account - fix. }
+               { TODO : mgen is not taking suffix/prefix into account - fix. Believe I have. :) }
           end
           else
           begin
@@ -4651,11 +4637,11 @@ begin
                     Memo1.Append(IntToStr(isyms[i-1]));
                     qrgset[i] := IntToStr(isyms[i-1]);
                end;
+               txDirty := True;  // Flag to force an update to the FSK TX
                //function TForm1.rebelCommand(const cmd : String; const value : String; const ltx : Array of String; var error : String) : Boolean;
                // Since this only makes sense if I'm working with a Rebel I'd call rebelCommand from here as in
                // rebelCommand('LTX','',qrgset,foo);
                // Though... I need to make qrgset global scope as it will be needed elsewhere (done)
-               { TODO : Build TX QRG Array here - doneish needs lots of testing love}
                //gSamps(CTypes.pcint(@txdf),CTypes.pcint(@tsyms),CTypes.pcint(@shmsg),CTypes.pcint16(@samples[11025]),CTypes.pcint(@nsamps),CTypes.pcint(@plevel));
           end;
      end;
@@ -4862,7 +4848,7 @@ begin
                     Memo1.Append(IntToStr(isyms[i-1]));
                     qrgset[i] := IntToStr(isyms[i-1]);
                end;
-               { TODO : Build TX QRG Array here - doneish needs lots of testing love}
+               txDirty := True;  // Flag to force an update to the FSK TX
                //gSamps(CTypes.pcint(@i),CTypes.pcint(@tsyms),CTypes.pcint(@shmsg),CTypes.pcint16(@samples[11025]),CTypes.pcint(@nsamps),CTypes.pcint(@plevel));
           end;
      end;
@@ -5276,7 +5262,6 @@ end;
 
 procedure TForm1.Button4Click(Sender: TObject);
 begin
-     { TODO : Do a little better than the next line does. }
      if length(edRBCall.Text) <3 Then
      Begin
           edRBCall.Text := '';
@@ -5289,8 +5274,8 @@ begin
      // Validate prefix (if present)
      if length(edPrefix.Text)>0 Then
      Begin
-          //        function evalCSign(const call : String) : Boolean;
-          //        function evalGrid(const grid : String) : Boolean;
+          // Prefix can be up to 4 characters consisting of A...Z and 0...9 - there's no format
+          // to it beyond the character set.
 
      End;
      // Validate callsign
@@ -5303,17 +5288,17 @@ begin
      // Validate suffix (if present)
      if length(edSuffix.Text) >0 Then
      Begin
-
+          // Suffix can be up to 4 characters consisting of A...Z and 0...9 - there's no format
+          // to it beyond the character set.
      End;
+
      // Validate grid
      if not mval.evalGrid(edGrid.Text) Then
      Begin
           showmessage('The entered grid square is not valid for JT65 - TX will not be enabled');
           canTX := False;
      end;
-
-     { TODO : REMOVE NEXT LINE AFTER DEBUGGING!!!!!!!!!!!!!!!!!!!!! }
-     canTX := False;
+     if canTX Then ListBox2.Items.Insert(0,'After config save CAN transmit') else ListBox2.Items.Insert(0,'After config save CAN NOT transmit.');
 
      Waterfall1.Visible   := True;
      Chart1.Visible       := True;
