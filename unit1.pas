@@ -92,6 +92,7 @@ type
     comboTTYPorts: TComboBox;
     Label12: TLabel;
     Memo3: TMemo;
+    rbTXOff: TRadioButton;
     txControl: TButton;
     Button10: TButton;
     Button11: TButton;
@@ -1416,15 +1417,11 @@ Begin
      thisUTC     := utcTime;
      thisSecond  := thisUTC.Second;
      thisADCTick := adc.adcTick;
-     { TODO : Make sure adding dmhaveDecode wasn't a mistake }
      if not demodulate.dmdemodBusy and demodulate.dmhaveDecode Then displayDecodes;
-
      cqrg := StrToInt(edDialQRG.Text);
      if (sopQRG = eopQRG) And (sopQRG = cqrg) Then Label122.Caption := 'RB QRG Synchronized' else Label122.Caption := 'RB QRG Not Synchronized';
-
      Waterfall1.Repaint;
      flipflop := 0;
-
      if forceCAT and catFree Then
      Begin
           { TODO : Add CI-V Commander back as control option }
@@ -1567,30 +1564,13 @@ Begin
      // canTX is based upon having valid callsign and grid in config & valid message ready to send
      valid := True;
      // Validate prefix (if present)
-     if length(edPrefix.Text)>0 Then
-     Begin
-          // Prefix can be up to 4 characters consisting of A...Z and 0...9 - there's no format
-          // to it beyond the character set.
-
-     End;
+     if length(edPrefix.Text)>0 Then if not mval.evalPrefix(edPrefix.Text) Then valid := False;
      // Validate callsign
-     if not mval.evalCSign(edCall.Text) Then
-     Begin
-          valid := False;
-     end;
-
+     if not mval.evalCSign(edCall.Text) Then valid := False;
      // Validate suffix (if present)
-     if length(edSuffix.Text) >0 Then
-     Begin
-          // Suffix can be up to 4 characters consisting of A...Z and 0...9 - there's no format
-          // to it beyond the character set.
-     End;
-
+     if length(edSuffix.Text)>0 Then if not mval.evalSuffix(edSuffix.Text) Then valid := False;
      // Validate grid
-     if not mval.evalGrid(edGrid.Text) Then
-     Begin
-          valid := False;
-     end;
+     if not mval.evalGrid(edGrid.Text) Then valid := False;
      canTX := valid;
      If canTX Then txControl.Visible := True else txControl.Visible := False;
 
@@ -1880,15 +1860,21 @@ Begin
           //genTX(foo,i,gTXLevel,dac.d65txBuffer);
           globalData.txInProgress := False;
 
-          if rbTXEven.Checked and (not Odd(thisUTC.Minute)) and (not globalData.txInProgress) Then
-          Begin
-               globalData.txInProgress := True;
-          end;
-          if rbTXOdd.Checked and Odd(thisUTC.Minute) and (not globalData.txInProgress) Then
-          Begin
-               globalData.txInProgress := True;
+          {
+          TODO : FIX this - it's not quite right :)
+          I need to remove rbTXOff and have a control that enables/disable TX as I can't
+          base TX on/off status on simply the period being checked.  Figure this out ASAP
+          }
+
+          //if rbTXEven.Checked and (not Odd(thisUTC.Minute)) and (not globalData.txInProgress) Then
+          //Begin
+               //globalData.txInProgress := True;
+          //end;
+          //if rbTXOdd.Checked and Odd(thisUTC.Minute) and (not globalData.txInProgress) Then
+          //Begin
+               //globalData.txInProgress := True;
                //genTX(foo,i,gTXLevel,dac.d65txBuffer);
-          end;
+          //end;
      end;
 
      if ListBox1.Items.Count > 250 Then
@@ -3508,7 +3494,6 @@ begin
                edTXDF.Text := sdf;
                if cbTXeqRXDF.Checked Then edRXDF.Text := sdf;
                if txp=0 then rbTxEven.Checked := True else rbTxOdd.Checked := True;
-               { TODO : mgen is not taking suffix/prefix into account - fix. Believe I have. :) }
           end
           else
           begin
@@ -3580,19 +3565,7 @@ begin
           if cbUseMono.Checked Then adc.adcMono := True else adc.adcMono := False;
           audioChange(TObject(comboAudioIn));
      end;
-     { TODO : Validate then validate then validate more on the important ones. }
-     // PageControl Maybe not on these now....????
-     //If Sender = edPrefix     Then edPrefix.Text  := TrimLeft(TrimRight(UpCase(edPrefix.Text)));
-     //If Sender = edCall       Then edCall.Text  := TrimLeft(TrimRight(UpCase(edCall.Text)));
-     //If Sender = edSuffix     Then edSuffix.Text  := TrimLeft(TrimRight(UpCase(edSuffix.Text)));
-     //If Sender = edGrid       Then edGrid.Text  := TrimLeft(TrimRight(UpCase(edGrid.Text)));
 
-     //If Sender = edTXWD       Then edTXWD.Text  := TrimLeft(TrimRight(UpCase(edTXWD.Text)));
-     //If Sender = edADIFMode   Then edADIFMode.Text := edADIFMode.Text;
-     //If Sender = edRBCall     Then edRBCall.Text := TrimLeft(TrimRight(UpCase(edRBCall.Text)));
-     //If Sender = edStationInfo Then edStationInfo.Text := edStationInfo.Text;
-
-     //if Sender = edCWID then CWCall.Text := edCWID.Text;
      if Sender = edDialQRG then LastQRG.Text := edDialQRG.Text;
 
      If (Sender = rbUseLeftAudio) or (Sender = rbUseRightAudio) Then
@@ -3602,12 +3575,14 @@ begin
      end;
 
      If Sender = rigNone Then catMethod := 'None';
+
      If Sender = rigRebel Then
      Begin
           catMethod := 'Rebel';
           if cbUseSerial.Checked Then cbUseSerial.Checked := False;
           { TODO : Graft code to connect to rebel if it wasn't on at startup }
      end;
+
      // If Sender = rigCommander Then catMethod := 'Commander';
 
 end;
@@ -5269,35 +5244,38 @@ begin
           if length(edPrefix.Text) > 0 Then edRBCall.Text := edPrefix.Text + '/' + edRBCall.Text;
           if length(edSuffix.Text) > 0 Then edRBCall.Text := edRBCall.Text + '/' + edSuffix.Text;
      end;
-     { TODO : Validate everything on the inputs that matters for it }
-     canTX := True;
      // Validate prefix (if present)
+     canTX := True;
      if length(edPrefix.Text)>0 Then
      Begin
-          // Prefix can be up to 4 characters consisting of A...Z and 0...9 - there's no format
-          // to it beyond the character set.
-
-     End;
+          if not mval.evalPrefix(edPrefix.Text) Then
+          Begin
+               ShowMessage('Invalid prefix.' + sLineBreak + 'Must be no more than 4 characters' + sLineBreak + 'of letters A to Z and/or numerals 0 to 9' + sLineBreak +'TX is disabled.');
+               canTX := False;
+          end;
+     end;
      // Validate callsign
      if not mval.evalCSign(edCall.Text) Then
      Begin
-          showmessage('The entered callsign is not valid for JT65 - TX will not be enabled');
+          ShowMessage('Invalid callsign.' + sLineBreak + 'Must be no more than 6 characters' + sLineBreak + 'of letters A to Z and/or numerals 0 to 9' + sLineBreak +'TX is disabled.' + sLineBreak + 'See manual for valid forms of callsigns in JT65 protocol.');
           canTX := False;
      end;
-
      // Validate suffix (if present)
-     if length(edSuffix.Text) >0 Then
+     if length(edSuffix.Text)>0 Then
      Begin
-          // Suffix can be up to 4 characters consisting of A...Z and 0...9 - there's no format
-          // to it beyond the character set.
-     End;
-
+          if not mval.evalSuffix(edSuffix.Text) Then
+          Begin
+               ShowMessage('Invalid suffix.' + sLineBreak + 'Must be no more than 3 characters' + sLineBreak + 'of letters A to Z and/or numerals 0 to 9' + sLineBreak +'TX is disabled.');
+               canTX := False;
+          end;
+     end;
      // Validate grid
      if not mval.evalGrid(edGrid.Text) Then
      Begin
-          showmessage('The entered grid square is not valid for JT65 - TX will not be enabled');
           canTX := False;
+          showmessage('The entered grid square is not valid' + sLineBreak + 'TX is disabled.');
      end;
+
      if canTX Then ListBox2.Items.Insert(0,'After config save CAN transmit') else ListBox2.Items.Insert(0,'After config save CAN NOT transmit.');
 
      Waterfall1.Visible   := True;
@@ -8378,7 +8356,6 @@ Var
    i         : Integer;
    foo       : String;
 Begin
-     { TODO : Create routine for serial RX/TX that's callable so I can simplify the following mess. }
      {
      Command         Value                    Response Expected
      VER                                      JT65100 or something like that - TBD as of now

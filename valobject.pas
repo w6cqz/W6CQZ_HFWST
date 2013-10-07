@@ -51,6 +51,8 @@ type
         function evalIQRG(const qrg : Integer; const mode : String; var band : String) : Boolean;
         function evalCSign(const call : String) : Boolean;
         function evalGrid(const grid : String) : Boolean;
+        function evalPrefix(const pfx : String) : Boolean;
+        function evalSuffix(const sfx : String) : Boolean;
 
      property callsign      : String
         read  prCall
@@ -187,6 +189,66 @@ implementation
              prRBCallValid := true;
              prRBCall := testcall;
         end;
+   end;
+
+   function  TValidator.evalPrefix(const pfx : String) : Boolean;
+   var
+        v1,v2,v3,v4 : Boolean;
+        i        : Integer;
+   Begin
+        v1 := False;
+        v2 := False;
+        v3 := False;
+        v4 := False;
+        if (length(pfx) > 0) And (length(pfx) < 5) Then v1 := True else v1 := False;
+        if v1 Then
+        Begin
+             for i := 1 to length(pfx) do
+             begin
+                  case pfx[i] of 'A'..'Z': v2 := True else v2 := False; end;
+                  case pfx[i] of '0'..'9': v3 := True else v3 := False; end;
+                  if not v2 and not v3 then
+                  begin
+                       v4 := False;
+                       break;
+                  end
+                  else
+                  begin
+                       v4 := True;
+                  end;
+             end;
+        end;
+        if v1 and v4 then result := True else result := false;
+   end;
+
+   function  TValidator.evalSuffix(const sfx : String) : Boolean;
+   var
+        v1,v2,v3,v4 : Boolean;
+        i           : Integer;
+   Begin
+        v1 := False;
+        v2 := False;
+        v3 := False;
+        v4 := False;
+        if (length(sfx) > 0) and (length(sfx) < 4) Then v1 := True else v1 := False;
+        if v1 Then
+        Begin
+             for i := 1 to length(sfx) do
+             begin
+                  case sfx[i] of 'A'..'Z': v2 := True else v2 := False; end;
+                  case sfx[i] of '0'..'9': v3 := True else v3 := False; end;
+                  if not v2 and not v3 then
+                  begin
+                       v4 := False;
+                       break;
+                  end
+                  else
+                  begin
+                       v4 := True;
+                  end;
+             end;
+        end;
+        if v1 and v4 then result := True else result := false;
    end;
 
    function  TValidator.evalCSign(const call : String) : Boolean;
