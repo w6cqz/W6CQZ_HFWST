@@ -1,3 +1,4 @@
+{ TODO : Look at what RB server says to spots send }
 // (c) 2013 CQZ Electronics
 unit spot;
 
