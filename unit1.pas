@@ -2010,11 +2010,6 @@ Begin
 
           //if j=1 then showmessage('j=1');
 
-          { TODO :
-          DEBUG This - I'm so not handling this dupe removal correctly.
-          Think about using hashed values...
-          }
-
           if j > 1 Then
           Begin
                SetLength(removes,j);
@@ -2927,7 +2922,23 @@ Begin
      If Length(TrimLeft(TrimRight(edSuffix.Text))) > 0 Then myCall := TrimLeft(TrimRight(UpCase(edCall.Text))) + '/' + TrimLeft(TrimRight(UpCase(edSuffix.Text)));
      If Length(TrimLeft(TrimRight(edPrefix.Text))) > 0 Then myCall := TrimLeft(TrimRight(UpCase(edPrefix.Text))) + '/' + TrimLeft(TrimRight(UpCase(edCall.Text)));
      If (Length(TrimLeft(TrimRight(edSuffix.Text))) > 0) And (Length(TrimLeft(TrimRight(edPrefix.Text))) > 0) Then myCall := TrimLeft(TrimRight(UpCase(edCall.Text)));
-     myscall := TrimLeft(TrimRight(UpCase(edCall.Text)));
+     // TX Callsign is evaluated as (in order of precedence)
+     // edPrefix.Text/edCall.Text
+     // edCall.Text/edSuffix.Text
+     // edCall.Text
+     // myscall is this stations, as in my callsign, with prefix/suffix
+     // mycall is just my base callsign
+     If (Length(TrimLeft(TrimRight(edPrefix.Text))) < 1) And (Length(TrimLeft(TrimRight(edSuffix.Text))) <1) Then
+     Begin
+          myscall := TrimLeft(TrimRight(UpCase(edCall.Text)));
+     end
+     else
+     begin
+          // Since prefix outranks suffix this will insure prefix wins if both set.
+          If (Length(TrimLeft(TrimRight(edSuffix.Text))) > 0) Then myscall := TrimLeft(TrimRight(UpCase(edCall.Text)))+'/'+TrimLeft(TrimRight(UpCase(edSuffix.Text)));
+          If (Length(TrimLeft(TrimRight(edPrefix.Text))) > 0) Then myscall := TrimLeft(TrimRight(UpCase(edPrefix.Text)))+'/'+TrimLeft(TrimRight(UpCase(edCall.Text)));
+     end;
+     mycall := TrimLeft(TrimRight(UpCase(edCall.Text)));
      siglevel := TrimLeft(TrimRight(edTXReport.Text));
      myGrid4 := TrimLeft(TrimRight(UpCase(edGrid.Text)));
      if Length(myGrid4)>4 Then myGrid4 := myGrid4[1..4];

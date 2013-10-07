@@ -1,9 +1,3 @@
-{ TODO :
-
-FIX - dupes being passed to main gui - these are true dupes as in exact
-same signal values and call.  kill kill kill them.
-}
-
 {
   Compared to decoder circa JT65-HF 1.0.9.x this is somewhat less efficient
   at getting decodes but a quantum leap ahead in speed.  I need to ponder why
@@ -479,7 +473,7 @@ Begin
                if bins[bl] > 0 Then hl := True;
                if bins[bm] > 0 Then hm := True;
                if bins[bh] > 0 Then hh := True;
-               if (hl And hm) Or (hm And hh) Then
+               if (hl And hm) or (hm And hh) Then
                Begin
                     bins[bl] := 0;
                     bins[bh] := 0;
@@ -1305,11 +1299,6 @@ begin
      clearList.CaseSensitive := False;
      clearList.Sorted := False;
      clearList.Duplicates := Types.dupAccept;
-     { TODO : Monitor following change CLOSELY }
-     // DEBUG if the decoder blows up this be the place to look!
-     // Can't sort - really messes things up.
-     //clearList.Sorted := True;
-     //clearList.Duplicates := Types.dupIgnore;
 
      Result := False;
      //
