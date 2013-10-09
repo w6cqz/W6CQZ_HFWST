@@ -159,7 +159,7 @@ Var
 
 implementation
 
-function bpf(input : CTypes.cint16) : CTypes.Cfloat;
+function bpf(input : CTypes.cfloat) : CTypes.Cfloat;
 Var
    hf          : CTypes.cfloat;
    k : Integer;
@@ -184,6 +184,7 @@ Begin
      //end;
      //hf := h1y[0];
      hf := input;
+//     hf := input*0.1; // Maybe a bad idea....
 
      // LPF 19th order
      // Shift old samples in x[] and y[]
@@ -207,11 +208,14 @@ function adcCallback(input: Pointer; output: Pointer; frameCount: Longword;
                        statusFlags: TPaStreamCallbackFlags;
                        inputDevice: Pointer): Integer; cdecl;
 Var
-   i,z,lpidx : Integer;
-   inptr     : ^smallint;
-   tempInt1  : smallint;
-   tempInt2  : smallint;
-   localIdx  : Integer;
+   i,z,lpidx   : Integer;
+   inptr       : ^smallint;
+   tempInt1    : smallint;
+   tempInt2    : smallint;
+   localIdx    : Integer;
+   tAr1,tAr2   : Array[0..63] of CTypes.cfloat;
+   tAr1i,tAr2i : Array[0..63] of CTypes.cint16;
+   sum,ave     : CTypes.cfloat;
 Begin
      Try
         if adcRunning Then
@@ -227,6 +231,13 @@ Begin
                   l1y[i] := 0.0;
                   h1y[i] := 0.0;
              end;
+             for i := 0 to 63 do
+             begin
+                  tAr1[i] := 0.0;
+                  tAr2[i] := 0.0;
+                  tAr1i[i] := 0;
+                  tAr2i[i] := 0;
+             end;
              adcFirst := False;
         end;
         adcRunning := True;
@@ -241,30 +252,94 @@ Begin
         lpidx := 0;
         tempInt1 := 0;
         tempInt2 := 0;
-        For i := 1 to z do
-        Begin
+        for i := 1 to z do
+        begin
+             // Reading in the interger samples to a temporary processing/conversion buffer(s)
+             // Still preserving (for now) a copy of integer value for AU and spectrum routines.
              // inptr is a pointer ^ indicates read value at pointer address NOT the pointer's value. :)
              if adcMono Then
              Begin
-               // Read in sample
-               tempInt1 := inptr^;
-               inc(inptr);
+                  tempInt1 := inptr^;
+                  inc(inptr);
+                  tAr1[i-1] := tempInt1;
+                  tAr1i[i-1] := tempInt1;
+             end
+             else
+             begin
+                  tempInt1 := inptr^;  // Left channel data
+                  inc(inptr);
+                  tempInt2 := inptr^;  // Right channel data
+                  inc(inptr);
+                  tempint1 := min(32766,max(-32766,tempInt1));
+                  tempint2 := min(32766,max(-32766,tempInt2));
+                  tAr1[i-1] := tempInt1;
+                  tAr2[i-1] := tempInt2;
+                  tAr1i[i-1] := tempInt1;
+                  tAr2i[i-1] := tempInt1;
+             end;
+        end;
+        // Convert tAr1 and (if needed) tAr2 to floating point values like
+        // was done in older JT65-HF versions.  Chasing something here....
+        // Somewhat better on the decoder now ;)
+        // Experiment with running LPF before this.
+        // This all seems to be good stuffs... watching it closely though.
+        { TODO : Monitor changes in ADC to sample conversion methods }
+
+        for i := 0 to 63 do tAr1[i] := bpf(tAr1[i]);
+        sum := 0.0;
+        ave := 0;
+        for i := 0 to 63 do sum := sum + tAr1[i];
+        ave := sum/64;
+        for i := 0 to 63 do tAr1[i] := tAr1[i]-ave;
+        sum := 0.0;
+        ave := 0.0;
+        for i := 0 to 63 do
+        Begin
+             tAr1[i] := 0.1 * tAr1[i];
+             sum := sum + tAr1[i];
+        End;
+        ave := sum/64;
+        for i := 0 to 63 do tAr1[i] := tAr1[i]-ave;
+        if not adcMono Then
+        Begin
+             // Experiment with running LPF before this.
+             for i := 0 to 63 do tAr2[i] := bpf(tAr2[i]);
+
+             sum := 0.0;
+             ave := 0;
+             for i := 0 to 63 do sum := sum + tAr2[i];
+             ave := sum/64;
+             for i := 0 to 63 do tAr2[i] := tAr2[i]-ave;
+             sum := 0.0;
+             ave := 0.0;
+             for i := 0 to 63 do
+             Begin
+                  tAr2[i] := 0.1 * tAr2[i];
+                  sum := sum + tAr2[i];
+             End;
+             ave := sum/64;
+             for i := 0 to 63 do tAr2[i] := tAr2[i]-ave;
+        end;
+
+        For i := 0 to 63 do
+        Begin
+             if adcMono Then
+             Begin
                if localIdx > 661503 Then localIdx       := 0;
                if localIdx > 661503 Then d65rxBufferIdx := 0;
                if auIDX >      2047 Then auIDX          := 0;
                if specIDX >    4095 Then specIDX        := 0;
                // Save samples to mono buffer (1)
-               tempInt1 := min(32766,max(-32766,tempInt1));
-               d65rxFBuffer[localIdx] := bpf(tempInt1);
+               //d65rxFBuffer[localIdx] := bpf(tAr1[i]);
+               // Experimenting with LPF before vs after FP conversion
+               d65rxFBuffer[localIdx] := tAr1[i]; // Left
                if not haveAU Then
                Begin
-                    adclast2k1[auIDX] := tempInt1;
-                    adclast2k2[auIDX] := tempInt1;
+                    adclast2k1[auIDX] := tAr1i[i];
                end;
                if not haveSpec Then
                Begin
-                    adclast4k1[specIDX] := tempInt1;
-                    adclast4k2[specIDX] := tempInt1;
+                    adclast4k1[specIDX] := tAr1i[i];
                end;
                // Update index values
                inc(d65rxBufferIdx);
@@ -278,31 +353,27 @@ Begin
              end
              else
              begin
-                  // Read in left then right sample
-                  tempInt1 := inptr^;  // Left channel data
-                  inc(inptr);
-                  tempInt2 := inptr^;  // Right channel data
-                  inc(inptr);
-                  tempint1 := min(32766,max(-32766,tempInt1));
-                  tempint2 := min(32766,max(-32766,tempInt2));
                   if localIdx > 661503 Then localIdx       := 0;
                   if localIdx > 661503 Then d65rxBufferIdx := 0;
                   if auIDX >      2047 Then auIDX          := 0;
                   if specIDX >    4095 Then specIDX        := 0;
                   // Save samples from selected active channel 1L or 2R
-                  if adcChan = 1 Then d65rxFBuffer[localIdx] := bpf(tempInt1); // Left
-                  if adcChan = 2 Then d65rxFBuffer[localIdx] := bpf(tempInt2); // Right
+                  //if adcChan = 1 Then d65rxFBuffer[localIdx] := bpf(tAr1[i]); // Left
+                  //if adcChan = 2 Then d65rxFBuffer[localIdx] := bpf(tAr2[i]); // Right
+                  // Experimenting with LPF before vs after FP conversion
+                  if adcChan = 1 Then d65rxFBuffer[localIdx] := tAr1[i]; // Left
+                  if adcChan = 2 Then d65rxFBuffer[localIdx] := tAr2[i]; // Right
                   // Update both streams audio level and spectrum buffers - solves an oddity
                   // when switching for those 2 functions.
                   if not haveAU Then
                   Begin
-                       adclast2k1[auIDX] := tempInt1;
-                       adclast2k2[auIDX] := tempInt2;
+                       adclast2k1[auIDX] := tAr1i[i];
+                       adclast2k2[auIDX] := tAr2i[i];
                   end;
                   if not haveSpec Then
                   Begin
-                       adclast4k1[specIDX] := tempInt1;
-                       adclast4k2[specIDX] := tempInt2;
+                       adclast4k1[specIDX] := tAr1i[i];
+                       adclast4k2[specIDX] := tAr2i[i];
                   end;
                   // Update index values
                   inc(d65rxBufferIdx);

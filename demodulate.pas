@@ -1374,10 +1374,12 @@ begin
 
      // From this point on f1Buffer becomes sole sample holder.
      // Figure average level
+     // Copy buffer
+     for i := 0 to jz do glf1Buffer[i] := samps[i]*0.25; // Guessing - may be a huge mistake!
      sq := 0.0;
      for i := 0 to jz do
      begin
-          ffoo := samps[i];
+          ffoo := glf1Buffer[i];
           if ffoo <> 0 Then sq := sq + power(ffoo,2);
      end;
      avesq := sq/jz;
@@ -1389,7 +1391,6 @@ begin
           //lmousedf := 0;
           jz2 := 0;
           mousedf2 := 0;
-          for i := 0 to jz do gllpfM[i] := glf1Buffer[i];
           // Simple 2x decimate on the (previously) LPF filtered sample data. SR now 11025/2 = 5512.5
           j := 0;
           jz2 := 262143;
