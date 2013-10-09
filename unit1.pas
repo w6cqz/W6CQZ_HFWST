@@ -1,12 +1,7 @@
 { TODO :
-
-Hook decoder output back to double click actions - In progress, needs ***much*** testing.
-
-Validate validate validate message input, callsigns, grids, QRGs etc. - In progress - weak and needs testing.
-Add serial communications routines for next phase
-
 Work out handlers for working JT65V2 types.  Also need to think about case of where a data item could be
-sent either in V1 or V2 format.
+sent either in V1 or V2 format.  I think... I want to force the issue here and just use V2 for everything.
+It's the only way to insure more update from ancient versions.
 
 Fix reversed prefix/suffix in decoder
 Any change to message, dial QRG or TXDF must regenerate the TX Message Data
@@ -21,6 +16,9 @@ worked if in a new one.
 }
 
 {
+Hook decoder output back to double click actions - In progress, needs ***much*** testing.
+Add serial communications routines for next phase
+Validate validate validate message input, callsigns, grids, QRGs etc. - In progress - weak and needs testing.
 Fill in RB call from Station call if user does not manually set. - Done.  Computes RB call from real pfx, call, sfx if nothing manually set.
 
 Monitor situation with decodes sometimes being dropped or decoder indicating
@@ -1664,7 +1662,7 @@ Begin
 
      //if inSync and paActive Then RadioGroup1.Visible := True else RadioGroup1.Visible := False;
 
-     if rbOn.Checked then rbOn.Caption := 'Spots sent:  ' + rb.rbCount else rbOn.Caption := 'RB Enable';
+     if rbOn.Checked then rbOn.Caption := 'Spots sent:  ' + IntToStr(rb.rbCount) else rbOn.Caption := 'RB Enable';
      if length(edRBCall.Text) < 3 Then rbOn.Caption := 'Setup RB Callsign please.';
 
      if rbOn.Checked and (not rb.rbOn) Then

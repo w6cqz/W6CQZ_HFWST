@@ -164,23 +164,26 @@ Var
    hf          : CTypes.cfloat;
    k : Integer;
 Begin
+     // Dropping HPF seems to have helped bring decoder back closer to old wsjt
+     // standards.  Watching closely.  It seems to help but still not as solid
+     // as the old implementation.
      // HPF 3rd order also converts int16 to float
      // Shift old samples in x[] and y[]
-     for k := 3 downto 1 do
-     begin
-          h1x[k] := h1x[k-1];
-          h1y[k] := h1y[k-1];
-     end;
+     //for k := 3 downto 1 do
+     //begin
+     //     h1x[k] := h1x[k-1];
+     //     h1y[k] := h1y[k-1];
+     //end;
      // Calculate new sample
-     //hx[0] := glf1Buffer[i];
-     h1x[0] := input;
-     h1y[0] := HACoef[0] * h1x[0];
+     //h1x[0] := input;
+     //h1y[0] := HACoef[0] * h1x[0];
 
-     for k := 0 to 3 do
-     begin
-          h1y[0] := h1y[0] + ((HACoef[k] * h1x[k]) - (HBCoef[k] * h1y[k]));
-     end;
-     hf := h1y[0];
+     //for k := 0 to 3 do
+     //begin
+     //     h1y[0] := h1y[0] + ((HACoef[k] * h1x[k]) - (HBCoef[k] * h1y[k]));
+     //end;
+     //hf := h1y[0];
+     hf := input;
 
      // LPF 19th order
      // Shift old samples in x[] and y[]

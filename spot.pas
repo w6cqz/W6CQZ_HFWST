@@ -44,12 +44,12 @@ Type
               prVersion     : String;
               prSpots       : spotsArray;
               prVal         : valobject.TValidator;
-              prRBCount     : CTypes.cuint64;
-              prRBFail      : CTypes.cuint64;
-              prRBDiscard   : CTypes.cuint64;
-              prPRCount     : CTypes.cuint64;
-              prDBFCount    : CTypes.cuint64;
-              prDBFUCount   : CTypes.cuint64;
+              prRBCount     : CTypes.cint;
+              prRBFail      : CTypes.cint;
+              prRBDiscard   : CTypes.cint;
+              prPRCount     : CTypes.cint;
+              prDBFCount    : CTypes.cint;
+              prDBFUCount   : CTypes.cint;
               prDBLock      : Boolean;
               prInfo        : String;
               prLogDir      : String;
@@ -66,7 +66,7 @@ Type
              function    loginRB    : Boolean;
              function    logoutRB   : Boolean;
              function    pushSpots  : Boolean;
-             function    RBCountS   : String;
+             function    RBCountI   : CTypes.cint;
              function    RBFailS    : String;
              function    RBDiscardS : String;
              function    PRcountS   : String;
@@ -95,8 +95,8 @@ Type
              property version   : String
                 read  prVersion
                 write prVersion;
-             property rbCount   : String
-                read  RBCountS;
+             property rbCount   : CTypes.cint
+                read  RBCountI;
              property rbDiscard : String
                 read  rbDiscardS;
              property rbFail    : String
@@ -183,9 +183,9 @@ implementation
          errLog.Clear;
     end;
 
-    function  TSpot.RBcountS : String;
+    function  TSpot.RBcountI : CTypes.cint;
     begin
-         result := IntToStr(prRBCount);
+         result := prRBCount;
     end;
 
     function  TSpot.RBDiscardS : String;
@@ -260,7 +260,6 @@ implementation
                  // BAD QRG - Fix the RB's QRG error before trying again.
                  // BAD GRID - Invalid Grid value, fix before trying again.
                  // BAD CALL - RB Call too short/long, fix before trying again.
-                 // BAD MODE - RB Mode not 65A or 4B, fix before trying again.
                  prRBOn := False;
                  If TrimLeft(TrimRight(rbResult.Text)) = 'QSL'      Then prRBOn := true;
                  //If TrimLeft(TrimRight(rbResult.Text)) = 'BAD QRG'  Then prRBOn := false;
