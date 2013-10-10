@@ -423,6 +423,7 @@ type
     procedure mgen(const msg : String; var isValid : Boolean; var isBreakIn : Boolean; var level : Integer; var response : String; var connectTo : String; var fullCall : String; var hisGrid : String; var sdf : String; var sdB : String; var txp : Integer);
 
     function rebelCommand(const cmd : String; const value : String; const ltx : Array of String; var error : String) : Boolean;
+    function rebelTuning(const f : CTypes.cdouble) : CTypes.cuint32;
     function t(const s : String) : String;
 
   private
@@ -4321,15 +4322,13 @@ Var
    sbasetx       : String;
    syms          : Array[0..11] Of CTypes.cint;
    tsyms         : Array[0..62] Of CTypes.cint;
-   fsyms         : Array[0..62] Of CTypes.cfloat;
-   isyms         : Array[0..62] Of CTypes.cint;
-   isymsL,isymsR : Array[0..62] Of CTypes.cint;
+   isyms         : Array[0..63] Of CTypes.cuint32;
    ssyms         : Array[0..62] Of String;
-   ssymsL,ssymsR : Array[0..62] Of String;
    sm, ft, shm   : Boolean;
    nsamps        : CTypes.cint;
    shmsg         : CTypes.cint;
-   baseTX,tf     : CTypes.cfloat;
+   baseTX        : CTypes.cdouble;
+   ibaseTX       : CTypes.cuint32;
 begin
      nc1t := '';
      pfxt := '';
@@ -4416,186 +4415,23 @@ begin
                // tsyms holds the 63 TX symbols - will need to look at TXDF and current dial
                // RX QRG to compute the true RF TX QRG list.  TXDF 0 = 1270.5 Hz so if dial
                // is 14076.0 and TXDF = 0 then first tone (sync) will be at 14,077,270.5 Hz
-               // What I want to do is create an array of 63 floats for the TX data frequencies
-               // and a 64th element that is the sync (same in 63 places).  Then convert to
-               // string then drop the MHz and 100 KHz (first 3 characters on 20M/first 2 on 40M
-               // then remove the decimal - as in the example above of 14,077,270.5 would be
-               // 772705
-               //tsyms         : Array[0..62] Of CTypes.cint;
-               //fsyms         : Array[0..62] Of CTypes.cfloat;
+               // Then call rebelTuning(double f in hz) to get back an UINT32 tuning word
+               // for the AD9834.
                //isyms         : Array[0..62] Of CTypes.cint;
                //ssyms         : Array[0..62] Of String;
-               // So.... tone 0 (sync) = Dial QRG + 1270.5
-               baseTX := 1270.5;
-               // Now add the dial QRG
-               tf := StrToFloat(edDialQRG.Text);
-               if tf > 10200000.0 Then tf := tf - 14000000.0 else tf := tf - 7000000.0;
-               //tf := tf + 0.002;
-               // Now add the DF
-               baseTX := baseTX+tf+txdf;
-               //Memo1.Clear;
-               //Memo1.Append('Sync at:  ' + FloatToStrF(baseTX,ffFixed,9,1));
-               tf := StrToFloat(edDialQRG.Text);
-               if tf > 10200000.0 Then sbasetx := '140' + FloatToStrF(baseTX,ffFixed,9,1) else sbasetx := '70' + FloatToStrF(baseTX,ffFixed,9,1);
-               sbasetx := ExtractWord(1,sbasetx,['.']) + ExtractWord(2,sbasetx,['.']);
-               //tf := txdf*1.0;
-               //baseTX := baseTX + tf;
-               // Have the sync RF carrier QRG - can now create the data values
-               // based on the protocol definition as;
-               // Encoded user information is transmitted during the 63 intervals not used for the sync tone.
-               // Each channel symbol generates a tone at frequency 1270.5 + 2.6917 (N+2)m Hz, where
-               // N is the integral symbol value, 0 ≤ N ≤ 63, and m assumes the values 1, 2, and 4 for JT65
-               // sub-modes A, B, and C.
-               // Not dealing with modes B/C so we have baseTX + 2.6917 (N+2) for (2) ... (65) for
-               // baseTX + 5.3834 ... baseTX + 174.9605
-               // Remember a symbol can range from 0...63 as it's a 6 bit value.
-               // Starting this by creating an array of the audio tone values (will simplify later - this will
-               // be easier to debug though)
-               for i := 0 to 62 do
-               begin
-                    fsyms[i] := 0.0;
-                    isyms[i] := 0;
-                    isymsL[i] := 0;
-                    isymsR[i] := 0;
-                    ssyms[i] := '';
-                    ssymsL[i] := '';
-                    ssymsR[i] := '';
-               end;
-               for i := 0 to 62 do
-               begin
-                    // computing 63 audio frequency values from tsyms[i] into fsyms[i]
-                    fsyms[i] := baseTX + (2.6917 * (tsyms[i]+2));
-               end;
-               // Have the audio tones - now add the RF
-               //for i := 0 to 62 do
-               //begin
-               //     fsyms[i] := fsyms[i] + StrToFloat(edDialQRG.Text);
-               //end;
-               // Have carrier frequencies - now DF adjust
-               for i := 0 to 62 do
-               begin
-                    fsyms[i] := fsyms[i] + (txdf/1.0);
-               end;
-               // This should be the real carrier frequencies we need to TX --- emphasis on should :)
-               // Lets get rid of MHz
-               //for i := 0 to 62 do
-               //begin
-               //     if fsyms[i] > 10000000.0 then fsyms[i] := fsyms[i]-14000000.0 else fsyms[i] := fsyms[i]-7000000.0;
-               //end;
-               // Okies - have just the KHz portion now and I want that down to one fractional resolution BUT
-               // after too many years of this I DO NOT TRUST Laz/FPC or anything else to do it right. :(
-               // Step one - floats to strings
-               for i := 0 to 62 do
-               begin
-                    ssyms[i] := FloatToStrF(fsyms[i],ffFixed,8,4);
-               end;
-               // Now I ****should**** have a series of strings like 77275.8834 77445.4605 etc
-               // I want to end up with 77275.9 and 77445.5 for the above :)
-               // Ok - first things first - let me be absolutely sure I'm dealing with nothing but ###.####
-               // no blasted , as decimal or otherwise present.
-               for i := 0 to 62 do
-               begin
-                    If AnsiContainsText(ssyms[i],',') Then
-                    Begin
-                         // Decimal is , split accordingly
-                         ssymsL[i] := ExtractWord(1,ssyms[i],[',']);
-                         ssymsR[i] := ExtractWord(2,ssyms[i],[',']);
-                         j := i;
-                    end;
-                    If AnsiContainsText(ssyms[i],'.') Then
-                    Begin
-                         // Decimal is . split accordingly
-                         ssymsL[i] := ExtractWord(1,ssyms[i],['.']);
-                         ssymsR[i] := ExtractWord(2,ssyms[i],['.']);
-                         j := i;
-                    end;
-                    If AnsiContainsText(ssyms[i],',') And AnsiContainsText(ssyms[i],'.') Then
-                    Begin
-                         // EXPLODE CUSS AND KICK
-                         j := i;
-                    end;
-               end;
-               // Start conversion to integer format
-               for i := 0 to 62 do
-               begin
-                    isymsL[i] := StrToInt(ssymsL[i]);
-                    if length(ssymsR[i]) = 4 Then
-                    Begin
-                         j := StrToInt(ssymsR[i][4]);
-                         if j>5 Then k := 1 else k := 0;
-                         j := StrToInt(ssymsR[i][3]);
-                         j := j+k;
-                         if j>5 Then k := 1 else k := 0;
-                         j := StrToInt(ssymsR[i][2]);
-                         j := j+k;
-                         if j>5 Then k := 1 else k := 0;
-                         j := StrToInt(ssymsR[i][1]);
-                         j := j+k;
-                         if j > 9 then
-                         Begin
-                              inc(isymsL[i]);
-                              j := 0;
-                         end;
-                         isymsR[i] := j;
-                    end;
-                    if length(ssymsR[i]) = 3 Then
-                    Begin
-                         j := StrToInt(ssymsR[i][3]);
-                         if j>5 Then k := 1 else k := 0;
-                         j := StrToInt(ssymsR[i][2]);
-                         j := j+k;
-                         if j>5 Then k := 1 else k := 0;
-                         j := StrToInt(ssymsR[i][1]);
-                         j := j+k;
-                         if j > 9 then
-                         Begin
-                              inc(isymsL[i]);
-                              j := 0;
-                         end;
-                         isymsR[i] := j;
-                    end;
-                    if length(ssymsR[i]) = 2 Then
-                    Begin
-                         j := StrToInt(ssymsR[i][2]);
-                         if j>5 Then k := 1 else k := 0;
-                         j := StrToInt(ssymsR[i][1]);
-                         j := j+k;
-                         if j > 9 then
-                         Begin
-                              inc(isymsL[i]);
-                              j := 0;
-                         end;
-                         isymsR[i] := j;
-
-                    end;
-                    if length(ssymsR[i]) = 1 Then
-                    Begin
-                         // Nothing
-                    end;
-               end;
-               // Ok - I think I now have what I need
-               for i := 0 to 62 do
-               begin
-                    ssyms[i] := IntToStr(isymsL[i])+IntToStr(isymsR[i]);
-                    isyms[i] := StrToInt(ssyms[i]);
-               end;
-               i := 0;
-               // Need to think of a sanity check here... given typical usage I should be able to define a range of isyms value that makes sense.
-               // 752705 (14075 Dial -1K DF - 200) 750705 --- call it 750000
-               // 792705 (14077 Dial +1K DF + 200) 794705 --- call it 795000
-               // I ***do not*** intend to leave this since it would hard limit the program to running at 7075000 ... 7077000 or 14075000 ... 14077000
-               //for i := 0 to 62 do
-               //begin
-                    //if (isyms[i] < 750000) or (isyms[i] > 795000) Then ShowMessage('FSK QRG Range oddity at symbol ' + IntToStr(i) + ' for ' + IntToStr(isyms[i]));
-               //end;
+               // So.... tone 0 (sync) = Dial QRG + 1270.5 + TXDF
+               baseTX   := 1270.5;
+               baseTX   := baseTX + StrToInt(edDialQRG.Text) + txdf;  // This is the floating point value in Hz of the sync carrier (base frequency - data goes up from this)
+               isyms[0] := rebelTuning(baseTX);
+               for i := 1 to 63 do isyms[i] := 0;
+               // computing 63 tuning values for AD9834 - will split to 14 bit pairs on Rebel side
+               for i := 1 to 63 do isyms[i] := rebelTuning(baseTX + (2.6917 * (tsyms[i-1]+2)));
+               // Diag dump
                Memo1.Append('LTX');
-               Memo1.Append(sbasetx);
-               for i := 0 to 63 do qrgset[i] := '';
-               qrgset[0] := sbasetx;
-               for i := 1 to 63 do
+               for i := 0 to 63 do
                Begin
-                    Memo1.Append(IntToStr(isyms[i-1]));
-                    qrgset[i] := IntToStr(isyms[i-1]);
+                    qrgset[i] := IntToStr(isyms[i]);
+                    Memo1.Append(qrgset[i]);
                end;
                txDirty := True;  // Flag to force an update to the FSK TX
                //function TForm1.rebelCommand(const cmd : String; const value : String; const ltx : Array of String; var error : String) : Boolean;
@@ -4637,18 +4473,18 @@ begin
                //isyms         : Array[0..62] Of CTypes.cint;
                //ssyms         : Array[0..62] Of String;
                // So.... tone 0 (sync) = Dial QRG + 1270.5
-               baseTX := 1270.5;
+               //baseTX := 1270.5;
                // Now add the dial QRG
-               tf := StrToFloat(edDialQRG.Text);
-               if tf > 10200000.0 Then tf := tf - 14000000.0 else tf := tf - 7000000.0;
+               //tf := StrToFloat(edDialQRG.Text);
+               //if tf > 10200000.0 Then tf := tf - 14000000.0 else tf := tf - 7000000.0;
                //tf := tf + 0.002;
                // Now add the DF
-               baseTX := baseTX+tf+txdf;
+               //baseTX := baseTX+tf+txdf;
                //Memo1.Clear;
                //Memo1.Append('Sync at:  ' + FloatToStrF(baseTX,ffFixed,9,1));
-               tf := StrToFloat(edDialQRG.Text);
-               if tf > 10200000.0 Then sbasetx := '140' + FloatToStrF(baseTX,ffFixed,9,1) else sbasetx := '70' + FloatToStrF(baseTX,ffFixed,9,1);
-               sbasetx := ExtractWord(1,sbasetx,['.']) + ExtractWord(2,sbasetx,['.']);
+               //tf := StrToFloat(edDialQRG.Text);
+               //if tf > 10200000.0 Then sbasetx := '140' + FloatToStrF(baseTX,ffFixed,9,1) else sbasetx := '70' + FloatToStrF(baseTX,ffFixed,9,1);
+               //sbasetx := ExtractWord(1,sbasetx,['.']) + ExtractWord(2,sbasetx,['.']);
                //tf := txdf*1.0;
                //baseTX := baseTX + tf;
                // Have the sync RF carrier QRG - can now create the data values
@@ -4662,31 +4498,31 @@ begin
                // Remember a symbol can range from 0...63 as it's a 6 bit value.
                // Starting this by creating an array of the audio tone values (will simplify later - this will
                // be easier to debug though)
-               for i := 0 to 62 do
-               begin
-                    fsyms[i] := 0.0;
-                    isyms[i] := 0;
-                    isymsL[i] := 0;
-                    isymsR[i] := 0;
-                    ssyms[i] := '';
-                    ssymsL[i] := '';
-                    ssymsR[i] := '';
-               end;
-               for i := 0 to 62 do
-               begin
+               //for i := 0 to 62 do
+               //begin
+               //     fsyms[i] := 0.0;
+               //     isyms[i] := 0;
+               //     isymsL[i] := 0;
+               //     isymsR[i] := 0;
+               //     ssyms[i] := '';
+               //     ssymsL[i] := '';
+               //     ssymsR[i] := '';
+               //end;
+               //for i := 0 to 62 do
+               //begin
                     // computing 63 audio frequency values from tsyms[i] into fsyms[i]
-                    fsyms[i] := baseTX + (2.6917 * (tsyms[i]+2));
-               end;
+                    //fsyms[i] := baseTX + (2.6917 * (tsyms[i]+2));
+               //end;
                // Have the audio tones - now add the RF
                //for i := 0 to 62 do
                //begin
                //     fsyms[i] := fsyms[i] + StrToFloat(edDialQRG.Text);
                //end;
                // Have carrier frequencies - now DF adjust
-               for i := 0 to 62 do
-               begin
-                    fsyms[i] := fsyms[i] + (txdf/1.0);
-               end;
+               //for i := 0 to 62 do
+               //begin
+                    //fsyms[i] := fsyms[i] + (txdf/1.0);
+               //end;
                // This should be the real carrier frequencies we need to TX --- emphasis on should :)
                // Lets get rid of MHz
                //for i := 0 to 62 do
@@ -4696,119 +4532,119 @@ begin
                // Okies - have just the KHz portion now and I want that down to one fractional resolution BUT
                // after too many years of this I DO NOT TRUST Laz/FPC or anything else to do it right. :(
                // Step one - floats to strings
-               for i := 0 to 62 do
-               begin
-                    ssyms[i] := FloatToStrF(fsyms[i],ffFixed,8,4);
-               end;
+               //for i := 0 to 62 do
+               //begin
+                    //ssyms[i] := FloatToStrF(fsyms[i],ffFixed,8,4);
+               //end;
                // Now I ****should**** have a series of strings like 77275.8834 77445.4605 etc
                // I want to end up with 77275.9 and 77445.5 for the above :)
                // Ok - first things first - let me be absolutely sure I'm dealing with nothing but ###.####
                // no blasted , as decimal or otherwise present.
-               for i := 0 to 62 do
-               begin
-                    If AnsiContainsText(ssyms[i],',') Then
-                    Begin
-                         // Decimal is , split accordingly
-                         ssymsL[i] := ExtractWord(1,ssyms[i],[',']);
-                         ssymsR[i] := ExtractWord(2,ssyms[i],[',']);
-                         j := i;
-                    end;
-                    If AnsiContainsText(ssyms[i],'.') Then
-                    Begin
-                         // Decimal is . split accordingly
-                         ssymsL[i] := ExtractWord(1,ssyms[i],['.']);
-                         ssymsR[i] := ExtractWord(2,ssyms[i],['.']);
-                         j := i;
-                    end;
-                    If AnsiContainsText(ssyms[i],',') And AnsiContainsText(ssyms[i],'.') Then
-                    Begin
-                         // EXPLODE CUSS AND KICK
-                         j := i;
-                    end;
-               end;
-               // Start conversion to integer format
-               for i := 0 to 62 do
-               begin
-                    isymsL[i] := StrToInt(ssymsL[i]);
-                    if length(ssymsR[i]) = 4 Then
-                    Begin
-                         j := StrToInt(ssymsR[i][4]);
-                         if j>5 Then k := 1 else k := 0;
-                         j := StrToInt(ssymsR[i][3]);
-                         j := j+k;
-                         if j>5 Then k := 1 else k := 0;
-                         j := StrToInt(ssymsR[i][2]);
-                         j := j+k;
-                         if j>5 Then k := 1 else k := 0;
-                         j := StrToInt(ssymsR[i][1]);
-                         j := j+k;
-                         if j > 9 then
-                         Begin
-                              inc(isymsL[i]);
-                              j := 0;
-                         end;
-                         isymsR[i] := j;
-                    end;
-                    if length(ssymsR[i]) = 3 Then
-                    Begin
-                         j := StrToInt(ssymsR[i][3]);
-                         if j>5 Then k := 1 else k := 0;
-                         j := StrToInt(ssymsR[i][2]);
-                         j := j+k;
-                         if j>5 Then k := 1 else k := 0;
-                         j := StrToInt(ssymsR[i][1]);
-                         j := j+k;
-                         if j > 9 then
-                         Begin
-                              inc(isymsL[i]);
-                              j := 0;
-                         end;
-                         isymsR[i] := j;
-                    end;
-                    if length(ssymsR[i]) = 2 Then
-                    Begin
-                         j := StrToInt(ssymsR[i][2]);
-                         if j>5 Then k := 1 else k := 0;
-                         j := StrToInt(ssymsR[i][1]);
-                         j := j+k;
-                         if j > 9 then
-                         Begin
-                              inc(isymsL[i]);
-                              j := 0;
-                         end;
-                         isymsR[i] := j;
-
-                    end;
-                    if length(ssymsR[i]) = 1 Then
-                    Begin
-                         // Nothing
-                    end;
-               end;
-               // Ok - I think I now have what I need
-               for i := 0 to 62 do
-               begin
-                    ssyms[i] := IntToStr(isymsL[i])+IntToStr(isymsR[i]);
-                    isyms[i] := StrToInt(ssyms[i]);
-               end;
-               i := 0;
-               // Need to think of a sanity check here... given typical usage I should be able to define a range of isyms value that makes sense.
-               // 752705 (14075 Dial -1K DF - 200) 750705 --- call it 750000
-               // 792705 (14077 Dial +1K DF + 200) 794705 --- call it 795000
-               // I ***do not*** intend to leave this since it would hard limit the program to running at 7075000 ... 7077000 or 14075000 ... 14077000
                //for i := 0 to 62 do
                //begin
-                    //if (isyms[i] < 750000) or (isyms[i] > 795000) Then ShowMessage('FSK QRG Range oddity at symbol ' + IntToStr(i) + ' for ' + IntToStr(isyms[i]));
+               //     If AnsiContainsText(ssyms[i],',') Then
+               //     Begin
+               //          // Decimal is , split accordingly
+               //          ssymsL[i] := ExtractWord(1,ssyms[i],[',']);
+               //          ssymsR[i] := ExtractWord(2,ssyms[i],[',']);
+               //          j := i;
+               //     end;
+               //     If AnsiContainsText(ssyms[i],'.') Then
+               //     Begin
+               //          // Decimal is . split accordingly
+               //          ssymsL[i] := ExtractWord(1,ssyms[i],['.']);
+               //          ssymsR[i] := ExtractWord(2,ssyms[i],['.']);
+               //          j := i;
+               //     end;
+               //     If AnsiContainsText(ssyms[i],',') And AnsiContainsText(ssyms[i],'.') Then
+               //     Begin
+               //          // EXPLODE CUSS AND KICK
+               //          j := i;
+               //     end;
                //end;
-               Memo1.Append('LTX');
-               Memo1.Append(sbasetx);
-               for i := 0 to 63 do qrgset[i] := '';
-               qrgset[0] := sbasetx;
-               for i := 1 to 63 do
-               Begin
-                    Memo1.Append(IntToStr(isyms[i-1]));
-                    qrgset[i] := IntToStr(isyms[i-1]);
-               end;
-               txDirty := True;  // Flag to force an update to the FSK TX
+               //// Start conversion to integer format
+               //for i := 0 to 62 do
+               //begin
+               //     isymsL[i] := StrToInt(ssymsL[i]);
+               //     if length(ssymsR[i]) = 4 Then
+               //     Begin
+               //          j := StrToInt(ssymsR[i][4]);
+               //          if j>5 Then k := 1 else k := 0;
+               //          j := StrToInt(ssymsR[i][3]);
+               //          j := j+k;
+               //          if j>5 Then k := 1 else k := 0;
+               //          j := StrToInt(ssymsR[i][2]);
+               //          j := j+k;
+               //          if j>5 Then k := 1 else k := 0;
+               //          j := StrToInt(ssymsR[i][1]);
+               //          j := j+k;
+               //          if j > 9 then
+               //          Begin
+               //               inc(isymsL[i]);
+               //               j := 0;
+               //          end;
+               //          isymsR[i] := j;
+               //     end;
+               //     if length(ssymsR[i]) = 3 Then
+               //     Begin
+               //          j := StrToInt(ssymsR[i][3]);
+               //          if j>5 Then k := 1 else k := 0;
+               //          j := StrToInt(ssymsR[i][2]);
+               //          j := j+k;
+               //          if j>5 Then k := 1 else k := 0;
+               //          j := StrToInt(ssymsR[i][1]);
+               //          j := j+k;
+               //          if j > 9 then
+               //          Begin
+               //               inc(isymsL[i]);
+               //               j := 0;
+               //          end;
+               //          isymsR[i] := j;
+               //     end;
+               //     if length(ssymsR[i]) = 2 Then
+               //     Begin
+               //          j := StrToInt(ssymsR[i][2]);
+               //          if j>5 Then k := 1 else k := 0;
+               //          j := StrToInt(ssymsR[i][1]);
+               //          j := j+k;
+               //          if j > 9 then
+               //          Begin
+               //               inc(isymsL[i]);
+               //               j := 0;
+               //          end;
+               //          isymsR[i] := j;
+               //
+               //     end;
+               //     if length(ssymsR[i]) = 1 Then
+               //     Begin
+               //          // Nothing
+               //     end;
+               //end;
+               //// Ok - I think I now have what I need
+               //for i := 0 to 62 do
+               //begin
+               //     ssyms[i] := IntToStr(isymsL[i])+IntToStr(isymsR[i]);
+               //     isyms[i] := StrToInt(ssyms[i]);
+               //end;
+               //i := 0;
+               //// Need to think of a sanity check here... given typical usage I should be able to define a range of isyms value that makes sense.
+               //// 752705 (14075 Dial -1K DF - 200) 750705 --- call it 750000
+               //// 792705 (14077 Dial +1K DF + 200) 794705 --- call it 795000
+               //// I ***do not*** intend to leave this since it would hard limit the program to running at 7075000 ... 7077000 or 14075000 ... 14077000
+               ////for i := 0 to 62 do
+               ////begin
+               //     //if (isyms[i] < 750000) or (isyms[i] > 795000) Then ShowMessage('FSK QRG Range oddity at symbol ' + IntToStr(i) + ' for ' + IntToStr(isyms[i]));
+               ////end;
+               //Memo1.Append('LTX');
+               //Memo1.Append(sbasetx);
+               //for i := 0 to 63 do qrgset[i] := '';
+               //qrgset[0] := sbasetx;
+               //for i := 1 to 63 do
+               //Begin
+               //     Memo1.Append(IntToStr(isyms[i-1]));
+               //     qrgset[i] := IntToStr(isyms[i-1]);
+               //end;
+               //txDirty := True;  // Flag to force an update to the FSK TX
                //gSamps(CTypes.pcint(@i),CTypes.pcint(@tsyms),CTypes.pcint(@shmsg),CTypes.pcint16(@samples[11025]),CTypes.pcint(@nsamps),CTypes.pcint(@plevel));
           end;
      end;
@@ -4861,6 +4697,23 @@ begin
      //          ListBox1.Items.Add('Demodulator returns False');
      //     end;
      //end;
+end;
+
+function TForm1.rebelTuning(const f : CTypes.cdouble) : CTypes.cuint32;
+var
+   i : CTypes.cuint32;
+   fi : CTypes.cdouble;
+Begin
+     fi := f;
+     i := Round(f*(268435456/49999750));
+     if i > 268435455 Then
+     Begin
+          result := 0;
+     end
+     else
+     begin
+          result := i;
+     end;
 end;
 
 procedure TForm1.txControlClick(Sender: TObject);

@@ -57,7 +57,7 @@
         <PackageName Value="LCL"/>
       </Item6>
     </RequiredPackages>
-    <Units Count="20">
+    <Units Count="19">
       <Unit0>
         <Filename Value="project1.lpr"/>
         <IsPartOfProject Value="True"/>
@@ -76,20 +76,21 @@
         <HasResources Value="True"/>
         <ResourceBaseClass Value="Form"/>
         <UnitName Value="Unit1"/>
+        <IsVisibleTab Value="True"/>
         <EditorIndex Value="0"/>
         <WindowIndex Value="0"/>
-        <TopLine Value="1"/>
-        <CursorPos X="1" Y="1"/>
+        <TopLine Value="4409"/>
+        <CursorPos X="89" Y="4428"/>
         <UsageCount Value="200"/>
         <Bookmarks Count="8">
-          <Item0 X="1" Y="4311" ID="6"/>
+          <Item0 X="1" Y="4312" ID="6"/>
           <Item1 X="1" Y="374" ID="8"/>
-          <Item2 X="1" Y="3488" ID="4"/>
-          <Item3 X="1" Y="3632" ID="5"/>
-          <Item4 X="11" Y="5208" ID="3"/>
-          <Item5 X="1" Y="1399" ID="1"/>
-          <Item6 X="42" Y="4569" ID="2"/>
-          <Item7 X="6" Y="1574" ID="0"/>
+          <Item2 X="1" Y="3489" ID="4"/>
+          <Item3 X="1" Y="3633" ID="5"/>
+          <Item4 X="11" Y="5061" ID="3"/>
+          <Item5 X="1" Y="1400" ID="1"/>
+          <Item6 X="1" Y="4430" ID="2"/>
+          <Item7 X="6" Y="1575" ID="0"/>
         </Bookmarks>
         <Loaded Value="True"/>
         <LoadedDesigner Value="True"/>
@@ -98,11 +99,10 @@
         <Filename Value="adc.pas"/>
         <IsPartOfProject Value="True"/>
         <UnitName Value="adc"/>
-        <IsVisibleTab Value="True"/>
         <EditorIndex Value="11"/>
         <WindowIndex Value="0"/>
-        <TopLine Value="359"/>
-        <CursorPos X="97" Y="395"/>
+        <TopLine Value="114"/>
+        <CursorPos X="1" Y="126"/>
         <UsageCount Value="200"/>
         <Loaded Value="True"/>
       </Unit2>
@@ -143,7 +143,7 @@
         <WindowIndex Value="0"/>
         <TopLine Value="1"/>
         <CursorPos X="31" Y="49"/>
-        <UsageCount Value="33"/>
+        <UsageCount Value="32"/>
       </Unit6>
       <Unit7>
         <Filename Value="spectrum.pas"/>
@@ -198,8 +198,8 @@
         <UnitName Value="demodulate"/>
         <EditorIndex Value="10"/>
         <WindowIndex Value="0"/>
-        <TopLine Value="1350"/>
-        <CursorPos X="1" Y="1367"/>
+        <TopLine Value="1360"/>
+        <CursorPos X="1" Y="1375"/>
         <UsageCount Value="252"/>
         <Loaded Value="True"/>
       </Unit11>
@@ -231,166 +231,158 @@
         <WindowIndex Value="0"/>
         <TopLine Value="241"/>
         <CursorPos X="3" Y="259"/>
-        <UsageCount Value="5"/>
+        <UsageCount Value="4"/>
       </Unit14>
       <Unit15>
         <Filename Value="C:\lazarus\fpc\2.6.2\source\rtl\inc\systemh.inc"/>
         <WindowIndex Value="0"/>
         <TopLine Value="896"/>
         <CursorPos X="11" Y="914"/>
-        <UsageCount Value="14"/>
+        <UsageCount Value="13"/>
       </Unit15>
       <Unit16>
         <Filename Value="C:\lazarus\fpc\2.6.2\source\rtl\objpas\sysutils\osutilsh.inc"/>
         <WindowIndex Value="0"/>
         <TopLine Value="5"/>
         <CursorPos X="10" Y="33"/>
-        <UsageCount Value="5"/>
+        <UsageCount Value="4"/>
       </Unit16>
       <Unit17>
-        <Filename Value="..\..\..\Desktop\synalist-code-185-trunk\synaser.pas"/>
-        <UnitName Value="synaser"/>
-        <WindowIndex Value="0"/>
-        <TopLine Value="201"/>
-        <CursorPos X="10" Y="227"/>
-        <UsageCount Value="1"/>
-      </Unit17>
-      <Unit18>
         <Filename Value="C:\lazarus\fpc\2.6.2\source\rtl\objpas\classes\classesh.inc"/>
         <WindowIndex Value="0"/>
         <TopLine Value="744"/>
         <CursorPos X="14" Y="761"/>
-        <UsageCount Value="53"/>
-      </Unit18>
-      <Unit19>
+        <UsageCount Value="52"/>
+      </Unit17>
+      <Unit18>
         <Filename Value="synaser.pas"/>
         <UnitName Value="synaser"/>
         <WindowIndex Value="0"/>
         <TopLine Value="94"/>
         <CursorPos X="1" Y="131"/>
-        <UsageCount Value="52"/>
-      </Unit19>
+        <UsageCount Value="51"/>
+      </Unit18>
     </Units>
     <JumpHistory Count="30" HistoryIndex="29">
       <Position1>
-        <Filename Value="spot.pas"/>
-        <Caret Line="294" Column="161" TopLine="275"/>
+        <Filename Value="unit1.pas"/>
+        <Caret Line="4433" Column="1" TopLine="4413"/>
       </Position1>
       <Position2>
-        <Filename Value="spot.pas"/>
-        <Caret Line="241" Column="156" TopLine="222"/>
+        <Filename Value="unit1.pas"/>
+        <Caret Line="4727" Column="1" TopLine="4708"/>
       </Position2>
       <Position3>
         <Filename Value="unit1.pas"/>
-        <Caret Line="2" Column="5" TopLine="1"/>
+        <Caret Line="4433" Column="1" TopLine="4416"/>
       </Position3>
       <Position4>
-        <Filename Value="spot.pas"/>
-        <Caret Line="122" Column="1" TopLine="120"/>
+        <Filename Value="unit1.pas"/>
+        <Caret Line="4432" Column="1" TopLine="4416"/>
       </Position4>
       <Position5>
-        <Filename Value="spot.pas"/>
-        <Caret Line="241" Column="165" TopLine="210"/>
+        <Filename Value="unit1.pas"/>
+        <Caret Line="4433" Column="1" TopLine="4416"/>
       </Position5>
       <Position6>
-        <Filename Value="spot.pas"/>
-        <Caret Line="136" Column="10" TopLine="117"/>
+        <Filename Value="unit1.pas"/>
+        <Caret Line="4727" Column="1" TopLine="4708"/>
       </Position6>
       <Position7>
-        <Filename Value="spot.pas"/>
-        <Caret Line="108" Column="23" TopLine="90"/>
+        <Filename Value="unit1.pas"/>
+        <Caret Line="4431" Column="38" TopLine="4416"/>
       </Position7>
       <Position8>
-        <Filename Value="spot.pas"/>
-        <Caret Line="136" Column="27" TopLine="105"/>
+        <Filename Value="unit1.pas"/>
+        <Caret Line="4433" Column="1" TopLine="4416"/>
       </Position8>
       <Position9>
-        <Filename Value="spot.pas"/>
-        <Caret Line="241" Column="21" TopLine="228"/>
+        <Filename Value="unit1.pas"/>
+        <Caret Line="4727" Column="1" TopLine="4708"/>
       </Position9>
       <Position10>
-        <Filename Value="spot.pas"/>
-        <Caret Line="1" Column="53" TopLine="1"/>
+        <Filename Value="unit1.pas"/>
+        <Caret Line="4723" Column="1" TopLine="4707"/>
       </Position10>
       <Position11>
         <Filename Value="unit1.pas"/>
-        <Caret Line="1093" Column="82" TopLine="1075"/>
+        <Caret Line="4666" Column="1" TopLine="4637"/>
       </Position11>
       <Position12>
         <Filename Value="unit1.pas"/>
-        <Caret Line="14" Column="63" TopLine="1"/>
+        <Caret Line="4720" Column="27" TopLine="4702"/>
       </Position12>
       <Position13>
         <Filename Value="unit1.pas"/>
-        <Caret Line="1674" Column="23" TopLine="1646"/>
+        <Caret Line="426" Column="50" TopLine="402"/>
       </Position13>
       <Position14>
         <Filename Value="unit1.pas"/>
-        <Caret Line="2126" Column="1" TopLine="2105"/>
+        <Caret Line="4433" Column="1" TopLine="4415"/>
       </Position14>
       <Position15>
-        <Filename Value="demodulate.pas"/>
-        <Caret Line="1528" Column="23" TopLine="1515"/>
+        <Filename Value="unit1.pas"/>
+        <Caret Line="4727" Column="1" TopLine="4708"/>
       </Position15>
       <Position16>
-        <Filename Value="demodulate.pas"/>
-        <Caret Line="1614" Column="16" TopLine="1461"/>
+        <Filename Value="unit1.pas"/>
+        <Caret Line="4432" Column="1" TopLine="4416"/>
       </Position16>
       <Position17>
-        <Filename Value="adc.pas"/>
-        <Caret Line="175" Column="1" TopLine="159"/>
+        <Filename Value="unit1.pas"/>
+        <Caret Line="4433" Column="1" TopLine="4416"/>
       </Position17>
       <Position18>
-        <Filename Value="adc.pas"/>
-        <Caret Line="169" Column="6" TopLine="156"/>
+        <Filename Value="unit1.pas"/>
+        <Caret Line="4727" Column="1" TopLine="4708"/>
       </Position18>
       <Position19>
-        <Filename Value="demodulate.pas"/>
-        <Caret Line="1386" Column="7" TopLine="1625"/>
+        <Filename Value="unit1.pas"/>
+        <Caret Line="4434" Column="1" TopLine="4416"/>
       </Position19>
       <Position20>
-        <Filename Value="demodulate.pas"/>
-        <Caret Line="1388" Column="52" TopLine="1364"/>
+        <Filename Value="unit1.pas"/>
+        <Caret Line="4324" Column="1" TopLine="4322"/>
       </Position20>
       <Position21>
-        <Filename Value="demodulate.pas"/>
-        <Caret Line="1380" Column="36" TopLine="1361"/>
+        <Filename Value="unit1.pas"/>
+        <Caret Line="4325" Column="1" TopLine="4306"/>
       </Position21>
       <Position22>
-        <Filename Value="demodulate.pas"/>
-        <Caret Line="1382" Column="29" TopLine="1377"/>
+        <Filename Value="unit1.pas"/>
+        <Caret Line="4345" Column="1" TopLine="4322"/>
       </Position22>
       <Position23>
-        <Filename Value="adc.pas"/>
-        <Caret Line="297" Column="1" TopLine="273"/>
+        <Filename Value="unit1.pas"/>
+        <Caret Line="1" Column="1" TopLine="1"/>
       </Position23>
       <Position24>
-        <Filename Value="adc.pas"/>
-        <Caret Line="187" Column="46" TopLine="166"/>
+        <Filename Value="unit1.pas"/>
+        <Caret Line="541" Column="9" TopLine="510"/>
       </Position24>
       <Position25>
-        <Filename Value="demodulate.pas"/>
-        <Caret Line="1378" Column="55" TopLine="1364"/>
+        <Filename Value="unit1.pas"/>
+        <Caret Line="4325" Column="31" TopLine="4308"/>
       </Position25>
       <Position26>
-        <Filename Value="adc.pas"/>
-        <Caret Line="186" Column="1" TopLine="172"/>
+        <Filename Value="unit1.pas"/>
+        <Caret Line="4404" Column="36" TopLine="4374"/>
       </Position26>
       <Position27>
-        <Filename Value="adc.pas"/>
-        <Caret Line="239" Column="27" TopLine="219"/>
+        <Filename Value="unit1.pas"/>
+        <Caret Line="4407" Column="65" TopLine="4377"/>
       </Position27>
       <Position28>
-        <Filename Value="adc.pas"/>
-        <Caret Line="258" Column="16" TopLine="240"/>
+        <Filename Value="unit1.pas"/>
+        <Caret Line="4409" Column="46" TopLine="4379"/>
       </Position28>
       <Position29>
-        <Filename Value="adc.pas"/>
-        <Caret Line="162" Column="1" TopLine="153"/>
+        <Filename Value="unit1.pas"/>
+        <Caret Line="4412" Column="44" TopLine="4382"/>
       </Position29>
       <Position30>
-        <Filename Value="portaudio.pas"/>
-        <Caret Line="15" Column="27" TopLine="1"/>
+        <Filename Value="unit1.pas"/>
+        <Caret Line="4431" Column="1" TopLine="4409"/>
       </Position30>
     </JumpHistory>
   </ProjectOptions>
@@ -429,28 +421,14 @@
     </Other>
   </CompilerOptions>
   <Debugging>
-    <BreakPoints Count="3">
+    <BreakPoints Count="1">
       <Item1>
         <Kind Value="bpkSource"/>
         <WatchScope Value="wpsLocal"/>
         <WatchKind Value="wpkWrite"/>
         <Source Value="adc.pas"/>
-        <Line Value="223"/>
+        <Line Value="132"/>
       </Item1>
-      <Item2>
-        <Kind Value="bpkSource"/>
-        <WatchScope Value="wpsLocal"/>
-        <WatchKind Value="wpkWrite"/>
-        <Source Value="unit1.pas"/>
-        <Line Value="4515"/>
-      </Item2>
-      <Item3>
-        <Kind Value="bpkSource"/>
-        <WatchScope Value="wpsLocal"/>
-        <WatchKind Value="wpkWrite"/>
-        <Source Value="demodulate.pas"/>
-        <Line Value="1652"/>
-      </Item3>
     </BreakPoints>
     <Exceptions Count="5">
       <Item1>

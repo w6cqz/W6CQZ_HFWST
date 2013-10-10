@@ -406,8 +406,8 @@ object Form1: TForm1
     Height = 216
     Top = 35
     Width = 747
-    ActivePage = TabSheet1
-    TabIndex = 0
+    ActivePage = TabSheet9
+    TabIndex = 9
     TabOrder = 6
     Visible = False
     OnChange = PageControlChange

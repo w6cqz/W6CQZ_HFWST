@@ -1352,7 +1352,7 @@ begin
           dmlastraw[i]      := '';
      end;
      dmdecodecount := 0;
-     rawcount := 0; // Index for saving raw decoder outputs
+     rawcount := 1; // Index for saving raw decoder outputs
 
      // Setup temporary spaces
      setLength(glInBuffer,661504);
@@ -1375,7 +1375,7 @@ begin
      // From this point on f1Buffer becomes sole sample holder.
      // Figure average level
      // Copy buffer
-     for i := 0 to jz do glf1Buffer[i] := samps[i]*0.25; // Guessing - may be a huge mistake!
+     for i := 0 to jz do glf1Buffer[i] := samps[i]; // Guessing - may be a huge mistake!
      sq := 0.0;
      for i := 0 to jz do
      begin
@@ -1384,7 +1384,11 @@ begin
      end;
      avesq := sq/jz;
      basevb := db(avesq) - 44;
-     if (avesq <> 0.0) And (basevb > -16.0) And (basevb < 21.0) Then
+     // Interesting... got a basevb < -16.0 with a reasonably strong signal mixtures
+     // { TODO : Watch this }
+     // I think I'll make it -21 for basevb but revert to -16 if it blows up
+     dmlastraw[0] := 'basevb=' + FormatFloat('0.0',basevb) + ' avesq=' + formatfloat('0.0',avesq);
+     if (avesq <> 0.0) And (basevb > -21.0) And (basevb < 21.0) Then
      Begin
           set65;
           // Run msync
@@ -1479,8 +1483,10 @@ begin
                     dmlastraw[rawcount] := IntToStr(i) + ' bf ';
                     //ListBox2.Items.Insert(0,'Decode at Center DF = ' + IntToStr(i) + ' for bin = ' + IntToStr(j));
                     // Copy lpfM to f3Buffer
-                    for k := 0 to jz2 do glf3Buffer[k] := gllpfM[k];
-                    for k := jz2+1 to 661503 do glf3Buffer[k] := 0.0;
+                    // Do I really need to do this?  About to find out.
+                    { TODO : Monitor that not recopying this each pass really is a good thing... seems so. }
+                    //for k := 0 to jz2 do glf3Buffer[k] := gllpfM[k];
+                    //for k := jz2+1 to 661503 do glf3Buffer[k] := 0.0;
                     // Call decoder
                     for k := 0 to 62 do
                     begin
@@ -1613,7 +1619,6 @@ begin
                end;
                inc(j);
                i := i + bw;
-
           end;
 
           if clearList.Count > 0 Then
@@ -1649,6 +1654,7 @@ begin
      End
      Else
      Begin
+          dmlastraw[0] := 'Signal range issue.';
           Result := False;
      End;
      //if decCount = 0 Then

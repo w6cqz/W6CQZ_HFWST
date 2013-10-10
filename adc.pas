@@ -21,55 +21,6 @@ uses
                        inputDevice: Pointer): Integer; cdecl;
 
 Const
-  //// 19 pole butterworth LPF - good for < ~2.5KHz (this is an IIR type)
-  //LACoef : array[0..19] of CTypes.cfloat =
-  //      (
-  //      0.00001939180997620892,
-  //      0.00036844438954796945,
-  //      0.00331599950593172540,
-  //      0.01879066386694644400,
-  //      0.07516265546778577700,
-  //      0.22548796640335733000,
-  //      0.52613858827450044000,
-  //      0.97711452108121499000,
-  //      1.46567178162182250000,
-  //      1.79137662198222760000,
-  //      1.79137662198222760000,
-  //      1.46567178162182250000,
-  //      0.97711452108121499000,
-  //      0.52613858827450044000,
-  //      0.22548796640335733000,
-  //      0.07516265546778577700,
-  //      0.01879066386694644400,
-  //      0.00331599950593172540,
-  //      0.00036844438954796945,
-  //      0.00001939180997620892
-  //      );
-  //
-  //LBCoef : array[0..19] of CTypes.cfloat =
-  //      (
-  //      1.00000000000000000000,
-  //      0.30124524681121684000,
-  //      2.62368718667596430000,
-  //      0.68183386600980578000,
-  //      2.71043558836035330000,
-  //      0.59957920836218892000,
-  //      1.42524899306136610000,
-  //      0.26375059355045877000,
-  //      0.41246083660156979000,
-  //      0.06237667312611505600,
-  //      0.06644496002297710400,
-  //      0.00794483191686967340,
-  //      0.00575615778774987010,
-  //      0.00051759803100776295,
-  //      0.00024561616410988675,
-  //      0.00001526235709911922,
-  //      0.00000429882913347158,
-  //      0.00000015515020059209,
-  //      0.00000001973933115243,
-  //      0.00000000023001431849
-  //      );
-
   // 19 pole butterworth LPF - good for CO = 1/4 SR = 2756 [Optimal design] (this is an IIR type)
   LACoef : array[0..19] of CTypes.cfloat =
         (
@@ -94,7 +45,6 @@ Const
         0.00028593562811789571,
         0.00001504924358515241
         );
-
   LBCoef : array[0..19] of CTypes.cfloat =
         (
         1.00000000000000000000,
@@ -118,31 +68,13 @@ Const
         0.00000001784290450798,
         -0.00000000000127108861
         );
-
-
-  // 3 pole butterworth HPF - good for > ~400Hz (This is an IIR type)
-  HACoef : array[0..3] of CTypes.cfloat =
-      (
-      0.79309546371795214000,
-      -2.37928639115385640000,
-      2.37928639115385640000,
-      -0.79309546371795214000
-      );
-  HBCoef : array[0..3] of CTypes.cfloat =
-      (
-      1.00000000000000000000,
-      -2.54502682052873870000,
-      2.18780625843708300000,
-      -0.63322898404546324000
-      );
-
 Var
    d65rxFBuffer    : Packed Array[0..661503] of CTypes.cfloat;   // Frame sample buffer
    adclast2k1      : Packed Array[0..2047] of CTypes.cint16;     // For computing audio levels
    adclast2k2      : Packed Array[0..2047] of CTypes.cint16;
    adclast4k1      : Packed Array[0..4095] of CTypes.cint16;     // For computing spectrum
    adclast4k2      : Packed Array[0..4095] of CTypes.cint16;
-   l1x,l1y,h1x,h1y : Array[0..19] of CTypes.cfloat;              // IIR accumulators
+   l1x,l1y         : Array[0..19] of CTypes.cfloat;              // IIR accumulators
    d65rxBufferIdx  : Integer;
    adcChan         : Integer;  // 1 = Left, 2 = Right
    adcFirst        : Boolean;  // Flag so I can init some things on first call to this
@@ -161,31 +93,8 @@ implementation
 
 function bpf(input : CTypes.cfloat) : CTypes.Cfloat;
 Var
-   hf          : CTypes.cfloat;
    k : Integer;
 Begin
-     // Dropping HPF seems to have helped bring decoder back closer to old wsjt
-     // standards.  Watching closely.  It seems to help but still not as solid
-     // as the old implementation.
-     // HPF 3rd order also converts int16 to float
-     // Shift old samples in x[] and y[]
-     //for k := 3 downto 1 do
-     //begin
-     //     h1x[k] := h1x[k-1];
-     //     h1y[k] := h1y[k-1];
-     //end;
-     // Calculate new sample
-     //h1x[0] := input;
-     //h1y[0] := HACoef[0] * h1x[0];
-
-     //for k := 0 to 3 do
-     //begin
-     //     h1y[0] := h1y[0] + ((HACoef[k] * h1x[k]) - (HBCoef[k] * h1y[k]));
-     //end;
-     //hf := h1y[0];
-     hf := input;
-//     hf := input*0.1; // Maybe a bad idea....
-
      // LPF 19th order
      // Shift old samples in x[] and y[]
      for k := 19 downto 1 do
@@ -194,7 +103,7 @@ Begin
           l1y[k] := l1y[k-1];
      end;
      // Calculate new sample
-     l1x[0] := hf;
+     l1x[0] := input;
      l1y[0] := LACoef[0] * l1x[0];
      for k := 0 to 19 do
      begin
@@ -213,8 +122,8 @@ Var
    tempInt1    : smallint;
    tempInt2    : smallint;
    localIdx    : Integer;
-   tAr1,tAr2   : Array[0..63] of CTypes.cfloat;
-   tAr1i,tAr2i : Array[0..63] of CTypes.cint16;
+   tAr1,tAr2   : Array[0..2047] of CTypes.cfloat; // Setting these to 2K even though I'm only (now) using 64
+   tAr1i,tAr2i : Array[0..2047] of CTypes.cint16; // This is more ecnomical than dynamically allocating/deallocating.
    sum,ave     : CTypes.cfloat;
 Begin
      Try
@@ -222,16 +131,16 @@ Begin
         Begin
              inc(adcECount);  // Looking for any recursive calls to this - i.e. overruns.
         end;
+        // Get count of samples to process (doing this early so I can set the array lengths on first pass
+        z := framecount;
         if adcFirst Then
         Begin
              for i := 0 to 19 do
              begin
                   l1x[i] := 0.0;
-                  h1x[i] := 0.0;
                   l1y[i] := 0.0;
-                  h1y[i] := 0.0;
              end;
-             for i := 0 to 63 do
+             for i := 0 to z-1 do
              begin
                   tAr1[i] := 0.0;
                   tAr2[i] := 0.0;
@@ -245,14 +154,13 @@ Begin
         inptr := input;
         localIdx := d65rxBufferIdx;
         // Now I need to copy the frames to real rx buffer
-        z := framecount;
         // Don't get confused remembering OLD OLD things - framecount is now 64 samples per callback NOT 2048 :)
         // By the way.... at 64 samples per frame (11025 S/S) this routine is called every ~5.805 mS best not
         // get too greedy here doing things.
         lpidx := 0;
         tempInt1 := 0;
         tempInt2 := 0;
-        for i := 1 to z do
+        for i := 0 to z-1 do
         begin
              // Reading in the interger samples to a temporary processing/conversion buffer(s)
              // Still preserving (for now) a copy of integer value for AU and spectrum routines.
@@ -261,8 +169,8 @@ Begin
              Begin
                   tempInt1 := inptr^;
                   inc(inptr);
-                  tAr1[i-1] := tempInt1;
-                  tAr1i[i-1] := tempInt1;
+                  tAr1[i] := tempInt1;
+                  tAr1i[i] := tempInt1;
              end
              else
              begin
@@ -272,10 +180,10 @@ Begin
                   inc(inptr);
                   tempint1 := min(32766,max(-32766,tempInt1));
                   tempint2 := min(32766,max(-32766,tempInt2));
-                  tAr1[i-1] := tempInt1;
-                  tAr2[i-1] := tempInt2;
-                  tAr1i[i-1] := tempInt1;
-                  tAr2i[i-1] := tempInt1;
+                  tAr1[i] := tempInt1;
+                  tAr2[i] := tempInt2;
+                  tAr1i[i] := tempInt1;
+                  tAr2i[i] := tempInt1;
              end;
         end;
         // Convert tAr1 and (if needed) tAr2 to floating point values like
@@ -284,85 +192,72 @@ Begin
         // Experiment with running LPF before this.
         // This all seems to be good stuffs... watching it closely though.
         { TODO : Monitor changes in ADC to sample conversion methods }
-
-        for i := 0 to 63 do tAr1[i] := bpf(tAr1[i]);
+        for i := 0 to z-1 do tAr1[i] := bpf(tAr1[i]);
+        // Normalize the samples and remove any DC component
         sum := 0.0;
         ave := 0;
-        for i := 0 to 63 do sum := sum + tAr1[i];
-        ave := sum/64;
-        for i := 0 to 63 do tAr1[i] := tAr1[i]-ave;
+        for i := 0 to z-1 do sum := sum + tAr1[i];
+        ave := sum/z;
+        for i := 0 to z-1 do tAr1[i] := tAr1[i]-ave;
         sum := 0.0;
         ave := 0.0;
-        for i := 0 to 63 do
+        for i := 0 to z-1 do
         Begin
              tAr1[i] := 0.1 * tAr1[i];
              sum := sum + tAr1[i];
         End;
-        ave := sum/64;
-        for i := 0 to 63 do tAr1[i] := tAr1[i]-ave;
+        ave := sum/z;
+        for i := 0 to z-1 do tAr1[i] := tAr1[i]-ave;
         if not adcMono Then
         Begin
-             // Experiment with running LPF before this.
-             for i := 0 to 63 do tAr2[i] := bpf(tAr2[i]);
-
+             for i := 0 to z-1 do tAr2[i] := bpf(tAr2[i]);
              sum := 0.0;
              ave := 0;
-             for i := 0 to 63 do sum := sum + tAr2[i];
-             ave := sum/64;
-             for i := 0 to 63 do tAr2[i] := tAr2[i]-ave;
+             for i := 0 to z-1 do sum := sum + tAr2[i];
+             ave := sum/z;
+             for i := 0 to z-1 do tAr2[i] := tAr2[i]-ave;
              sum := 0.0;
              ave := 0.0;
-             for i := 0 to 63 do
+             for i := 0 to z-1 do
              Begin
                   tAr2[i] := 0.1 * tAr2[i];
                   sum := sum + tAr2[i];
              End;
-             ave := sum/64;
-             for i := 0 to 63 do tAr2[i] := tAr2[i]-ave;
+             ave := sum/z;
+             for i := 0 to z-1 do tAr2[i] := tAr2[i]-ave;
         end;
-
-        For i := 0 to 63 do
+        // Copy out the processed callback buffer to the full period buffers
+        // and trigger audio/spectrum generation as needed.  No longer keeping
+        // a left and right buffer.  Main program feeds from d65rxFBuffer and
+        // regardless of mono, stereo left or stereo right it gets the next
+        // sample in line.
+        For i := 0 to z-1 do
         Begin
+             if localIdx > 661503 Then localIdx       := 0;
+             if localIdx > 661503 Then d65rxBufferIdx := 0;
+             if auIDX >      2047 Then auIDX          := 0;
+             if specIDX >    4095 Then specIDX        := 0;
+             // Save samples to mono buffer (1) or left if not running in mono samples mode
+             d65rxFBuffer[localIdx] := tAr1[i]; // Left or mono
              if adcMono Then
              Begin
-               if localIdx > 661503 Then localIdx       := 0;
-               if localIdx > 661503 Then d65rxBufferIdx := 0;
-               if auIDX >      2047 Then auIDX          := 0;
-               if specIDX >    4095 Then specIDX        := 0;
-               // Save samples to mono buffer (1)
-               //d65rxFBuffer[localIdx] := bpf(tAr1[i]);
-               // Experimenting with LPF before vs after FP conversion
-               d65rxFBuffer[localIdx] := tAr1[i]; // Left
-               if not haveAU Then
-               Begin
-                    adclast2k1[auIDX] := tAr1i[i];
-               end;
-               if not haveSpec Then
-               Begin
-                    adclast4k1[specIDX] := tAr1i[i];
-               end;
-               // Update index values
-               inc(d65rxBufferIdx);
-               inc(localIdx);
-               inc(auIDX);
-               inc(specIDX);
-               inc(lpidx);
-               // Flags for spectrum/audio level computations
-               if auIDX = 2048 then haveAU := True;
-               if specIDX = 4096 then haveSpec := True;
+                  // Update both streams audio level and spectrum buffers - solves an oddity
+                  // when switching for those 2 functions.
+                  if not haveAU Then
+                  Begin
+                       adclast2k1[auIDX] := tAr1i[i];
+                       adclast2k2[auIDX] := tAr1i[i]; // This is correct for a mono stream
+                  end;
+                  if not haveSpec Then
+                  Begin
+                       adclast4k1[specIDX] := tAr1i[i];
+                       adclast4k2[specIDX] := tAr1i[i]; // This is correct for a mono stream
+                  end;
              end
              else
              begin
-                  if localIdx > 661503 Then localIdx       := 0;
-                  if localIdx > 661503 Then d65rxBufferIdx := 0;
-                  if auIDX >      2047 Then auIDX          := 0;
-                  if specIDX >    4095 Then specIDX        := 0;
-                  // Save samples from selected active channel 1L or 2R
-                  //if adcChan = 1 Then d65rxFBuffer[localIdx] := bpf(tAr1[i]); // Left
-                  //if adcChan = 2 Then d65rxFBuffer[localIdx] := bpf(tAr2[i]); // Right
-                  // Experimenting with LPF before vs after FP conversion
-                  if adcChan = 1 Then d65rxFBuffer[localIdx] := tAr1[i]; // Left
-                  if adcChan = 2 Then d65rxFBuffer[localIdx] := tAr2[i]; // Right
+                  // Process for the right channel (buffer2)
+                  if adcChan = 2 Then d65rxFBuffer[localIdx] := tAr2[i]; // Right (If it's left then that was handled above)
                   // Update both streams audio level and spectrum buffers - solves an oddity
                   // when switching for those 2 functions.
                   if not haveAU Then
@@ -375,16 +270,16 @@ Begin
                        adclast4k1[specIDX] := tAr1i[i];
                        adclast4k2[specIDX] := tAr2i[i];
                   end;
-                  // Update index values
-                  inc(d65rxBufferIdx);
-                  inc(localIdx);
-                  inc(auIDX);
-                  inc(specIDX);
-                  inc(lpidx);
-                  // Flags for spectrum/audio level computations
-                  if auIDX = 2048 then haveAU := True;
-                  if specIDX = 4096 then haveSpec := True;
              end;
+             // Update index values
+             inc(d65rxBufferIdx);
+             inc(localIdx);
+             inc(auIDX);
+             inc(specIDX);
+             inc(lpidx);
+             // Flags for spectrum/audio level computations
+             if auIDX = 2048 then haveAU := True;
+             if specIDX = 4096 then haveSpec := True;
         End;
         result := paContinue;
         z := 0;
