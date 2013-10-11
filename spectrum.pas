@@ -151,7 +151,8 @@ Type
 
     RGBArray = Array[0..749] of RGBPixel;
 
-procedure computeSpectrum(Const dBuffer : Array of CTypes.cint16);
+//procedure computeSpectrum(Const dBuffer : Array of CTypes.cint16);
+procedure computeSpectrum(Const dBuffer : Array of CTypes.cfloat);
 
 function colorMap(Const integerArray : Array of LongInt; Var rgbArray : RGBArray): Boolean;
 
@@ -336,7 +337,8 @@ Begin
      globalData.audioComputing := False;
 End;
 
-procedure computeSpectrum(Const dBuffer : Array of CTypes.cint16);
+//procedure computeSpectrum(Const dBuffer : Array of CTypes.cint16);
+procedure computeSpectrum(Const dBuffer : Array of CTypes.cfloat);
 Var
    i,x,y,z,intVar,nh,nfmid,iadj,k  : CTypes.cint;
    gamma,offset,fi,df,fvar,pw1,pw2 : CTypes.cfloat;
@@ -394,49 +396,54 @@ Begin
              doSpec := False;
              globalData.specNewSpec65 := False;
              // Copy input
-             for i := 0 to 4095 do auBuff65[i] := min(32766,max(-32766,dBuffer[i]));
-             // HPF 3rd order (also converts int16 to float)
-             for i := 0 to 4095 do
-             begin
-                  // Shift old samples in x[] and y[]
-                  for k := 3 downto 1 do
-                  begin
-                       hxa[k] := hxa[k-1];
-                       hya[k] := hya[k-1];
-                  end;
-                  // Calculate new sample
-                  hxa[0] := auBuff65[i];
-                  hya[0] := HACoef[0] * hxa[0];
-                  for k := 0 to 3 do
-                  begin
-                       hya[0] := hya[0] + ((HACoef[k] * hxa[k]) - (HBCoef[k] * hya[k]));
-                  end;
-                  srealArray165[i] := hya[0];
-             end;
-             // LPF 19th order
-             for i := 0 to 4095 do
-             begin
-                  // Shift old samples in x[] and y[]
-                  for k := 19 downto 1 do
-                  begin
-                       lxa[k] := lxa[k-1];
-                       lya[k] := lya[k-1];
-                  end;
-                  // Calculate new sample
-                  lxa[0] := srealArray165[i];
-                  lya[0] := LACoef[0] * lxa[0];
-                  for k := 0 to 19 do
-                  begin
-                       lya[0] := lya[0] + ((LACoef[k] * lxa[k]) - (LBCoef[k] * lya[k]));
-                  end;
-                  srealArray165[i] := lya[0];
-             end;
-
+             //for i := 0 to 4095 do auBuff65[i] := min(32766,max(-32766,dBuffer[i]));
+             //// HPF 3rd order (also converts int16 to float)
+             //for i := 0 to 4095 do
+             //begin
+             //     // Shift old samples in x[] and y[]
+             //     for k := 3 downto 1 do
+             //     begin
+             //          hxa[k] := hxa[k-1];
+             //          hya[k] := hya[k-1];
+             //     end;
+             //     // Calculate new sample
+             //     hxa[0] := auBuff65[i];
+             //     hya[0] := HACoef[0] * hxa[0];
+             //     for k := 0 to 3 do
+             //     begin
+             //          hya[0] := hya[0] + ((HACoef[k] * hxa[k]) - (HBCoef[k] * hya[k]));
+             //     end;
+             //     srealArray165[i] := hya[0];
+             //end;
+             //// LPF 19th order
+             //for i := 0 to 4095 do
+             //begin
+             //     // Shift old samples in x[] and y[]
+             //     for k := 19 downto 1 do
+             //     begin
+             //          lxa[k] := lxa[k-1];
+             //          lya[k] := lya[k-1];
+             //     end;
+             //     // Calculate new sample
+             //     lxa[0] := srealArray165[i];
+             //     lya[0] := LACoef[0] * lxa[0];
+             //     for k := 0 to 19 do
+             //     begin
+             //          lya[0] := lya[0] + ((LACoef[k] * lxa[k]) - (LBCoef[k] * lya[k]));
+             //     end;
+             //     srealArray165[i] := lya[0];
+             //end;
+             {
+             TODO : Process samples to match old conversion step from integer to float as I'm doing in ADC unit
+             Or, even better yet, do this in ADC as well since it's mostly already being done there for the main
+             frame buffer.
+             }
              // Clear FFT Input array
              //for i := 0 to length(fftIn65)-1 do fftIn65[i] := 0.0;
 
              // Copy data to FFT calculation buffer
-             for i := 0 to 4095 do fftIn65[i] := srealArray165[i];
+             //for i := 0 to 4095 do fftIn65[i] := srealArray165[i];
+             for i := 0 to 4095 do fftIn65[i] := dBuffer[i];
 
              // Clear FFT output array
              for i := 0 to 2047 do
@@ -461,55 +468,51 @@ Begin
              if specfftCount >= (10-specSpeed2) Then
              Begin
                   inc(specfftCount);
-                  if specSmooth Then
-                  Begin
-                       try
-                          for i := 0 to length(ss65)-1 do ss65b[i] := ss65[i];
-                          flat(@ss65[0],@nh,@specfftCount);
-                          if specuseagc then
+                  try
+                     for i := 0 to length(ss65)-1 do ss65b[i] := ss65[i];
+                     flat(@ss65[0],@nh,@specfftCount);
+                     if specuseagc then
+                     begin
+                          if nfrange = 2000 Then iadj := (182 + round((nfmid-1500)/df))-1;
+                          gamma := 1.3 + 0.01*specContrast;
+                          offset := (specGain+64.0)/2;
+                          fi := 0.0;
+                          i := iadj;
+                          j := 0;
+                          While i < length(ss65)-1 do
                           begin
-                               if nfrange = 2000 Then iadj := (182 + round((nfmid-1500)/df))-1;
-                               gamma := 1.3 + 0.01*specContrast;
-                               offset := (specGain+64.0)/2;
-                               fi := 0.0;
-                               i := iadj;
-                               j := 0;
-                               While i < length(ss65)-1 do
-                               begin
-                                    fi := ss65[i];
-                                    i := i + iadj;
-                                    inc(j);
-                               end;
-                               fi := fi / j;
-                               intvar := 0;
-                               intVar := 0;
-                               fvar := fi;
-                               if fvar <> 0 Then
-                               Begin
-                                    pw1 := 0.01*fvar;
-                                    pw2 := gamma;
-                                    fvar := 0.0;
-                                    fvar := power(pw1,pw2);
-                                    fvar := fvar+offset;
-                               End
-                               Else
-                               Begin
-                                    fvar := 0.0;
-                               End;
-                               if fvar <> 0 then intVar := trunc(fvar) else intVar := 0;
-                               intVar := min(252,max(0,intVar));
-                               if intVar < 5 then
-                               begin
-                                    // Undo the smooth if the avg value looks too low...
-                                    for i := 0 to length(ss65)-1 do ss65[i] := ss65b[i];
-                                    inc(specagc);
-                               end;
+                               fi := ss65[i];
+                               i := i + iadj;
+                               inc(j);
                           end;
-                       except
-                          for i := 0 to length(ss65)-1 do ss65[i] := ss65b[i];
-                       end;
+                          fi := fi / j;
+                          intvar := 0;
+                          intVar := 0;
+                          fvar := fi;
+                          if fvar <> 0 Then
+                          Begin
+                               pw1 := 0.01*fvar;
+                               pw2 := gamma;
+                               fvar := 0.0;
+                               fvar := power(pw1,pw2);
+                               fvar := fvar+offset;
+                          End
+                          Else
+                          Begin
+                               fvar := 0.0;
+                          End;
+                          if fvar <> 0 then intVar := trunc(fvar) else intVar := 0;
+                          intVar := min(252,max(0,intVar));
+                          if intVar < 5 then
+                          begin
+                               // Undo the smooth if the avg value looks too low...
+                               for i := 0 to length(ss65)-1 do ss65[i] := ss65b[i];
+                               inc(specagc);
+                          end;
+                     end;
+                  except
+                        for i := 0 to length(ss65)-1 do ss65[i] := ss65b[i];
                   end;
-
                   // Create spectra line
                   if nfrange = 2000 Then iadj := 182 + round((nfmid-1500)/df);
                   if nfrange = 4000 Then iadj := round(nfmid/df - 752.0);
@@ -536,7 +539,7 @@ Begin
                        Begin
                             fvar := 0.0;
                        End;
-                       if fvar <> 0 then intVar := trunc(fvar) else intVar := 0;
+                       if fvar <> 0 then intVar := min(252,max(0,trunc(fvar))) else intVar := 0;
                        intVar := min(252,max(0,intVar));
                        integerSpectra[i] := intVar;
                   End;

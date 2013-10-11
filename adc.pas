@@ -74,6 +74,8 @@ Var
    adclast2k2      : Packed Array[0..2047] of CTypes.cint16;
    adclast4k1      : Packed Array[0..4095] of CTypes.cint16;     // For computing spectrum
    adclast4k2      : Packed Array[0..4095] of CTypes.cint16;
+   adclast4k1F     : Packed Array[0..4095] of CTypes.cfloat;     // Hopefully these will soon obsolete ^^^
+   adclast4k2F     : Packed Array[0..4095] of CTypes.cfloat;
    l1x,l1y         : Array[0..19] of CTypes.cfloat;              // IIR accumulators
    d65rxBufferIdx  : Integer;
    adcChan         : Integer;  // 1 = Left, 2 = Right
@@ -252,6 +254,8 @@ Begin
                   Begin
                        adclast4k1[specIDX] := tAr1i[i];
                        adclast4k2[specIDX] := tAr1i[i]; // This is correct for a mono stream
+                       adclast4k1F[specIDX] := tAr1[i];
+                       adclast4k2F[specIDX] := tAr1[i]; // This is correct for a mono stream
                   end;
              end
              else
@@ -269,6 +273,8 @@ Begin
                   Begin
                        adclast4k1[specIDX] := tAr1i[i];
                        adclast4k2[specIDX] := tAr2i[i];
+                       adclast4k1F[specIDX] := tAr1[i];
+                       adclast4k2F[specIDX] := tAr2[i];
                   end;
              end;
              // Update index values

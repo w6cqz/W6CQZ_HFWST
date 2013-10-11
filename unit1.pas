@@ -1984,11 +1984,13 @@ Begin
           // Can do spectrum...
           if adc.adcMono Then
           Begin
-               spectrum.computeSpectrum(adc.adclast4k1);
+               //spectrum.computeSpectrum(adc.adclast4k1);
+               spectrum.computeSpectrum(adc.adclast4k1F);
           end
           else
           begin
-               if adc.adcChan = 1 Then spectrum.computeSpectrum(adc.adclast4k1) else spectrum.computeSpectrum(adc.adclast4k2);
+               //if adc.adcChan = 1 Then spectrum.computeSpectrum(adc.adclast4k1) else spectrum.computeSpectrum(adc.adclast4k2);
+               if adc.adcChan = 1 Then spectrum.computeSpectrum(adc.adclast4k1F) else spectrum.computeSpectrum(adc.adclast4k2F);
           end;
           adc.haveSpec := False;
      end;
