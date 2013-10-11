@@ -88,8 +88,16 @@ type
     bRRR: TButton;
     Button1: TButton;
     comboTTYPorts: TComboBox;
+    edRebTXOffset: TEdit;
+    edRebRXOffset: TEdit;
+    groupRebelOptions: TGroupBox;
     Label12: TLabel;
+    Label14: TLabel;
+    Label22: TLabel;
+    Label25: TLabel;
     Memo3: TMemo;
+    ProgressBar1: TProgressBar;
+    rigCommander: TRadioButton;
     rbTXOff: TRadioButton;
     txControl: TButton;
     Button10: TButton;
@@ -330,6 +338,8 @@ type
     procedure Button14Click(Sender: TObject);
     procedure Button1Click(Sender: TObject);
     procedure cbSpecSmoothChange(Sender: TObject);
+    procedure comboMacroListKeyUp(Sender: TObject; var Key: Word;
+      Shift: TShiftState);
     procedure comboQRGListChange(Sender: TObject);
     procedure comboMacroListChange(Sender: TObject);
     procedure btnsetQRGClick(Sender: TObject);
@@ -926,6 +936,7 @@ Begin
      query.SQL.Clear;
      query.SQL.Add('SELECT text FROM macro WHERE instance = 1;');
      query.Active := True;
+     comboMacroList.Items.Add('');
      if query.RecordCount > 0 Then
      Begin
           query.First;
@@ -935,6 +946,7 @@ Begin
                query.Next;
           end;
      end;
+     comboMacroList.ItemIndex := 0;
      query.Active := False;
 
      // Lets read some config
@@ -1664,7 +1676,7 @@ Begin
      //if inSync and paActive Then RadioGroup1.Visible := True else RadioGroup1.Visible := False;
 
      if rbOn.Checked then rbOn.Caption := 'Spots sent:  ' + IntToStr(rb.rbCount) else rbOn.Caption := 'RB Enable';
-     if length(edRBCall.Text) < 3 Then rbOn.Caption := 'Setup RB Callsign please.';
+     if length(edRBCall.Text) < 3 Then rbOn.Caption := 'Disabled - Setup Data.';
 
      if rbOn.Checked and (not rb.rbOn) Then
      Begin
@@ -1700,6 +1712,9 @@ Var
   //rxb : Packed Array of CTypes.cint16;
 Begin
      // Items that run on each new second or selected new seconds
+
+     // Frame progress indicator
+     if (thisSecond < 48) Then ProgressBar1.Position := thisSecond;
 
      if (thisSecond = 47) And (lastSecond = 46) And InSync And paActive Then eopQRG := StrToInt(edDialQRG.Text);
 
@@ -1789,10 +1804,10 @@ Begin
           doCAT     := True;
      end;
 
-     if (thisSecond = 51) and (lastSecond = 50) Then
+     if (thisSecond = 48) and (lastSecond = 47) Then
      Begin
           Try
-             // Paint a line for second = 51
+             // Paint a line for second = 49
              for i := 0 to 749 do
              Begin
                   spectrum.specDisplayData[0][i].r := 255;
@@ -1821,6 +1836,8 @@ Begin
              ListBox2.Items.Insert(0,'Exception in paint line (2)');
           end;
      end;
+     if catMethod = 'Rebel' Then groupRebelOptions.Visible := True else groupRebelOptions.Visible := False;
+
 end;
 
 procedure TForm1.OncePerMinute;
@@ -3560,17 +3577,26 @@ begin
           if rbUseRightaudio.Checked Then adc.adcChan := 2;
      end;
 
-     If Sender = rigNone Then catMethod := 'None';
+     If Sender = rigNone Then
+     Begin
+          catMethod := 'None';
+          groupRebelOptions.Visible := False;
+     end;
 
      If Sender = rigRebel Then
      Begin
           catMethod := 'Rebel';
           if cbUseSerial.Checked Then cbUseSerial.Checked := False;
+          groupRebelOptions.Visible := True;
           { TODO : Graft code to connect to rebel if it wasn't on at startup }
      end;
 
-     // If Sender = rigCommander Then catMethod := 'Commander';
 
+     If Sender = rigCommander Then
+     Begin
+          catMethod := 'Commander';
+          groupRebelOptions.Visible := False;
+     end;
 end;
 
 function TForm1.isCallsign(c : String) : Boolean;
@@ -5008,7 +5034,31 @@ end;
 
 procedure TForm1.comboMacroListChange(Sender: TObject);
 begin
-     edTXMsg.Text := comboMacroList.Items.Strings[comboMacroList.ItemIndex];
+     //if comboMacroList.ItemIndex < 0 Then comboMacroList.ItemIndex := 0;
+     if comboMacroList.ItemIndex > 0 Then
+     Begin
+          comboMacroList.ReadOnly := True;
+          edTXMsg.Text := comboMacroList.Items.Strings[comboMacroList.ItemIndex];
+     end
+     else
+     begin
+          comboMacroList.ReadOnly := False;
+     end;
+end;
+
+procedure TForm1.comboMacroListKeyUp(Sender: TObject; var Key: Word;
+  Shift: TShiftState);
+Var
+   foo : String;
+begin
+     { TODO : Validate the message and save to db }
+     foo := Upcase(TrimLeft(TrimRight(comboMacroList.Text)));
+     if length(foo) > 13 Then
+     Begin
+          foo := foo[1..13];
+          comboMacroList.Text := foo;
+     end;
+     edTXMsg.Text := foo;
 end;
 
 procedure TForm1.Button13Click(Sender: TObject);
