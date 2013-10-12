@@ -404,7 +404,7 @@ object Form1: TForm1
   object PageControl: TPageControl
     Left = 152
     Height = 216
-    Top = 35
+    Top = 36
     Width = 747
     ActivePage = TabSheet1
     TabIndex = 0
@@ -732,9 +732,9 @@ object Form1: TForm1
         Left = 4
         Height = 136
         Top = 47
-        Width = 592
+        Width = 568
         ClientHeight = 118
-        ClientWidth = 588
+        ClientWidth = 564
         TabOrder = 0
         object Label18: TLabel
           Left = 142
@@ -804,9 +804,9 @@ object Form1: TForm1
         Left = 4
         Height = 50
         Top = -1
-        Width = 592
+        Width = 568
         ClientHeight = 32
-        ClientWidth = 588
+        ClientWidth = 564
         TabOrder = 1
         object rigNone: TRadioButton
           Left = 6
@@ -860,45 +860,71 @@ object Form1: TForm1
         TabOrder = 3
       end
       object groupRebelOptions: TGroupBox
-        Left = 604
+        Left = 580
         Height = 129
         Top = -1
-        Width = 129
+        Width = 153
         Caption = 'Rebel Options'
         ClientHeight = 111
-        ClientWidth = 125
+        ClientWidth = 149
         TabOrder = 4
         object edRebRXOffset: TEdit
           Left = 6
           Height = 24
           Top = 26
-          Width = 80
+          Width = 48
           TabOrder = 0
-          Text = '700'
+          Text = '0'
         end
         object Label22: TLabel
           Left = 6
           Height = 17
           Top = 5
-          Width = 75
-          Caption = 'RX Offset Hz'
+          Width = 55
+          Caption = 'RX Offset'
           ParentColor = False
         end
         object Label25: TLabel
-          Left = 6
+          Left = 70
           Height = 17
-          Top = 57
+          Top = 5
           Width = 73
           Caption = 'TX Offset Hz'
           ParentColor = False
         end
         object edRebTXOffset: TEdit
-          Left = 6
+          Left = 70
           Height = 24
-          Top = 77
-          Width = 80
+          Top = 26
+          Width = 48
           TabOrder = 1
           Text = '0'
+        end
+        object rbRebBaud9600: TRadioButton
+          Left = 6
+          Height = 20
+          Top = 85
+          Width = 48
+          Caption = '9600'
+          TabOrder = 2
+        end
+        object rbRebBaud115200: TRadioButton
+          Left = 81
+          Height = 20
+          Top = 85
+          Width = 62
+          Caption = '115200'
+          Checked = True
+          TabOrder = 3
+          TabStop = True
+        end
+        object Label37: TLabel
+          Left = 6
+          Height = 17
+          Top = 64
+          Width = 62
+          Caption = 'Baud Rate'
+          ParentColor = False
         end
       end
     end
