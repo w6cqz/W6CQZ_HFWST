@@ -96,6 +96,14 @@ type
     Label22: TLabel;
     Label25: TLabel;
     Label37: TLabel;
+    Label45: TLabel;
+    Label46: TLabel;
+    Label47: TLabel;
+    Label48: TLabel;
+    Label49: TLabel;
+    Label50: TLabel;
+    Label51: TLabel;
+    Label52: TLabel;
     Memo3: TMemo;
     ProgressBar1: TProgressBar;
     rbRebBaud9600: TRadioButton;
@@ -1851,7 +1859,6 @@ Begin
           end;
      end;
      if catMethod = 'Rebel' Then groupRebelOptions.Visible := True else groupRebelOptions.Visible := False;
-     { TODO : Add info tab in config for rebel visible when rebel active and connected }
      if catQRG > 0 Then
      Begin
           fs := IntToStr(catQRG);
@@ -1875,6 +1882,22 @@ Begin
      begin
           edDialQRG.Text := '0';
           //editQRG.text := '0';
+     end;
+     if haveRebel and clRebel.connected Then
+     Begin
+          Label45.Caption := 'Rebel Firmware:  ' + clRebel.rebVer;
+          Label46.Caption := 'Rebel Firmware:  ' + clRebel.ddsVer;
+          Label48.Caption := 'DDS Reference:  ' + IntToStr(clRebel.ddsRef);
+          Label49.Caption := 'Loop Speed:  ' + clRebel.loops;
+          Label47.Caption := 'Band Select:  ' + IntToStr(clRebel.band);
+          Label50.Caption := 'RX Offset:  ' + IntToStr(clRebel.rxoffset);
+          Label51.Caption := 'TX Offset:  ' + IntToStr(clRebel.txoffset);
+          Label52.Caption := 'RX Frequency:  ' + FormatFloat('0.0',clRebel.qrg);
+          TabSheet10.Visible := True;
+     end
+     else
+     begin
+          TabSheet10.Visible := False;
      end;
 
 end;
@@ -5418,24 +5441,14 @@ begin
                          if haveRebel Then
                          Begin
                               if clRebel.connected Then clRebel.poll;
-                              if clRebel.rebVer = 'JT65V003' Then
-                              Begin
-                                   // Validate initial QRG
-                                   fs := IntToStr(Round(clRebel.qrg));
-                                   ff  := 0.0;
-                                   fi  := 0;
-                                   fsc := '';
-                                   mval.forceDecimalAmer := False;
-                                   mval.forceDecimalEuro := False;
-                                   if mval.evalQRG(fs,'STRICT',ff,fi,fsc) Then
-                                   Begin
-                                        catQRG := fi;
-                                   end
-                                   else
-                                   begin
-                                        catQRG := -1;
-                                   end;
-                              end;
+                              // Validate initial QRG
+                              fs := IntToStr(Round(clRebel.qrg));
+                              ff  := 0.0;
+                              fi  := 0;
+                              fsc := '';
+                              mval.forceDecimalAmer := False;
+                              mval.forceDecimalEuro := False;
+                              if mval.evalQRG(fs,'STRICT',ff,fi,fsc) Then catQRG := fi catQRG := -1;
                          end
                          else
                          begin

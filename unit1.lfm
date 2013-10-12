@@ -404,7 +404,7 @@ object Form1: TForm1
   object PageControl: TPageControl
     Left = 152
     Height = 216
-    Top = 36
+    Top = 35
     Width = 747
     ActivePage = TabSheet1
     TabIndex = 0
@@ -926,6 +926,99 @@ object Form1: TForm1
           Caption = 'Baud Rate'
           ParentColor = False
         end
+      end
+    end
+    object TabSheet10: TTabSheet
+      Caption = 'Rebel'
+      ClientHeight = 187
+      ClientWidth = 739
+      object Label45: TLabel
+        Left = 12
+        Height = 23
+        Top = 12
+        Width = 150
+        Caption = 'Rebel Firmware:  '
+        Font.Height = -19
+        Font.Name = 'Arial'
+        ParentColor = False
+        ParentFont = False
+      end
+      object Label46: TLabel
+        Left = 58
+        Height = 23
+        Top = 44
+        Width = 104
+        Caption = 'DDS Type:  '
+        Font.Height = -19
+        Font.Name = 'Arial'
+        ParentColor = False
+        ParentFont = False
+      end
+      object Label47: TLabel
+        Left = 404
+        Height = 23
+        Top = 12
+        Width = 119
+        Caption = 'Band Select:  '
+        Font.Height = -19
+        Font.Name = 'Arial'
+        ParentColor = False
+        ParentFont = False
+      end
+      object Label48: TLabel
+        Left = 10
+        Height = 23
+        Top = 76
+        Width = 152
+        Caption = 'DDS Reference:  '
+        Font.Height = -19
+        Font.Name = 'Arial'
+        ParentColor = False
+        ParentFont = False
+      end
+      object Label49: TLabel
+        Left = 40
+        Height = 23
+        Top = 108
+        Width = 122
+        Caption = 'Loop Speed:  '
+        Font.Height = -19
+        Font.Name = 'Arial'
+        ParentColor = False
+        ParentFont = False
+      end
+      object Label50: TLabel
+        Left = 422
+        Height = 23
+        Top = 44
+        Width = 101
+        Caption = 'RX Offset:  '
+        Font.Height = -19
+        Font.Name = 'Arial'
+        ParentColor = False
+        ParentFont = False
+      end
+      object Label51: TLabel
+        Left = 422
+        Height = 23
+        Top = 76
+        Width = 99
+        Caption = 'TX Offset:  '
+        Font.Height = -19
+        Font.Name = 'Arial'
+        ParentColor = False
+        ParentFont = False
+      end
+      object Label52: TLabel
+        Left = 385
+        Height = 23
+        Top = 108
+        Width = 138
+        Caption = 'RX Frequency:  '
+        Font.Height = -19
+        Font.Name = 'Arial'
+        ParentColor = False
+        ParentFont = False
       end
     end
     object TabSheet2: TTabSheet
@@ -1579,10 +1672,6 @@ object Form1: TForm1
         Caption = 'It is YOUR responsibility to insure the frequencies you use are valid for your'#13#10'region of operation.  The following are generally agreed upon/commonly used'#13#10'frequencies for JT65 on HF.'#13#10#13#10'1836     3576     7076     14076     21076     28076'#13#10#13#10'The following are known to be used for JT65, but, are not agreed to as suitable'#13#10'for all regions.'#13#10#13#10'7039     10139     10146     18102     18106     24917     24920     24922     50276'
         ParentColor = False
       end
-    end
-    object TabSheet10: TTabSheet
-      Caption = 'Automatic QRG'
-      TabVisible = False
     end
     object TabSheet9: TTabSheet
       Caption = 'Debug'
