@@ -5448,7 +5448,7 @@ begin
                               fsc := '';
                               mval.forceDecimalAmer := False;
                               mval.forceDecimalEuro := False;
-                              if mval.evalQRG(fs,'STRICT',ff,fi,fsc) Then catQRG := fi catQRG := -1;
+                              if mval.evalQRG(fs,'STRICT',ff,fi,fsc) Then catQRG := fi else catQRG := -1;
                          end
                          else
                          begin
