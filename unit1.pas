@@ -1609,10 +1609,6 @@ Var
   foo : String;
 Begin
      // Items that run on each new second or selected new seconds
-
-     // Frame progress indicator
-     if (thisSecond < 48) Then ProgressBar1.Position := thisSecond;
-     if (thisSecond = 47) And (lastSecond = 46) And InSync And paActive Then eopQRG := StrToInt(edDialQRG.Text); // Track start/end frame QRG values
      if (thisSecond = 47) And (lastSecond = 46) And InSync And paActive And not decoderBusy Then
      Begin
           // Attempt a decode
@@ -1621,6 +1617,9 @@ Begin
           if thisUTC.Minute < 10 Then thisTS := thisTS + '0' + IntToStr(thisUTC.Minute) else thisTS := thisTS + IntToStr(thisUTC.Minute);
           doDecode := True;
      end;
+     // Frame progress indicator
+     if (thisSecond < 48) Then ProgressBar1.Position := thisSecond;
+     if (thisSecond = 47) And (lastSecond = 46) And InSync And paActive Then eopQRG := StrToInt(edDialQRG.Text); // Track start/end frame QRG values
      // Update clock display
      foo := '';
      if thisUTC.Month < 10 Then foo := '0' + IntToStr(thisUTC.Month) + '-' else foo := IntToStr(thisUTC.Month) + '-';
@@ -1657,7 +1656,76 @@ Begin
      If rigNone.Checked Then catMethod := 'None';
      if rigRebel.Checked Then catMethod := 'Rebel';
      if rigCommander.Checked Then catMethod := 'Commander';
-     if rigRebel.Checked and haveRebel and (not setQRG) Then readQRG := True else readQRG := False;  // Reads Rebel QRG once per second (will likely increase this to once ever few seconds.
+     if rigRebel.Checked and haveRebel and (not setQRG) Then
+     Begin
+          // Only read QRG every 5 seconds
+          if thisUTC.Second MOD 5 = 0 Then readQRG := True else readQRG := False;
+     end
+     else
+     begin
+          readQRG := False;
+     end;
+     // Ok - this is going to be ugly - but.  If we have a rebel and it wasn't setup at
+     // program start we have to do it now and suffer the program hang.  Only one way to
+     // see if that's fatal.  First handle case of disconnecting from a Rebel that is
+     // alive.
+     if not rigRebel.Checked and clRebel.connected Then
+     Begin
+          clRebel.disconnect;
+          haveRebel := False;
+     end;
+     // Now deal with connecting to one
+     if rigRebel.Checked and not clRebel.connected Then
+     Begin
+          haveRebel := False;
+          if rbRebBaud9600.Checked then clRebel.baud := 9600 else clRebel.baud := 115200;
+          if length(edPort.Text)>0 Then
+          Begin
+               i := -2;
+               if tryStrToInt(TrimLeft(TrimRight(edPort.Text)),i) Then
+               Begin
+                    if i>0 then
+                    begin
+                         clRebel.port := 'COM'+TrimLeft(TrimRight(edPort.Text));
+                         ShowMessage('Connecting to Rebel on ' + clRebel.port + ' at ' + IntToStr(clRebel.baud) + ' baud' + sLineBreak + 'Please insure Rebel is connected and loaded with proper firmware.');
+                         if clRebel.connect Then
+                         Begin
+                              // We're connected need to see if there's a Rebel on the other side
+                              if clRebel.setup Then
+                              Begin
+                                   // Sure enough seem to have one
+                                   haveRebel := True;
+                              end
+                              else
+                              begin
+                                   haveRebel := False;
+                                   rigNone.Checked := True;
+                                   ShowMessage('Rebel did not respond at command port' + sLineBreak + 'Please check configuration.');
+                              end;
+                         end
+                         else
+                         begin
+                              haveRebel := False;
+                              rigNone.Checked := True;
+                              ShowMessage('Could not open Rebel command port - please check configuration.');
+                         end;
+                    end
+                    else
+                    begin
+                         haveRebel := False;
+                         rigNone.Checked := True;
+                         ShowMessage('Bad com port value - please check configuration.');
+                    end;
+               end;
+          end
+          else
+          begin
+               haveRebel := False;
+               rigNone.Checked := True;
+               ShowMessage('Bad com port value - please check configuration.');
+          end;
+          inSync := False;  // Have almost certainly lost stream sync during this so resync
+     end;
      // Deal with Rebel
      if rigRebel.Checked and haveRebel and setQRG Then
      Begin
