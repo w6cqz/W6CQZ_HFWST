@@ -406,11 +406,10 @@ object Form1: TForm1
     Height = 216
     Top = 35
     Width = 747
-    ActivePage = TabSheet1
-    TabIndex = 0
+    ActivePage = TabSheet9
+    TabIndex = 3
     TabOrder = 6
     Visible = False
-    OnChange = PageControlChange
     object TabSheet1: TTabSheet
       Caption = 'Basic'
       ClientHeight = 187
@@ -1019,6 +1018,73 @@ object Form1: TForm1
         Font.Name = 'Arial'
         ParentColor = False
         ParentFont = False
+      end
+    end
+    object TabSheet9: TTabSheet
+      Caption = 'Debug'
+      ClientHeight = 187
+      ClientWidth = 739
+      object Label73: TLabel
+        Left = 52
+        Height = 17
+        Top = 160
+        Width = 17
+        Caption = 'ver'
+        ParentColor = False
+      end
+      object Label76: TLabel
+        Left = 172
+        Height = 17
+        Top = 158
+        Width = 23
+        Caption = 'txlvl'
+        ParentColor = False
+      end
+      object Label77: TLabel
+        Left = 12
+        Height = 17
+        Top = 159
+        Width = 22
+        Caption = 'lqrg'
+        ParentColor = False
+      end
+      object edDialQRG: TEdit
+        Left = 92
+        Height = 24
+        Top = 135
+        Width = 72
+        OnChange = rigControlSet
+        TabOrder = 0
+        Text = '7076200'
+      end
+      object version: TEdit
+        Left = 52
+        Height = 24
+        Top = 136
+        Width = 32
+        TabOrder = 1
+      end
+      object txLevel: TEdit
+        Left = 172
+        Height = 24
+        Top = 134
+        Width = 32
+        TabOrder = 2
+      end
+      object lastQRG: TEdit
+        Left = 12
+        Height = 24
+        Top = 136
+        Width = 32
+        TabOrder = 3
+      end
+      object Label123: TLabel
+        Left = 92
+        Height = 17
+        Top = 158
+        Width = 63
+        Caption = 'current qrg'
+        ParentColor = False
       end
     end
     object TabSheet2: TTabSheet
@@ -1670,82 +1736,6 @@ object Form1: TForm1
         Top = 7
         Width = 469
         Caption = 'It is YOUR responsibility to insure the frequencies you use are valid for your'#13#10'region of operation.  The following are generally agreed upon/commonly used'#13#10'frequencies for JT65 on HF.'#13#10#13#10'1836     3576     7076     14076     21076     28076'#13#10#13#10'The following are known to be used for JT65, but, are not agreed to as suitable'#13#10'for all regions.'#13#10#13#10'7039     10139     10146     18102     18106     24917     24920     24922     50276'
-        ParentColor = False
-      end
-    end
-    object TabSheet9: TTabSheet
-      Caption = 'Debug'
-      ClientHeight = 187
-      ClientWidth = 739
-      TabVisible = False
-      object xDBText1: TDBText
-        Left = 772
-        Height = 1
-        Top = 95
-        Width = 1
-        DataField = 'INSTANCE'
-        ParentColor = False
-      end
-      object Label73: TLabel
-        Left = 52
-        Height = 17
-        Top = 160
-        Width = 17
-        Caption = 'ver'
-        ParentColor = False
-      end
-      object Label76: TLabel
-        Left = 172
-        Height = 17
-        Top = 158
-        Width = 23
-        Caption = 'txlvl'
-        ParentColor = False
-      end
-      object Label77: TLabel
-        Left = 12
-        Height = 17
-        Top = 159
-        Width = 22
-        Caption = 'lqrg'
-        ParentColor = False
-      end
-      object edDialQRG: TEdit
-        Left = 92
-        Height = 24
-        Top = 135
-        Width = 72
-        OnChange = rigControlSet
-        TabOrder = 0
-        Text = '7076200'
-      end
-      object version: TEdit
-        Left = 52
-        Height = 24
-        Top = 136
-        Width = 32
-        TabOrder = 1
-      end
-      object txLevel: TEdit
-        Left = 172
-        Height = 24
-        Top = 134
-        Width = 32
-        TabOrder = 2
-      end
-      object lastQRG: TEdit
-        Left = 12
-        Height = 24
-        Top = 136
-        Width = 32
-        TabOrder = 3
-      end
-      object Label123: TLabel
-        Left = 92
-        Height = 17
-        Top = 158
-        Width = 63
-        Caption = 'current qrg'
         ParentColor = False
       end
     end

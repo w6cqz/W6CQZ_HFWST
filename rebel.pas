@@ -28,16 +28,17 @@ Type
                  prLocked    : Boolean;
                  prLoopSpeed : String;
                  prTXState   : Boolean;
+                 function    ddsWord(const hz : double; const offset : CTypes.cint; const ref : CTypes.cint) : CTypes.cuint32;
+
            Public
                  Constructor create;
                  Destructor  destroy; override;
-                 function    connect : Boolean;
-                 function    ping : Boolean;
-                 function    ask : Boolean;
-                 //function    state : Boolean;
-                 function    poll : Boolean;
-                 //function    command : Boolean;
-                 //function    disconnect : Boolean;
+                 function    connect    : Boolean;
+                 function    disconnect : Boolean;
+                 function    setup      : Boolean;
+                 function    ask        : Boolean;
+                 function    setQRG     : Boolean;
+                 function    poll       : Boolean;
 
                  property port      : String
                     read  prPort
@@ -121,6 +122,57 @@ Begin
      prTTY.Destroy;
      prPorts.Clear;
      prPorts.Destroy;
+end;
+
+function TRebel.disconnect : Boolean;
+Begin
+     prConnected := False;
+     prTTY.CloseSocket;
+     result := True;
+end;
+
+function TRebel.ddsWord(const hz : double; const offset : CTypes.cint; const ref : CTypes.cint) : CTypes.cuint32;
+Begin
+     // Calculate DDS tuning word from hz, offset and ref based upon formula for prDDSVer
+     // Current prDDSVer is only AD9834 and it uses fWord as integer = fout * 2^28/fref
+     // 14076000
+     // 14076000 + 718 * (2^28/49999750) = 14076718 * 5.3687359636798183990919954599773 = 75574182.177179045895229476147381 = 75574182
+     result := Round((hz+offset) * (268435456/ref));
+end;
+
+function TRebel.setQRG : Boolean;
+var
+   foo : String;
+   t   : double;
+   i   : Integer;
+Begin
+     // Sends set RX command with DDS tuning word as value
+     // Take into account if band is 20M the DDS word is desired (RX + offset) - IF
+     if prBand = 20 then t := prQRG-9000000.0;
+     prCommand := '3,' + IntToStr(ddsWord(t,prRXOffset,prDDSRef)) + ';';  // Sets RX frequency
+     prResponse := '';
+     if ask Then
+     Begin
+          i := wordcount(prResponse,[',',';']);
+          if i > 1 Then foo := ExtractWord(2,prResponse,[',',';']) else foo := '-1';
+          // Response sends back the tuning word and it should be = to what we calculated :)
+          if IntToStr(ddsWord(t,prRXOffset,prDDSRef)) = foo Then
+          Begin
+               result := True;
+               prError := '';
+               poll;
+          end
+          else
+          begin
+               result := False;
+               prError := 'Rebel word != calculated word';
+          end;
+     end
+     else
+     begin
+          result := False;
+          prError := 'Command timeout';
+     end;
 end;
 
 function TRebel.ask : Boolean;
@@ -242,6 +294,7 @@ Begin
           if i > 1 Then prLoopSpeed := ExtractWord(2,prResponse,[',',';']) else prLoopSpeed := '';
      end;
 
+     result := True;
      //prLocked    := False;
      //prTXState   := False;
 end;
@@ -323,7 +376,7 @@ Begin
      end;
 end;
 
-Function TRebel.ping : Boolean;
+Function TRebel.setup : Boolean;
 Var
      foo : String;
      i   : Integer;

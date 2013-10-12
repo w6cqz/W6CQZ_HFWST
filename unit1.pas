@@ -38,9 +38,9 @@ interface
 uses
   Classes, SysUtils, FileUtil, Forms, Controls, Graphics, Dialogs, StdCtrls,
   ExtCtrls, Math, StrUtils, CTypes, Windows, lconvencoding, ComCtrls, EditBtn,
-  DbCtrls, TAGraph, TASeries, TAChartUtils, Types, Process, portaudio,
-  globalData, adc, spectrum, waterfall1, spot, demodulate, db, BufDataset,
-  sqlite3conn, sqldb, valobject, rebel;
+  DbCtrls, TAGraph, TASeries, TAChartUtils, Types, portaudio, globalData, adc,
+  spectrum, waterfall1, spot, demodulate, BufDataset,  sqlite3conn, sqldb,
+  valobject, rebel;
 
 Const
   JT_DLL = 'JT65v5.dll';
@@ -343,12 +343,10 @@ type
     tbWFBright: TTrackBar;
     tbWFGain: TTrackBar;
     Waterfall1: TWaterfallControl1;
-    xDBText1: TDBText; { TODO : Understand why I can't remove this as if removed breaks a dep - MUST FIND - DEBUG }
     procedure audioChange(Sender: TObject);
     procedure Button13Click(Sender: TObject);
     procedure Button14Click(Sender: TObject);
     procedure Button1Click(Sender: TObject);
-    procedure cbSpecSmoothChange(Sender: TObject);
     procedure comboMacroListKeyUp(Sender: TObject; var Key: Word;
       Shift: TShiftState);
     procedure comboQRGListChange(Sender: TObject);
@@ -367,8 +365,6 @@ type
     procedure Memo1DblClick(Sender: TObject);
     procedure Memo2DblClick(Sender: TObject);
     procedure Memo3DblClick(Sender: TObject);
-    procedure PageControlChange(Sender: TObject);
-    procedure qrgdbAfterPost(DataSet: TDataSet);
     procedure edTXMsgDblClick(Sender: TObject);
     procedure ListBox1DrawItem(Control: TWinControl; Index: Integer; ARect: TRect; State: TOwnerDrawState);
     procedure mgenClick(Sender: TObject);
@@ -466,13 +462,6 @@ Type
           Constructor Create(CreateSuspended : boolean);
   end;
 
-  catThread = class(TThread)
-    protected
-          procedure Execute; override;
-    public
-          Constructor Create(CreateSuspended : boolean);
-  end;
-
 var
   Form1          : TForm1;
   firstPass      : Boolean;
@@ -503,7 +492,6 @@ var
   auLevel        : Integer;
   auLevel1       : Integer;
   auLevel2       : Integer;
-  flipflop       : Integer;
   thisTXcall     : String;
   thisTXgrid     : String;
   thisTXmsg      : String;
@@ -513,20 +501,15 @@ var
   rbping         : Boolean;
   rbposted       : CTypes.cuint64;
   doDecode       : Boolean;
-  doCAT          : Boolean;
-  catcommand     : String;
   decodeping     : CTypes.cuint64;
   decoderBusy    : Boolean;
   rbThread       : rbcThread;
   decoderThread  : decodeThread;
-  rigThread      : catThread;
   srun,lrun      : Double;
   defI           : Integer;//,defO      : Integer;
   qrgValid       : Boolean;
-  forceCAT       : Boolean;
   catmethod      : String;
   catQRG         : Integer;
-  catFree        : Boolean;
   dChar,kChar    : Char;
   kvcount        : CTypes.cuint64;
   bmcount        : CTypes.cuint64;
@@ -544,7 +527,6 @@ var
   readPTT,setPTT : Boolean;
   pttState       : Boolean;
   cfgDir         : String;
-  catError       : TStringList;
   savedTADC      : String;
   savedIADC      : Integer;
   txperiod       : Integer; // 1 = Odd 0 = Even
@@ -611,89 +593,42 @@ Var
 Begin
      // This runs on first timer interrupt once per run session
      timer1.Enabled:=False;
-     // Setup profile timers for demodulator
-     //demodulate.dmprofile := TStringList.Create;
-     //demodulate.dmprofile.Clear;
-     //demodulate.dmprofile.CaseSensitive := False;
-     //demodulate.dmprofile.Sorted := False;
-     //demodulate.dmprofile.Duplicates := Types.dupIgnore;
-
      // Mark TX content as clean so any changes will lead to update
      txDirty := False;
-
      // Let adc know it is on first run so it can do its init
      adc.adcFirst := True;
-
-     // Setup rebel object and (consequently the serial port support so we use this rebel or not.
+     // Setup rebel object and the serial port support so we use this rebel or not.
      clRebel := rebel.TRebel.create;
      // Setup serial port list
      comboTTYPorts.Clear;
      comboTTYPorts.Items := clRebel.ports;
      comboTTYPorts.Items.Insert(0,'None');
-
-     //tmpdir := GetTempDir(false);
-     //dmtmpdir := tmpdir; // For KV files -sigh- not.
-
+     // Setup configuration and data directories
      homedir := getUserDir;
      dmtmpdir := homedir+'hfwst\';
-
-     mustcfg := False;
-
-     catError := TStringList.Create;
-     catError.Clear;
-     catError.CaseSensitive := False;
-     catError.Sorted := False;
-     catError.Duplicates := Types.dupAccept;
-
      if not DirectoryExists(homedir+'hfwst') Then
      Begin
           if not createDir(homedir+'hfwst') Then
           Begin
                showmessage('Could not create data directory' + sLineBreak + 'Program must halt.');
                halt;
-          //end
-          //else
-          //begin
-          //     showmessage('Created temporary files directory at:' + sLineBreak + homedir+'hfwst\');
           end;
-     //end
-     //else
-     //begin
-     //     showmessage('Found temporary files directory at:' + sLineBreak + homedir+'hfwst\');
      end;
      homedir := homedir+'hfwst\';
-
-     //showmessage(homedir);
-
      if not FileExists(homedir+'kvasd.exe') Then
      Begin
           if not FileUtil.CopyFile('kvasd.exe',homedir+'kvasd.exe') Then showmessage('Need kvasd.exe in data directory.') else showmessage('kvasd.exe copied to its processing location');
-     //end
-     //else
-     //begin
-     //     ShowMessage('kvasd.exe is in proper location');
      end;
-
      basedir := GetAppConfigDir(false);
      basedir := TrimFilename(basedir);
-
      if not DirectoryExists(basedir) Then
      Begin
           if not createDir(basedir) Then
           begin
                ShowMessage('Could not create base configuration directory' + sLineBreak + 'Program must halt.');
                halt;
-          //end
-          //else
-          //begin
-          //      showMessage('Created configuration directory');
           end;
-     //end
-     //else
-     //begin
-     //     ShowMessage('Configuration directory is in place.');
      end;
-
      if basedir[Length(basedir)] = PathDelim Then
      Begin
           cfgpath := basedir + 'I1' + PathDelim;
@@ -702,24 +637,14 @@ Begin
      begin
           cfgpath := basedir + PathDelim + cfgpath + 'I1' + PathDelim;
      end;
-
      if not DirectoryExists(cfgpath) Then
      Begin
           if not createDir(cfgpath) Then
           begin
                ShowMessage('Could not create instance configuration directory' + sLineBreak + 'Program must halt.');
                halt;
-          //end
-          //else
-          //begin
-          //      ShowMessage('Instance config dir created.');
           end;
-     //end
-     //else
-     //begin
-     //     ShowMessage('Instance config dir exists.')
      end;
-
      // Check that path length won't be a problem.  It needs to be < 256 charcters in length with either kvasd.dat or wisdom2.dat appended
      // So actual length + 11 < 256 is OK.
      if Length(cfgpath)+11 > 255 then
@@ -727,10 +652,8 @@ Begin
           ShowMessage('Path length too long [ ' + IntToStr(Length(cfgpath)+11) + ' ]' + 'Program must halt.');
           halt;
      end;
-
      // Create sqlite3 store, if necessary
      if not fileExists(cfgPath + 'jt65hf_datastore') Then setupDB(cfgPath);
-
      // Housekeeping items here
      cfgdir := cfgPath;
      demodulate.dmwispath := TrimFilename(cfgDir+'wisdom2.dat');
@@ -738,9 +661,7 @@ Begin
 
      // Query db for configuration with instance id = 1 and if it exists
      // read config, if not set to defaults and prompt for config update
-
      sqlite3.DatabaseName := cfgPath + 'jt65hf_datastore';
-
      query.Active := False;
      query.SQL.Clear;
      query.SQL.Add('SELECT * FROM config WHERE instance = 1;');
@@ -761,7 +682,7 @@ Begin
      query.Active := True;
      if query.RecordCount = 0 then
      begin
-          ShowMessage('Error - no instance data.');
+          ShowMessage('Error - no instance data. This is a fatal error please notify Joe w6cqz@w6cqz.org');
           halt;
      end
      else
@@ -770,6 +691,10 @@ Begin
           Begin
                ShowMessage('Please setup your station information.');
                mustcfg := True;
+          end
+          else
+          begin
+               mustcfg := False;
           end;
      end;
 
@@ -864,7 +789,6 @@ Begin
      cbMultiOn.Checked := query.FieldByName('multion').AsBoolean;
      cbTXEqRXDF.Checked := query.FieldByName('txeqrxdf').AsBoolean;
      query.Active := False;
-
      // Setup rigcontrol object (used even if not using "real" rig control)
      rigControlSet(useDeciAuto);
      rigControlSet(tbWFSpeed);
@@ -876,7 +800,6 @@ Begin
      rigControlSet(dgainR0);
      rigControlSet(rbUseLeftAudio);
      rigControlSet(rigNone);
-
      // Setup clock display
      foo := '';
      if thisUTC.Month < 10 Then foo := '0' + IntToStr(thisUTC.Month) + '-' else foo := IntToStr(thisUTC.Month) + '-';
@@ -886,39 +809,6 @@ Begin
      if thisUTC.Minute < 10 Then foo := foo + '0' + IntToStr(thisUTC.Minute) + ':' else foo := foo + IntToStr(thisUTC.Minute) + ':';
      if thisUTC.Second < 10 Then foo := foo + '0' + IntToStr(thisUTC.Second) else foo := foo + IntToStr(thisUTC.Second);
      stime := 'Started:  ' + foo;
-
-     // Validate initial QRG
-     fs  := '';
-     ff  := 0.0;
-     fi  := 0;
-     fs  := edDialQRG.Text;
-     fsc := '';
-     mval.forceDecimalAmer := False;
-     mval.forceDecimalEuro := False;
-     if mval.evalQRG(fs,'STRICT',ff,fi,fsc) Then qrgValid := True else qrgValid := False;
-
-
-     // Populate QRG list
-     comboQRGList.Clear;
-     query.Active := False;
-     query.SQL.Clear;
-     query.SQL.Add('SELECT fqrg FROM qrg WHERE instance = 1 ORDER BY fqrg DESC;');
-     query.Active := True;
-     if query.RecordCount > 0 Then
-     Begin
-          query.First;
-          for i := 0 to query.RecordCount-1 do
-          begin
-               fs  := query.Fields[0].AsString;
-               ff  := 0.0;
-               fi  := 0;
-               fsc := '';
-               if mval.evalQRG(fs,'STRICT',ff,fi,fsc) Then comboQRGList.Items.Add(fsc);
-               query.Next;
-          end;
-     end;
-     query.Active := False;
-
      // Populate Macro list
      comboMacroList.Clear;
      query.SQL.Clear;
@@ -936,7 +826,6 @@ Begin
      end;
      comboMacroList.ItemIndex := 0;
      query.Active := False;
-
      // Lets read some config
      inDev  := savedIADC;
      pttDev := -1;
@@ -958,8 +847,6 @@ Begin
                inIcal := 1;
           end;
      end;
-
-
      if cbSpecSmooth.Checked then spectrum.specSmooth := True else spectrum.specSmooth := False;
      if cbSpecSmooth.Checked then spectrum.specuseagc := True else spectrum.specuseagc := False;
      spectrum.specColorMap := spColorMap.ItemIndex;
@@ -974,7 +861,6 @@ Begin
      mval.forceDecimalEuro := False;
      if mval.evalQRG(fs,'STRICT',ff,fi,fsc) Then qrgValid := True else qrgValid := False;
      If TryStrToInt(TXLevel.Text,i) Then tbTXLevel.Position := i else tbTXLevel.Position := 16;
-
      if useDeciAmerican.Checked then
      begin
           dChar := '.';
@@ -992,9 +878,7 @@ Begin
           if dChar = '.' Then useDeciAuto.Caption := 'Use System Default (decimal = . thousands = ,)';
           if dChar = ',' Then useDeciAuto.Caption := 'Use System Default (decimal = , thousands = .)';
      end;
-
      // Intitialize to startup points
-     forceCAT := False;
      qsyQRG   := 0;
      kvcount   := 0;
      bmcount   := 0;
@@ -1013,38 +897,29 @@ Begin
      readPTT   := False;
      setPTT    := False;
      pttState  := False;
-     catQRG    := 0;
-
      demodulate.dmfirstPass  := True;
      demodulate.dmhaveDecode := False;
      demodulate.dmdemodBusy  := False;
      demodulate.dmruntime    := 0.0;
-
      If tbMultiBin.Position = 1 then demodulate.dmbw := 20;
      If tbMultiBin.Position = 2 then demodulate.dmbw := 50;
      If tbMultiBin.Position = 3 then demodulate.dmbw := 100;
      If tbMultiBin.Position = 4 then demodulate.dmbw := 200;
      Label26.Caption := 'Multi ' + IntToStr(demodulate.dmbw) + ' Hz';
-
      If tbSingleBin.Position = 1 then demodulate.dmbws := 20;
      If tbSingleBin.Position = 2 then demodulate.dmbws := 50;
      If tbSingleBin.Position = 3 then demodulate.dmbws := 100;
      If tbSingleBin.Position = 4 then demodulate.dmbws := 200;
      Label87.Caption := 'Single ' + IntToStr(demodulate.dmbws) + ' Hz';
-
      if inIcal >-1 then demodulate.dmical := inIcal else demodulate.dmical := 0;
-
-//     set65;
      paActive := False;
      thisTXCall := '';
      thisTXGrid := '';
      thisTXmsg  := '';
      thisTXdf   := 0;
-
      spectrum.specFirstRun := True;
      spectrum.specuseagc   := False;
      spectrum.specSmooth   := False;
-
      // Todo tie these to db vars
      spectrum.specVGain    := 7;  // 7 is "normal" can range from 1 to 13
      spectrum.specContrast := 1;
@@ -1057,14 +932,12 @@ Begin
      aulevel := 0;
      aulevel1 := 0;
      aulevel2 := 0;
-
      adc.adcMono := False;
      adc.auIDX   := 0;
      adc.specIDX := 0;
      adc.haveAU  := False;
      adc.haveSpec := False;
-
-     flipflop := 0;
+     // Setup spectrum display legend - likely replace this with a simple graphic eventually
      fbar1 := Nil;
      if FBar1 = nil then InitBar;
      FBar1.Clear;
@@ -1073,7 +946,6 @@ Begin
      ListBox1.Clear;
      ListBox2.Clear;
      Memo1.Clear;
-
      // Create and initialize TWaterfallControl
      Waterfall1 := TWaterfallControl1.Create(Self);
      Waterfall1.Height := 180;
@@ -1081,13 +953,10 @@ Begin
      Waterfall1.Top    := 68;
      Waterfall1.Left   := 152;
      Waterfall1.Parent := Self;
-     //Waterfall1.OnMouseDown := waterfallMouseDown;
+     //Waterfall1.OnMouseDown := waterfallMouseDown;  This needs to be hooked up again
      Waterfall1.DoubleBuffered := True;
      If mustcfg Then Waterfall1.Visible := False;
-
      // Setup RB (thread)
-     //rbtick  := 0;
-     //rbpings := 0;
      rb := spot.TSpot.create(); // Used even if spotting is disabled
      // Set RB Version - note - wrong value here will lead to rb.php saying newp.
      rb.rbVersion := '3000';
@@ -1144,15 +1013,9 @@ Begin
                rbping := False;
           end;
      end;
-
      // Setup Decoder (thread)
      doDecode      := False;
      decoderThread := decodeThread.Create(False);
-
-     // Setup Rig Control (thread)
-     doCAT      := False;
-     rigThread  := catThread.Create(False);
-
      if not paActive Then
      Begin
           // Fire up portaudio using default in/out devices.
@@ -1376,6 +1239,45 @@ Begin
           //     end;
           //end;
      end;
+     // Moved routines to deal with QRG down so I can know if this is a Rebel setup or not and react properly
+     // Validate initial QRG
+     fs  := '';
+     ff  := 0.0;
+     fi  := 0;
+     fs  := edDialQRG.Text;
+     fsc := '';
+     mval.forceDecimalAmer := False;
+     mval.forceDecimalEuro := False;
+     if mval.evalQRG(fs,'STRICT',ff,fi,fsc) Then qrgValid := True else qrgValid := False;
+     // Populate QRG list
+     comboQRGList.Clear;
+     query.Active := False;
+     query.SQL.Clear;
+     // Limit QRG list to 40/20M ranges for now if Rebel is on
+     if not rigRebel.Checked Then query.SQL.Add('SELECT fqrg FROM qrg WHERE instance = 1 ORDER BY fqrg DESC;') else query.SQL.Add('SELECT fqrg FROM qrg WHERE instance = 1 AND fqrg > 6999999.9 AND fqrg < 14350000.1 ORDER BY fqrg DESC;');
+     query.Active := True;
+     if query.RecordCount > 0 Then
+     Begin
+          query.First;
+          for i := 0 to query.RecordCount-1 do
+          begin
+               fs  := query.Fields[0].AsString;
+               ff  := 0.0;
+               fi  := 0;
+               fsc := '';
+               if rigRebel.Checked Then
+               Begin
+                    // This cuts out 30M entries for Rebel
+                    if (mval.evalQRG(fs,'STRICT',ff,fi,fsc)) and ((fi < 10100000) or (fi > 10150000)) Then comboQRGList.Items.Add(fsc);
+               end
+               else
+               begin
+                    if (mval.evalQRG(fs,'STRICT',ff,fi,fsc)) Then comboQRGList.Items.Add(fsc);
+               end;
+               query.Next;
+          end;
+     end;
+     query.Active := False;
 
      if rigRebel.Checked Then
      Begin
@@ -1390,10 +1292,11 @@ Begin
                     if i>0 then
                     begin
                          clRebel.port := 'COM'+TrimLeft(TrimRight(edPort.Text));
+                         ShowMessage('Connecting to Rebel on ' + clRebel.port + ' at ' + IntToStr(clRebel.baud) + ' baud' + sLineBreak + 'Please insure Rebel is connected and loaded with proper firmware.');
                          if clRebel.connect Then
                          Begin
                               // We're connected need to see if there's a Rebel on the other side
-                              if clRebel.ping Then
+                              if clRebel.setup Then
                               Begin
                                    // Sure enough seem to have one
                                    haveRebel := True;
@@ -1428,9 +1331,7 @@ Begin
           end;
      end;
 
-     catFree   := True;
      readQRG   := True;
-     forceCAT  := True;
      firstTick := False;
 end;
 
@@ -1442,41 +1343,17 @@ Var
    ioresult  : CTypes.cint;
    msg       : CTypes.cschar;
    fs, fsc   : String;
-   s1,s2,foo : String;
+   s1,s2     : String;
    ff        : Double;
-   cqrg      : Integer;
    valid     : Boolean;
 Begin
      // Runs on each timer tick
      thisUTC     := utcTime;
      thisSecond  := thisUTC.Second;
      thisADCTick := adc.adcTick;
-     if not demodulate.dmdemodBusy and demodulate.dmhaveDecode Then displayDecodes;
-     cqrg := StrToInt(edDialQRG.Text);
-     if (sopQRG = eopQRG) And (sopQRG = cqrg) Then Label122.Caption := 'RB QRG Synchronized' else Label122.Caption := 'RB QRG Not Synchronized';
      Waterfall1.Repaint;
-     flipflop := 0;
-     if forceCAT and catFree Then
-     Begin
-          If rigNone.Checked Then catMethod := 'None';
-          if rigRebel.Checked Then catMethod := 'Rebel';
-          if rigCommander.Checked Then catMethod := 'Commander';
-          doCAT     := True;
-          forceCAT  := False;
-     end;
-
-     if catError.Count > 0 Then for i := 0 to catError.Count-1 do ListBox2.Items.Insert(0,catError.Strings[i]);
-     if catError.Count > 0 Then catError.Clear;
-
+     if not demodulate.dmdemodBusy and demodulate.dmhaveDecode Then displayDecodes;
      if cbUseColor.Checked Then ListBox1.Style := lbOwnerDrawFixed else ListBox1.Style := lbStandard;
-     Label121.Caption := 'Decoder Resolution:  ' + IntToStr(demodulate.dmbw) + ' Hz';
-     if kvcount > 0 Then Label95.Caption := PadLeft(IntToStr(kvcount),5) + '  ' + FormatFloat('0.0',(100.0*(kvcount/(kvcount+bmcount)))) + '%';
-     if bmcount > 0 Then Label96.Caption := PadLeft(IntToStr(bmcount),5) + '  ' + FormatFloat('0.0',(100.0*(bmcount/(kvcount+bmcount)))) + '%';
-     if bmcount+kvcount > 0 Then Label98.Caption := PadLeft(FormatFloat('0.00',(avgdt/(kvcount+bmcount))),5);
-     if msc > 0 Then Label112.Caption := PadLeft(IntToStr(msc),5);
-     if mfc > 0 Then Label113.Caption := PadLeft(IntToStr(mfc),5);
-     if v1c > 0 Then Label116.Caption := PadLeft(IntToStr(v1c),5);
-     if v2c > 0 Then Label117.Caption := PadLeft(IntToStr(v2c),5);
 
      fs  := '';
      ff  := 0.0;
@@ -1486,6 +1363,17 @@ Begin
      mval.forceDecimalAmer := False;
      mval.forceDecimalEuro := False;
      if mval.evalQRG(fs,'STRICT',ff,fi,fsc) Then qrgValid := True else qrgValid := False;
+
+     Label121.Caption := 'Decoder Resolution:  ' + IntToStr(demodulate.dmbw) + ' Hz';
+     if kvcount > 0 Then Label95.Caption := PadLeft(IntToStr(kvcount),5) + '  ' + FormatFloat('0.0',(100.0*(kvcount/(kvcount+bmcount)))) + '%';
+     if bmcount > 0 Then Label96.Caption := PadLeft(IntToStr(bmcount),5) + '  ' + FormatFloat('0.0',(100.0*(bmcount/(kvcount+bmcount)))) + '%';
+     if bmcount+kvcount > 0 Then Label98.Caption := PadLeft(FormatFloat('0.00',(avgdt/(kvcount+bmcount))),5);
+     if msc > 0 Then Label112.Caption := PadLeft(IntToStr(msc),5);
+     if mfc > 0 Then Label113.Caption := PadLeft(IntToStr(mfc),5);
+     if v1c > 0 Then Label116.Caption := PadLeft(IntToStr(v1c),5);
+     if v2c > 0 Then Label117.Caption := PadLeft(IntToStr(v2c),5);
+
+     //if (sopQRG = eopQRG) And (sopQRG = StrToInt(edDialQRG.Text)) Then Label122.Caption := 'RB QRG Synchronized' else Label122.Caption := 'RB QRG Not Synchronized';
 
      if qrgValid and (length(edRBCall.Text)>2) Then
      Begin
@@ -1501,7 +1389,9 @@ Begin
      end;
 
      // Converts Integer Hertz value to KHz taking into account local decimal character.
-     // This is *better* than converting to float and dividing.  :)
+     // This is *better* than converting to float and dividing.  :) This reads from the
+     // internal edDialQRG field and sets the user visible elements.
+
      if length(edDialQRG.Text)> 3 Then
      Begin
           s1 := edDialQRG.Text;
@@ -1527,8 +1417,6 @@ Begin
      begin
           Label27.Caption := edDialQRG.Text;
      end;
-
-     Label90.Caption := 'CAT QRG:  ' + IntToStr(catQRG);
 
      //if RadioButton1.Checked And globalData.txInProgress Then globalData.txInProgress := False;
 
@@ -1638,6 +1526,7 @@ Begin
           end;
      end;
 
+     { TODO : This is where I need to be for adding Rebel TX control }
      // Enable PTT if necessary
      i := -1;
      If (cbUseSerial.Checked And TryStrToInt(TrimLeft(TrimRight(edPort.Text)),i)) And globalData.txInProgress And (not txOn) Then
@@ -1682,18 +1571,7 @@ Begin
                     sleep(100);
                end;
           end;
-          {TODO Fix}
-          //if not txOn Then Label12.Caption := 'PTT is OFF';
-          //if not txON Then Label12.Font.Color := clBlack;
-
-          //if not cbUseSerial.Checked Then
-          //Begin
-               //Label12.Caption := 'PTT is disabled';
-               //Label12.Font.Color := clBlack;
-          //end;
      end;
-
-     //if inSync and paActive Then RadioGroup1.Visible := True else RadioGroup1.Visible := False;
 
      if rbOn.Checked then rbOn.Caption := 'Spots sent:  ' + IntToStr(rb.rbCount) else rbOn.Caption := 'RB Enable';
      if length(edRBCall.Text) < 3 Then rbOn.Caption := 'Disabled - Setup Data.';
@@ -1704,7 +1582,7 @@ Begin
           rb.myGrid := TrimLeft(TrimRight(edGrid.Text));
           rb.rbInfo := TrimLeft(TrimRight(edStationInfo.Text));
           rb.myQRG  := StrToInt(edDialQRG.Text);
-          rb.useRB := True;
+          rb.useRB  := True;
           rbping    := True;
      end;
 
@@ -1727,17 +1605,14 @@ end;
 
 procedure TForm1.OncePerSecond;
 Var
-  i,fi       : Integer;
-  fs,fsc,foo : String;
-  ff        : Double;
+  i   : Integer;
+  foo : String;
 Begin
      // Items that run on each new second or selected new seconds
 
      // Frame progress indicator
      if (thisSecond < 48) Then ProgressBar1.Position := thisSecond;
-
-     if (thisSecond = 47) And (lastSecond = 46) And InSync And paActive Then eopQRG := StrToInt(edDialQRG.Text);
-
+     if (thisSecond = 47) And (lastSecond = 46) And InSync And paActive Then eopQRG := StrToInt(edDialQRG.Text); // Track start/end frame QRG values
      if (thisSecond = 47) And (lastSecond = 46) And InSync And paActive And not decoderBusy Then
      Begin
           // Attempt a decode
@@ -1746,41 +1621,7 @@ Begin
           if thisUTC.Minute < 10 Then thisTS := thisTS + '0' + IntToStr(thisUTC.Minute) else thisTS := thisTS + IntToStr(thisUTC.Minute);
           doDecode := True;
      end;
-
-     // Hook for early sync detect.
-     //if inSync And paActive Then
-     //Begin
-     //     if (thisSecond > 14) and (thisSecond < 46) and (thisSecond MOD 5 = 0) Then
-     //     Begin
-     //          if adc.d65rxBufferIdx > length(adc.d65rxBuffer1)-1 Then
-     //          Begin
-     //               sleep(1);
-     //          end;
-     //          i := 0;
-     //          while adc.adcRunning do
-     //          begin
-     //               inc(i);
-     //               if i > 25 then break;
-     //               sleep(1);
-     //          end;
-     //          if i < 26 then
-     //          begin
-     //               setLength(rxb,length(adc.d65rxBuffer1));
-     //               if adc.adcChan = 0 Then for i := 0 to length(adc.d65rxBuffer1)-1 do rxb[i] := adc.d65rxBuffer1[i];
-     //               if adc.adcChan = 1 Then for i := 0 to length(adc.d65rxBuffer1)-1 do rxb[i] := adc.d65rxBuffer1[i];
-     //               if adc.adcChan = 2 Then for i := 0 to length(adc.d65rxBuffer2)-1 do rxb[i] := adc.d65rxBuffer2[i];
-     //               for i := adc.d65rxBufferIdx to Length(rxb)-1 do rxb[i] := 0;
-     //               i := adc.d65rxBufferIdx;
-     //               earlySync(rxb,i);
-     //               setLength(rxb,0);
-     //          end
-     //          else
-     //          begin
-     //               sleep(1);
-     //          end;
-     //     end;
-     //end;
-
+     // Update clock display
      foo := '';
      if thisUTC.Month < 10 Then foo := '0' + IntToStr(thisUTC.Month) + '-' else foo := IntToStr(thisUTC.Month) + '-';
      if thisUTC.Day   < 10 Then foo := foo + '0' + IntToStr(thisUTC.Day) + '-' else foo := foo + IntToStr(thisUTC.Day) + '-';
@@ -1789,7 +1630,7 @@ Begin
      if thisUTC.Minute < 10 Then foo := foo + '0' + IntToStr(thisUTC.Minute) + ':' else foo := foo + IntToStr(thisUTC.Minute) + ':';
      if thisUTC.Second < 10 Then foo := foo + '0' + IntToStr(thisUTC.Second) else foo := foo + IntToStr(thisUTC.Second);
      Label15.Caption :=  foo;
-
+     // Ping RB Server to keep alive on minutes 0,5,10,15,20,25,30,35,40,45,50,55 at 15 seconds
      if (thisSecond = 15) and (thisUTC.Minute MOD 5 = 0) Then
      Begin
           if rbOn.Checked Then
@@ -1799,7 +1640,7 @@ Begin
                rb.myGrid := TrimLeft(TrimRight(edGrid.Text));
                rb.rbInfo := TrimLeft(TrimRight(edStationInfo.Text));
                rb.myQRG  := StrToInt(edDialQRG.Text);
-               rb.useRB := True;
+               rb.useRB  := True;
                rbping    := True;
           end
           else
@@ -1812,77 +1653,46 @@ Begin
                rbping    := False;
           end;
      end;
-
-     if (thisSecond mod 15 = 0) and catFree Then
+     // Update rig control method before processing any rig control event
+     If rigNone.Checked Then catMethod := 'None';
+     if rigRebel.Checked Then catMethod := 'Rebel';
+     if rigCommander.Checked Then catMethod := 'Commander';
+     if rigRebel.Checked and haveRebel and (not setQRG) Then readQRG := True else readQRG := False;  // Reads Rebel QRG once per second (will likely increase this to once ever few seconds.
+     // Deal with Rebel
+     if rigRebel.Checked and haveRebel and setQRG Then
      Begin
-          //if edRebRXOffset.Text <> IntToStr(rebRXOffset) Then edRebRXOffset.Text := IntToStr(rebRXOffset);
-          //if edRebTXOffset.Text <> IntToStr(rebTXOffset) Then edRebTXOffset.Text := IntToStr(rebTXOffset);
-          // Run a rig control cycle
-          forceCAT  := False;
-          readQRG   := True;
-          if rigNone.Checked Then catMethod := 'None';
-          if rigRebel.Checked Then catMethod := 'Rebel';
-          if rigCommander.Checked Then catMethod := 'Commander';
-          doCAT     := True;
-     end;
-
-     if (thisSecond = 48) and (lastSecond = 47) Then
-     Begin
-          Try
-             // Paint a line for second = 49
-             for i := 0 to 749 do
-             Begin
-                  spectrum.specDisplayData[0][i].r := 255;
-                  spectrum.specDisplayData[0][i].g := 0;
-                  spectrum.specDisplayData[0][i].b := 0;
-             end;
-             // Probably will eventually remove the following line... here for PageControl for now.
-          except
-             ListBox2.Items.Insert(0,'Exception in paint line (2)');
-          end;
-     end;
-
-     if (thisSecond = 0) and (lastSecond = 59) Then
-     Begin
-          sopQRG := StrToInt(edDialQRG.Text);
-          Try
-             // Paint a line for second = 59 and 0
-             for i := 0 to 749 do
-             Begin
-                  spectrum.specDisplayData[0][i].r := 0;
-                  spectrum.specDisplayData[0][i].g := 255;
-                  spectrum.specDisplayData[0][i].b := 0;
-             end;
-             // Probably will eventually remove the following line... here for PageControl for now.
-          except
-             ListBox2.Items.Insert(0,'Exception in paint line (2)');
-          end;
-     end;
-     if catMethod = 'Rebel' Then groupRebelOptions.Visible := True else groupRebelOptions.Visible := False;
-     if catQRG > 0 Then
-     Begin
-          fs := IntToStr(catQRG);
-          ff  := 0.0;
-          fi  := 0;
-          fsc := '';
-          mval.forceDecimalAmer := False;
-          mval.forceDecimalEuro := False;
-          if mval.evalQRG(fs,'STRICT',ff,fi,fsc) Then
+          clRebel.qrg := qsyQRG;
+          if clRebel.setQRG Then
           Begin
-               //editQRG.text := fsc;
-               edDialQRG.text := intToStr(fi);
-          end
+               ListBox2.Items.Insert(0,'QSY to ' + IntToStr(qsyQRG) + ' complete');
+               edDialQRG.Text := IntToStr(qsyQRG);
+               readQRG := False;
+               setQRG := False;
+               if clRebel.poll Then
+               Begin
+                    edDialQRG.Text:= IntToStr(Round(clRebel.qrg));;
+               end;
+          End
           else
-          begin
-               //editQRG.text := '0';
-               edDialQRG.text := '0';
+          Begin
+               ListBox2.Items.Insert(0,'QSY to ' + IntToStr(qsyQRG) + ' fails');
+               edDialQRG.Text := '0';
+               editQRG.Text := '0';
+               readQRG := False;
+               setQRG := False;
           end;
      end
-     else
-     begin
-          edDialQRG.Text := '0';
-          //editQRG.text := '0';
+     else if rigRebel.Checked and haveRebel and readQRG Then
+     Begin
+          if clRebel.poll Then
+          Begin
+               edDialQRG.Text:= IntToStr(Round(clRebel.qrg));;
+          end;
+          readQRG := False;
+          setQRG := False;
      end;
+     // Update Rebel debug information
+     if catMethod = 'Rebel' Then groupRebelOptions.Visible := True else groupRebelOptions.Visible := False;
      if haveRebel and clRebel.connected Then
      Begin
           Label45.Caption := 'Rebel Firmware:  ' + clRebel.rebVer;
@@ -1899,7 +1709,38 @@ Begin
      begin
           TabSheet10.Visible := False;
      end;
+     // Paint a line for second = 49
+     if (thisSecond = 49) and (lastSecond = 48) Then
+     Begin
+          Try
+             for i := 0 to 749 do
+             Begin
+                  spectrum.specDisplayData[0][i].r := 255;
+                  spectrum.specDisplayData[0][i].g := 0;
+                  spectrum.specDisplayData[0][i].b := 0;
+             end;
+             // Probably will eventually remove the following line... here for PageControl for now.
+          except
+             ListBox2.Items.Insert(0,'Exception in paint line (2)');
+          end;
+     end;
 
+     // Paint a line for second = 0
+     if (thisSecond = 0) and (lastSecond = 59) Then
+     Begin
+          sopQRG := StrToInt(edDialQRG.Text);
+          Try
+             for i := 0 to 749 do
+             Begin
+                  spectrum.specDisplayData[0][i].r := 0;
+                  spectrum.specDisplayData[0][i].g := 255;
+                  spectrum.specDisplayData[0][i].b := 0;
+             end;
+             // Probably will eventually remove the following line... here for PageControl for now.
+          except
+             ListBox2.Items.Insert(0,'Exception in paint line (2)');
+          end;
+     end;
 end;
 
 procedure TForm1.OncePerMinute;
@@ -1929,6 +1770,7 @@ Begin
      if (txperiod = 0) and not Odd(thisUTC.Minute) Then couldtx := True;
 
      // Enable TX if necessary
+     { TODO : More TX code here }
      if (rbTXEven.Checked or rbTXOdd.Checked) and (not globalData.txInProgress) and inSync Then
      Begin
           i := -9999;
@@ -1956,7 +1798,7 @@ Begin
                //genTX(foo,i,gTXLevel,dac.d65txBuffer);
           //end;
      end;
-
+     // Prune decoder output display
      if ListBox1.Items.Count > 250 Then
      Begin
           Try
@@ -1964,46 +1806,24 @@ Begin
              begin
                   ListBox1.Items.Delete(i);
              end;
-             //ListBox2.Items.Insert(0,'Ran prune list');
           except
              ListBox2.Items.Insert(0,'Exception in prune list');
           end;
      end;
-
+     // This resets AGC action in Spectrum if it's on - keeps it from getting stuck and leading to a no smooth display.
      Try
         if spectrum.specagc > 0 Then spectrum.specagc := 0;
      Except
         ListBox2.Items.Insert(0,'Exception in reset agc');
      end;
-
-     //// Populate predefined QRG list
-     //comboQRGList.Clear;
-     //dataqrg.DataSet.First;
-     //for i := 0 to dataqrg.DataSet.RecordCount - 1 do
-     //begin
-     //     comboQRGList.Items.Add(dataqrg.DataSet.FieldValues['FQRG']);
-     //     dataqrg.DataSet.Next;
-     //end;
-     //
-     //// Populate Macro list
-     //comboMacroList.Clear;
-     //datamacro.DataSet.First;
-     //for i := 0 to datamacro.DataSet.RecordCount - 1 do
-     //begin
-     //     comboMacroList.Items.Add(datamacro.DataSet.FieldValues['TEXT']);
-     //     datamacro.DataSet.Next;
-     //end;
-
+     // Display any RB Errors
      if rb.errLog.Count > 0 Then for i := 0 to rb.errLog.Count-1 do Memo1.Append(rb.errlog.Strings[i]);
      rb.clearErr;
-
-
-
 end;
 
 procedure TForm1.periodicSpecial;
 Begin
-
+     // Nothing
 end;
 
 procedure TForm1.adcdacTick;
@@ -2012,6 +1832,7 @@ Begin
      // Compute spectrum and audio levels.
      if adc.haveAU And (not demodulate.dmdemodBusy) Then
      Begin
+          // Compute/display audio level(s)
           if adc.adcMono Then
           Begin
                //if aulevel = 0 Then aulevel := spectrum.computeAudio(adc.adclast2k1) else aulevel := (aulevel + spectrum.computeAudio(adc.adclast2k1)) div 2;
@@ -2043,15 +1864,13 @@ Begin
 
      If adc.haveSpec And (not demodulate.dmdemodBusy) Then
      Begin
-          // Can do spectrum...
+          // Compute/update spectrum display
           if adc.adcMono Then
           Begin
-               //spectrum.computeSpectrum(adc.adclast4k1);
                spectrum.computeSpectrum(adc.adclast4k1F);
           end
           else
           begin
-               //if adc.adcChan = 1 Then spectrum.computeSpectrum(adc.adclast4k1) else spectrum.computeSpectrum(adc.adclast4k2);
                if adc.adcChan = 1 Then spectrum.computeSpectrum(adc.adclast4k1F) else spectrum.computeSpectrum(adc.adclast4k2F);
           end;
           adc.haveSpec := False;
@@ -2088,21 +1907,12 @@ Var
    tvalid   : Boolean;
    dcount   : Integer;
 Begin
-     //if not demodulate.dmdemodBusy And (demodulate.dmprofile.Count > 0) Then
-     //Begin
-     //     for i := 0 to demodulate.dmprofile.Count-1 do Memo2.Append(demodulate.dmprofile.Strings[i]);
-     //     Memo2.Append('--------------------');
-     //     demodulate.dmprofile.Clear;
-     //end;
-
      memo3.Clear;
      for i := 0 to 499 do if length(demodulate.dmlastraw[i])>0 Then memo3.Append(demodulate.dmlastraw[i]);
      dcount := 0;
-     //ListBox2.Items.Insert(0,'Enter display decodes');
      // Remove any duplicates and/or image decodes.
      j := 0;
      for i := 0 to 499 do if not demodulate.dmdecodes[i].clr Then inc(j);
-     //if j=1 then showmessage('j=1');
      if j > 1 Then
      Begin
           SetLength(removes,j);
@@ -2177,7 +1987,6 @@ Begin
                               tvalid := False;
                               breakOutFields(demodulate.dmdecodes[i].utc + ' ' + demodulate.dmdecodes[i].sync + ' ' + demodulate.dmdecodes[i].db + ' ' + afoo + ' ' + demodulate.dmdecodes[i].df + '  ' + demodulate.dmdecodes[i].ec + '  ' + demodulate.dmdecodes[i].dec, tvalid);
                               if not tvalid then inc(pfails);
-                              //if not tvalid then Label119.Caption := IntToStr(pfails);
                               if not tvalid then
                               Begin
                                    Memo1.Append('Failed to build - input:  ' + demodulate.dmdecodes[i].utc + ' ' + demodulate.dmdecodes[i].sync + ' ' + demodulate.dmdecodes[i].db + ' ' + afoo + ' ' + demodulate.dmdecodes[i].df + '  ' + demodulate.dmdecodes[i].ec + '  ' + demodulate.dmdecodes[i].dec);
@@ -2215,7 +2024,6 @@ Begin
                          end;
                     end;
                     // Free record for demodulator's use next round.
-                    //ListBox2.Items.Insert(0,'Cleared dmdecodes:  ' + IntToStr(i));
                     demodulate.dmdecodes[i].clr := True;
                end;
           end;
@@ -2753,6 +2561,7 @@ Var
    a   : Char;
 Begin
      // Validates a string as only containing characters in the JT65 free text character set
+     { TODO : Message validator for free text right here! }
      Result := True;
      foo := UpCase(TrimLeft(TrimRight(c)));
      for i := 1 to Length(foo) do
@@ -3594,6 +3403,7 @@ begin
           with (Control as TListBox).Canvas do
           begin
                //myColor := cfgvtwo.glqsoColor;
+               { TODO : Add back custom color choices }
                If cbUseColor.Checked Then
                Begin
                     myColor := clSilver;
@@ -4142,269 +3952,12 @@ Begin
      end;
 end;
 
-//procedure TForm1.earlySync(Const samps : Array Of CTypes.cint16; Const endpoint : Integer);
-//Var
-//   fBuffer  : Array of CTypes.cfloat;
-//   lBuffer  : Array of CTypes.cfloat;
-//   iBuffer  : Array of CTypes.cint16;
-//   i,j      : Integer;
-//   fsum     : CTypes.cfloat;
-//   ave      : CTypes.cfloat;
-//   nave,jz  : CTypes.cint;
-//   lmousedf : CTypes.cint;
-//   jz2      : CTypes.cint;
-//   mousedf2 : CTypes.cint;
-//   lical    : CTypes.cint;
-//   syncount : CTypes.cint;
-//   wif      : PChar;
-//   dtxa     : Array[0..254] Of CTypes.cfloat;
-//   dfxa     : Array[0..254] Of CTypes.cfloat;
-//   snrxa    : Array[0..254] Of CTypes.cfloat;
-//   snrsynca : Array[0..254] Of CTypes.cfloat;
-//   idfxa    : Array[0..254] Of CTypes.cint;
-//   nsnr     : Array[0..254] Of CTypes.cint;
-//   nsync    : Array[0..254] Of CTypes.cint;
-//   bins     : Array[0..20] Of CTypes.cint;
-//   added    : Boolean;
-//   wispath  : String;
-//Begin
-//     // Attempt to find sync points early.  Experimental stuff.  :)
-//     setLength(fBuffer,661504);
-//     for i := 0 to Length(fBuffer)-1 do fBuffer[i] := 0.0;
-//     setLength(lBuffer,661504);
-//     for i := 0 to Length(lBuffer)-1 do lBuffer[i] := 0.0;
-//     setLength(iBuffer,661504);
-//     for i := 0 to Length(iBuffer)-1 do iBuffer[i] := 0;
-//     // Convert to float
-//     fsum := 0.0;
-//     nave := 0;
-//     for i := 0 to endpoint do fsum := fsum + samps[i];
-//     nave := Round(fsum/(endpoint+1));
-//     if nave <> 0 Then
-//     Begin
-//          for i := 0 to endpoint do iBuffer[i] := min(32766,max(-32766,samps[i]-nave));
-//     End
-//     Else
-//     Begin
-//          for i := 0 to endpoint do iBuffer[i] := min(32766,max(-32766,samps[i]));
-//     End;
-//     fsum := 0.0;
-//     ave := 0.0;
-//     for i := 0 to endpoint do
-//     Begin
-//          fBuffer[i] := 0.1 * iBuffer[i];
-//          fsum := fsum + fBuffer[i];
-//     End;
-//     ave := fsum/(endpoint+1);
-//     if ave <> 0.0 Then for i := 0 to endpoint do fBuffer[i] := fBuffer[i]-ave;
-//     jz := endpoint;
-//
-//     // Samples now converted to float, apply lpf
-//     lmousedf := 0;
-//     jz2 := 0;
-//     mousedf2 := 0;
-//     lical := 0;
-//     wif := StrAlloc(256);
-//     wisPath := TrimFilename(cfgDir+'wisdom2.dat');
-//     wisPath := PadRight(wisPath,255);
-//     StrPCopy (wif,wisPath);
-//     for i := 0 to jz do lBuffer[i] := fBuffer[i];
-//     lpf1(CTypes.pcfloat(@lBuffer[0]),CTypes.pcint(@jz),CTypes.pcint(@jz2),CTypes.pcint(@lmousedf),CTypes.pcint(@mousedf2),CTypes.pcint(@lical),PChar(wif));
-//
-//     // Clear fBuffer
-//     for i := 0 to Length(fBuffer)-1 do fBuffer[i] := 0.0;
-//
-//     // msync will want a downsampled and lpf version of data.
-//
-//     // Copy lBuffer to fBuffer
-//     for i := 0 to jz2 do fBuffer[i] := lBuffer[i];
-//     // Clear returns
-//     for i := 0 to 254 do
-//     begin
-//          dtxa[i]     := 0.0;
-//          dfxa[i]     := 0.0;
-//          snrxa[i]    := 0.0;
-//          snrsynca[i] := 0.0;
-//          idfxa[i]     := 0;
-//          nsnr[i]     := 0;
-//          nsync[i]    := 0;
-//     end;
-//
-//     syncount := 0;
-//     msync(CTypes.pcfloat(@fBuffer[0]),CTypes.pcint(@jz2),CTypes.pcint(@syncount),CTypes.pcfloat(@dtxa[0]),CTypes.pcfloat(@dfxa[0]),CTypes.pcfloat(@snrxa[0]),CTypes.pcfloat(@snrsynca[0]),CTypes.pcint(@lical),PChar(wif));
-//
-//     for i := 0 to 254 do
-//     begin
-//          idfxa[i]    := trunc(dfxa[i]);
-//          nsnr[i]     := trunc(snrxa[i]);
-//          nsync[i]    := trunc(snrsynca[i]-3.0);
-//     end;
-//
-//     for i := 0 to 20 do bins[i] := 0;
-//
-//     //  Low     CF      High     Bin
-//     // -1050 . -1000 . -950      0
-//     //  -949 . -900  . -850      1
-//     //  -849 . -800  . -750      2
-//     //  -749 . -700  . -650      3
-//     //  -649 . -600  . -550      4
-//     //  -549 . -500  . -450      5
-//     //  -449 . -400  . -350      6
-//     //  -349 . -300  . -250      7
-//     //  -249 . -200  . -150      8
-//     //  -149 . -100  . -50       9
-//     //   -49 .  0    .  50       10
-//     //    51    100  .  150      11
-//     //   151    200  .  250      12
-//     //   251    300  .  350      13
-//     //   351    400  .  450      14
-//     //   451    500  .  550      15
-//     //   551    600  .  650      16
-//     //   651    700  .  750      17
-//     //   751    800  .  850      18
-//     //   851    900  .  950      19
-//     //   951   1000  .  1050     20
-//
-//     added := False;
-//     for i := 0 to 254 do
-//     begin
-//          If (nsnr[i] > -33) and (nsync[i] > 0) Then
-//          Begin
-//               //ListBox1.Items.Insert(0,'dt:  ' + IntToStr(thisSecond) + ' ' + IntToStr(i) + ' dtxa:  ' + IntToStr(idtxa[i]) + ' dfxa:  ' + IntToStr(idfxa[i]) + ' nsnr:  ' + IntToStr(nsnr[i]) + ' nsync:  ' + IntToStr(nsync[i]));
-//               added := True;
-//               if (idfxa[i] > -1051) And (idfxa[i] < -951) Then
-//               Begin
-//                    Inc(bins[0]);   // -1050 ... -950 CF = -1000
-//               End;
-//
-//               if (idfxa[i] > -950)  And (idfxa[i] < -851) Then
-//               Begin
-//                    Inc(bins[1]);   //  -951 ... -850 CF =  -900
-//               End;
-//
-//               if (idfxa[i] > -850)  And (idfxa[i] < -751) Then
-//               Begin
-//                    Inc(bins[2]);   //  -851 ... -750 CF =  -800
-//               End;
-//
-//               if (idfxa[i] > -750)  And (idfxa[i] < -651) Then
-//               Begin
-//                    Inc(bins[3]);   //  -751 ... -650 CF =  -700
-//               End;
-//
-//               if (idfxa[i] > -650)  And (idfxa[i] < -551) Then
-//               Begin
-//                    Inc(bins[4]);   //  -651 ... -550 CF =  -600
-//               End;
-//
-//               if (idfxa[i] > -550)  And (idfxa[i] < -451) Then
-//               Begin
-//                    Inc(bins[5]);   //  -551 ... -450 CF =  -500
-//               End;
-//
-//               if (idfxa[i] > -450)  And (idfxa[i] < -351) Then
-//               Begin
-//                    Inc(bins[6]);   //  -451 ... -350 CF =  -400
-//               End;
-//
-//               if (idfxa[i] > -350)  And (idfxa[i] < -251) Then
-//               Begin
-//                    Inc(bins[7]);   //  -351 ... -250 CF =  -300
-//               End;
-//
-//               if (idfxa[i] > -250)  And (idfxa[i] < -151) Then
-//               Begin
-//                    Inc(bins[8]);   //  -251 ... -150 CF =  -200
-//               End;
-//
-//               if (idfxa[i] > -150)  And (idfxa[i] < -51)  Then
-//               Begin
-//                    Inc(bins[9]);   //  -151 ... -50  CF =  -100
-//               End;
-//
-//               if (idfxa[i] > -50)   And (idfxa[i] < 51)  Then
-//               Begin
-//                    Inc(bins[10]);   //  -51  ...  50  CF =  0
-//               End;
-//
-//               if (idfxa[i] > 50)    And (idfxa[i] < 151) Then
-//               Begin
-//                    Inc(bins[11]);   //   51 ...  150  CF =  100
-//               End;
-//
-//               if (idfxa[i] > 150)   And (idfxa[i] < 251) Then
-//               Begin
-//                    Inc(bins[12]);   //   151 ... 250 CF  =  200
-//               End;
-//
-//               if (idfxa[i] > 250)   And (idfxa[i] < 351) Then
-//               Begin
-//                    Inc(bins[13]);   //   251 ... 350 CF  =  300
-//               End;
-//
-//               if (idfxa[i] > 350)   And (idfxa[i] < 451) Then
-//               Begin
-//                    Inc(bins[14]);   //   351 ... 450 CF  =  400
-//               End;
-//
-//               if (idfxa[i] > 450)   And (idfxa[i] < 551) Then
-//               Begin
-//                    Inc(bins[15]);   //   451 ... 550 CF  =  500
-//               End;
-//
-//               if (idfxa[i] > 550)   And (idfxa[i] < 651) Then
-//               Begin
-//                    Inc(bins[16]);   //   551 ... 650 CF  =  600
-//               End;
-//
-//               if (idfxa[i] > 650)   And (idfxa[i] < 751) Then
-//               Begin
-//                    Inc(bins[17]);   //   651 ... 750 CF  =  700
-//               End;
-//
-//               if (idfxa[i] > 750)   And (idfxa[i] < 851) Then
-//               Begin
-//                    Inc(bins[18]);   //   751 ... 850 CF  =  800
-//               End;
-//
-//               if (idfxa[i] > 850)   And (idfxa[i] < 951) Then
-//               Begin
-//                    Inc(bins[19]);   //   851 ... 950 CF  =  900
-//               End;
-//
-//               if (idfxa[i] > 950)   And (idfxa[i] < 1051) Then
-//               Begin
-//                    Inc(bins[20]);  //   951 ... 1050 CF =  1000
-//               End;
-//          end;
-//     end;
-//
-//     if added Then
-//     Begin
-//          FBar1.Clear;
-//          j := -10;
-//          For i := 0 to 20 do
-//          Begin
-//               FBar1.AddXY(j, bins[i]);
-//               inc(j);
-//          end;
-//     end;
-//
-//     for i := 0 to 20 do bins[i] := 0;
-//
-//     wif := StrAlloc(0);
-//     setLength(fBuffer,0);
-//     setLength(lBuffer,0);
-//     setLength(iBuffer,0);
-//
-//end;
-
 //procedure TForm1.genTX(const msg : String; const txdf : Integer; const plevel : Integer; var samples : Array of CTypes.cint16);
 procedure TForm1.genTX(const msg : String; const txdf : Integer; const plevel : Integer);
 Var
    foo, sh       : String;
    form          : String;
-   i,dir,cnt,j,k : CTypes.cint;
+   i,dir,cnt     : CTypes.cint;
    nc1,nc2,ng    : LongWord;
    ng1           : LongWord;
    nc1t,nc2t,ngt : String;
@@ -4789,23 +4342,6 @@ begin
      //end;
 end;
 
-//function TForm1.rebelTuning(const f : CTypes.cdouble) : CTypes.cuint32;
-//var
-//   i : CTypes.cuint32;
-//   fi : CTypes.cdouble;
-//Begin
-//     fi := f;
-//     i := Round(f*(268435456/49999750));
-//     if i > 268435455 Then
-//     Begin
-//          result := 0;
-//     end
-//     else
-//     begin
-//          result := i;
-//     end;
-//end;
-
 procedure TForm1.txControlClick(Sender: TObject);
 begin
      If txrequested then
@@ -4895,12 +4431,6 @@ begin
      edTXMsg.Clear;
 end;
 
-//procedure TForm1.CheckBox2Change(Sender: TObject);
-//begin
-     {TODO Fix}
-     //If cbUseSerial.Checked Then Label12.Caption := 'PTT is enabled' else Label12.Caption := 'PTT is disabled';
-//end;
-
 procedure TForm1.edRXDFChange(Sender: TObject);
 begin
      if cbTXeqRXDF.Checked Then edTXDF.Text := edRXDF.Text;
@@ -4965,34 +4495,29 @@ begin
      Memo3.Clear;
 end;
 
-procedure TForm1.PageControlChange(Sender: TObject);
-begin
-
-end;
-
-procedure TForm1.qrgdbAfterPost(DataSet: TDataSet);
-Var
-   fs  : String;
-   fsc : String;
-   ff  : Double;
-   fi  : Integer;
-begin
-     fs  := '';
-     ff  := 0.0;
-     fi  := 0;
-     fs  := DataSet.FieldValues['FQRG'];
-     fsc := '';
-     // Attempt to convert to integer assuming someing in Khz would be > 1799.9
-     // and something in MHz < 1800.0
-     // evalQRG(const qrg : String; const mode : string; var qrgk : Double; var qrghz : Integer; var asciiqrg : String) : Boolean;
-     mval.forceDecimalAmer := False;
-     mval.forceDecimalEuro := False;
-     if not mval.evalQRG(fs,'STRICT',ff,fi,fsc) Then
-     Begin
-          ListBox1.Items.Insert(0,'Added QRG is invalid.');
-          //DataSet.FieldValues['FQRG'] := '0.0';
-     end;
-end;
+//procedure TForm1.qrgdbAfterPost(DataSet: TDataSet);
+//Var
+//   fs  : String;
+//   fsc : String;
+//   ff  : Double;
+//   fi  : Integer;
+//begin
+//     fs  := '';
+//     ff  := 0.0;
+//     fi  := 0;
+//     fs  := DataSet.FieldValues['FQRG'];
+//     fsc := '';
+//     // Attempt to convert to integer assuming someing in Khz would be > 1799.9
+//     // and something in MHz < 1800.0
+//     // evalQRG(const qrg : String; const mode : string; var qrgk : Double; var qrghz : Integer; var asciiqrg : String) : Boolean;
+//     mval.forceDecimalAmer := False;
+//     mval.forceDecimalEuro := False;
+//     if not mval.evalQRG(fs,'STRICT',ff,fi,fsc) Then
+//     Begin
+//          ListBox1.Items.Insert(0,'Added QRG is invalid.');
+//          //DataSet.FieldValues['FQRG'] := '0.0';
+//     end;
+//end;
 
 procedure TForm1.Button2Click(Sender: TObject);
 begin
@@ -5144,11 +4669,6 @@ begin
      groupLogQSO.visible  := True;
 end;
 
-procedure TForm1.cbSpecSmoothChange(Sender: TObject);
-begin
-
-end;
-
 procedure TForm1.btnsetQRGClick(Sender: TObject);
 Var
    fs  : String;
@@ -5172,11 +4692,9 @@ begin
           edDialQRG.Text := IntToStr(fi);
           qsyQRG := fi;
           setQRG := True;
-          forceCAT := True;
      end;
 
 end;
-
 
 procedure TForm1.buttonConfigClick(Sender: TObject);
 begin
@@ -5253,8 +4771,6 @@ begin
 end;
 
 procedure TForm1.FormClose(Sender: TObject; var CloseAction: TCloseAction);
-Var
-   foo   : String;
 begin
      Timer1.Enabled := False;
      if CloseAction = caFree Then
@@ -5271,37 +4787,7 @@ begin
           if not rbThread.FreeOnTerminate Then rbThread.Free;
           decoderThread.Terminate;
           if not decoderThread.FreeOnTerminate Then decoderThread.Free;
-          foo := '';
-          if thisUTC.Month < 10 Then foo := '0' + IntToStr(thisUTC.Month) + '-' else foo := IntToStr(thisUTC.Month) + '-';
-          if thisUTC.Day   < 10 Then foo := foo + '0' + IntToStr(thisUTC.Day) + '-' else foo := foo + IntToStr(thisUTC.Day) + '-';
-          foo := foo + IntToStr(thisUTC.Year) + '  ';
-          if thisUTC.Hour  < 10 Then foo := foo + '0' + IntToStr(thisUTC.Hour) + ':' else foo := foo + IntToStr(thisUTC.Hour) + ':';
-          if thisUTC.Minute < 10 Then foo := foo + '0' + IntToStr(thisUTC.Minute) + ':' else foo := foo + IntToStr(thisUTC.Minute) + ':';
-          if thisUTC.Second < 10 Then foo := foo + '0' + IntToStr(thisUTC.Second) else foo := foo + IntToStr(thisUTC.Second);
-          etime := 'Ended:  ' + foo;
-          //ereport(stime + '  ' + etime);
-          //ereport('Decodes:  ' + IntToStr(kvcount+bmcount) + ' KV Decodes:  ' + IntToStr(kvcount) + ' BM Decodes:  ' + IntToStr(bmcount));
-          //ereport('Structured Decodes:  ' + IntToStr(msc) + ' Free Text Decodes:  ' + IntToStr(mfc));
-          //ereport('V1 Decodes:  ' + IntToStr(v1c)+ ' V2 Decodes:  ' + IntToStr(v2c));
-          //if not isZero(demodulate.dmarun) Then ereport('Avg decode time:  ' + FormatFloat('0.000',((demodulate.dmarun/demodulate.dmrcount)/1000.0)));
-          //if not IsZero(lrun) Then ereport('Longest decode time:  ' + FormatFloat('0.000',(lrun/1000.0)));
-          //if not IsZero(srun) Then ereport('Shortest decode time:  ' + FormatFloat('0.000',(srun/1000.0)));
-          //if not isZero(avgdt) Then ereport('Avg DT:  ' + FormatFloat('0.00',(avgdt/(kvcount+bmcount))));
-          //if rb.errLog.Count > 0 Then
-          //Begin
-               //ereport('RB Errors');
-               //for i := 0 to rb.errLog.Count-1 do
-               //begin
-                    //ereport(rb.errlog.Strings[i]);
-               //end;
-               //ereport(' ');
-          //end;
-          //ereport('------------------------------');
-          try
-             //tty.CloseSocket;
-          except
-             // Ignore - likely wasn't open to begin with.
-          end;
+          clRebel.destroy;
      end;
 end;
 
@@ -5326,8 +4812,6 @@ begin
      newMinute   := False;
      newSecond   := False;
      rbping      := False;
-     //rbtick      := 0;
-     //rbpings     := 0;
      rbposted    := 0;
      doDecode    := False;
      decodeping  := 0;
@@ -5368,7 +4852,6 @@ end;
 
 procedure decodeThread.Execute;
 Var
-   rxb : Packed Array of CTypes.cint16;
    rxf : Packed Array of CTypes.cfloat;
    i   : Integer;
 begin
@@ -5384,286 +4867,13 @@ begin
                     if i > 25 then break;
                     sleep(1);
                end;
-
-//               setLength(rxb,length(adc.d65rxBuffer1));
-//               if adc.adcChan = 0 Then for i := 0 to length(adc.d65rxBuffer1)-1 do rxb[i] := adc.d65rxBuffer1[i];
-//               if adc.adcChan = 1 Then for i := 0 to length(adc.d65rxBuffer1)-1 do rxb[i] := adc.d65rxBuffer1[i];
-//               if adc.adcChan = 2 Then for i := 0 to length(adc.d65rxBuffer2)-1 do rxb[i] := adc.d65rxBuffer2[i];
-
                setLength(rxf,length(adc.d65rxFBuffer));
-//               if adc.adcChan = 0 Then for i := 0 to length(adc.d65rxFBuffer1)-1 do rxf[i] := adc.d65rxFBuffer1[i];
-//               if adc.adcChan = 1 Then for i := 0 to length(adc.d65rxFBuffer1)-1 do rxf[i] := adc.d65rxFBuffer1[i];
-//               if adc.adcChan = 2 Then for i := 0 to length(adc.d65rxFBuffer2)-1 do rxf[i] := adc.d65rxFBuffer2[i];
-
                for i := 0 to length(adc.d65rxFBuffer)-1 do rxf[i] := adc.d65rxFBuffer[i];
                demodulate.fdemod(rxf);
-
                inc(decodeping);
-               setLength(rxb,0);
-               //setLength(rxf,0);
+               setLength(rxf,0);
                doDecode := False;
                decoderBusy := False;
-          end;
-          Sleep(100);
-     end;
-end;
-
-procedure catThread.Execute;
-Var
-   commandline : String;
-   catProc     : TProcess;
-   i,fi        : Integer;
-   indata,foo  : String;
-   MemStream   : TMemoryStream;
-   BytesRead   : LongInt;
-   NumBytes    : LongInt;
-   OutputLines : TStringList;
-   ecount      : LongInt;
-   haveError   : Boolean;
-   ff          : Double;
-   fs,fsc      : String;
-begin
-     while not Terminated and not Suspended do
-     begin
-          if doCAT then
-          Begin
-               catFree := False;
-               if readQRG Then
-               Begin
-                    // Read QRG
-                    commandline := '';
-                    // Here's where I run the CAT control cycle by either launching
-                    // jt65hfrc.exe for everything but hamlib or hamlib command line
-                    // util
-                    if catMethod = 'Rebel' Then
-                    Begin
-                         commandline := '';
-                         if haveRebel Then
-                         Begin
-                              if clRebel.connected Then clRebel.poll;
-                              // Validate initial QRG
-                              fs := IntToStr(Round(clRebel.qrg));
-                              ff  := 0.0;
-                              fi  := 0;
-                              fsc := '';
-                              mval.forceDecimalAmer := False;
-                              mval.forceDecimalEuro := False;
-                              if mval.evalQRG(fs,'STRICT',ff,fi,fsc) Then catQRG := fi else catQRG := -1;
-                         end
-                         else
-                         begin
-                              // Shouldn't get to this but, if we do
-                              catMethod := 'None';
-                         end;
-                         readQRG := False;
-                    end;
-
-                    if catMethod = 'Commander' Then commandline := '-c COMMANDER -d . -r';
-
-                    if length(commandline)>0 Then
-                    Begin
-                         haveError := False;
-                         MemStream := TMemoryStream.Create;
-                         BytesRead := 0;
-                         catProc := TProcess.Create(nil);
-                         catProc.Executable := 'jt65hfrc.exe';
-                         catProc.Parameters.Add(commandline);
-                         //catProc.CommandLine := commandline;
-                         catProc.Options := [poUsePipes] + [poNoConsole];
-                         catProc.Execute;
-                         ecount := 0;
-                         while catProc.Running Do
-                         begin
-                              MemStream.SetSize(BytesRead + 2048);
-                              NumBytes := catProc.Output.Read((MemStream.Memory + BytesRead)^, 2048);
-                              if NumBytes > 0 then
-                              begin
-                                   Inc(BytesRead, NumBytes);
-                              end
-                              else
-                              begin
-                                   inc(ecount);
-                                   if ecount > 20 then break;
-                              end;
-                         end;
-
-                         if ecount > 20 Then haveError := True;
-                         if haveError Then
-                         Begin
-                              foo := '';
-                              if thisUTC.Month < 10 Then foo := '0' + IntToStr(thisUTC.Month) + '-' else foo := IntToStr(thisUTC.Month) + '-';
-                              if thisUTC.Day   < 10 Then foo := foo + '0' + IntToStr(thisUTC.Day) + '-' else foo := foo + IntToStr(thisUTC.Day) + '-';
-                              foo := foo + IntToStr(thisUTC.Year) + '  ';
-                              if thisUTC.Hour  < 10 Then foo := foo + '0' + IntToStr(thisUTC.Hour) + ':' else foo := foo + IntToStr(thisUTC.Hour) + ':';
-                              if thisUTC.Minute < 10 Then foo := foo + '0' + IntToStr(thisUTC.Minute) + ':' else foo := foo + IntToStr(thisUTC.Minute) + ':';
-                              if thisUTC.Second < 10 Then foo := foo + '0' + IntToStr(thisUTC.Second) else foo := foo + IntToStr(thisUTC.Second);
-                              if catProc.Terminate(0) then catError.Add(foo + ' Terminated CAT process - timeout.') else catError.Add(foo + ' Failed to terminate timed out CAT process!');
-                              foo := '';
-                              catQRG := 0;
-                         end
-                         else
-                         Begin
-                              repeat
-                                    MemStream.SetSize(BytesRead + 2048);
-                                    NumBytes := catProc.Output.Read((MemStream.Memory + BytesRead)^, 2048);
-                                    if NumBytes > 0 then Inc(BytesRead, NumBytes);
-                              until NumBytes <= 0;
-                              MemStream.SetSize(BytesRead);
-                              OutputLines := TStringList.Create;
-                              OutputLines.LoadFromStream(MemStream);
-                              i := OutputLines.Count;
-                              foo := '';
-                              if i > 0 then foo := OutputLines.Strings[0] else foo := '-1';
-                              OutputLines.Free;
-                              MemStream.Free;
-                              catProc.Free;
-                              indata := '';
-                              indata := TrimLeft(TrimRight(foo));
-                              i := -2;
-                              catQRG := -2;
-                              if trystrtoint(indata,i) Then
-                              begin
-                                   catQRG := i;
-                              end
-                              else
-                              begin
-                                   catQRG := 0;
-                              end;
-                         end;
-                         readQRG := False;
-                    end;
-               end;
-
-               if setQRG Then
-               Begin
-                    // Set QRG
-                    commandline := '';
-                    // Here's where I run the CAT control cycle by either launching
-                    // jt65hfrc.exe for everything but hamlib or hamlib command line
-                    // util
-                    if catMethod = 'Commander' Then commandline := 'jt65hfrc.exe -c COMMANDER -d . -s ' + IntToStr(qsyQRG);
-                    if length(commandline)>0 Then
-                    Begin
-                         MemStream := TMemoryStream.Create;
-                         BytesRead := 0;
-                         catProc := TProcess.Create(nil);
-                         catProc.Parameters.Add(commandline);
-                         //catProc.CommandLine := commandline;
-                         catProc.Options := [poUsePipes] + [poNoConsole];
-                         catProc.Execute;
-
-                         while catProc.Running Do
-                         begin
-                              MemStream.SetSize(BytesRead + 2048);
-                              NumBytes := catProc.Output.Read((MemStream.Memory + BytesRead)^, 2048);
-                              if NumBytes > 0 then Inc(BytesRead, NumBytes) else Sleep(100);
-                         end;
-
-                         repeat
-                               MemStream.SetSize(BytesRead + 2048);
-                               NumBytes := catProc.Output.Read((MemStream.Memory + BytesRead)^, 2048);
-                               if NumBytes > 0 then Inc(BytesRead, NumBytes);
-                         until NumBytes <= 0;
-                         MemStream.SetSize(BytesRead);
-                         OutputLines := TStringList.Create;
-                         OutputLines.LoadFromStream(MemStream);
-                         i := OutputLines.Count;
-                         foo := '';
-                         if i > 0 then foo := OutputLines.Strings[0] else foo := '-1';
-                         OutputLines.Free;
-                         MemStream.Free;
-                         catProc.Free;
-                         indata := '';
-                         indata := TrimLeft(TrimRight(foo));
-                         i := -2;
-                         catQRG := -2;
-                         if trystrtoint(indata,i) Then catQRG := i else catQRG := 0;
-                    end;
-                    setQRG := False;
-               end;
-
-               if readPTT Then
-               Begin
-                    // Read PTT state
-                    MemStream := TMemoryStream.Create;
-                    BytesRead := 0;
-                    catProc := TProcess.Create(nil);
-                    catProc.Parameters.Add(commandline);
-                    //catProc.CommandLine := commandline;
-                    catProc.Options := [poUsePipes] + [poNoConsole];
-                    catProc.Execute;
-
-                    while catProc.Running Do
-                    begin
-                         MemStream.SetSize(BytesRead + 2048);
-                         NumBytes := catProc.Output.Read((MemStream.Memory + BytesRead)^, 2048);
-                         if NumBytes > 0 then Inc(BytesRead, NumBytes) else Sleep(100);
-                    end;
-
-                    repeat
-                          MemStream.SetSize(BytesRead + 2048);
-                          NumBytes := catProc.Output.Read((MemStream.Memory + BytesRead)^, 2048);
-                          if NumBytes > 0 then Inc(BytesRead, NumBytes);
-                    until NumBytes <= 0;
-                    MemStream.SetSize(BytesRead);
-                    OutputLines := TStringList.Create;
-                    OutputLines.LoadFromStream(MemStream);
-                    i := OutputLines.Count;
-                    foo := '';
-                    if i > 0 then foo := OutputLines.Strings[0] else foo := '-1';
-                    OutputLines.Free;
-                    MemStream.Free;
-                    catProc.Free;
-                    indata := '';
-                    indata := TrimLeft(TrimRight(foo));
-                    i := -2;
-                    catQRG := -2;
-                    if trystrtoint(indata,i) Then catQRG := i else catQRG := 0;
-                    readPTT := False;
-               end;
-
-               if setPTT Then
-               Begin
-                    // Set PTT state
-                    MemStream := TMemoryStream.Create;
-                    BytesRead := 0;
-                    catProc := TProcess.Create(nil);
-                    catProc.Parameters.Add(commandline);
-                    //catProc.CommandLine := commandline;
-                    catProc.Options := [poUsePipes] + [poNoConsole];
-                    catProc.Execute;
-
-                    while catProc.Running Do
-                    begin
-                         MemStream.SetSize(BytesRead + 2048);
-                         NumBytes := catProc.Output.Read((MemStream.Memory + BytesRead)^, 2048);
-                         if NumBytes > 0 then Inc(BytesRead, NumBytes) else Sleep(100);
-                    end;
-
-                    repeat
-                          MemStream.SetSize(BytesRead + 2048);
-                          NumBytes := catProc.Output.Read((MemStream.Memory + BytesRead)^, 2048);
-                          if NumBytes > 0 then Inc(BytesRead, NumBytes);
-                    until NumBytes <= 0;
-                    MemStream.SetSize(BytesRead);
-                    OutputLines := TStringList.Create;
-                    OutputLines.LoadFromStream(MemStream);
-                    i := OutputLines.Count;
-                    foo := '';
-                    if i > 0 then foo := OutputLines.Strings[0] else foo := '-1';
-                    OutputLines.Free;
-                    MemStream.Free;
-                    catProc.Free;
-                    indata := '';
-                    indata := TrimLeft(TrimRight(foo));
-                    i := -2;
-                    catQRG := -2;
-                    if trystrtoint(indata,i) Then catQRG := i else catQRG := 0;
-                    setPTT := False;
-               end;
-
-               doCAT := False;
-               catFree := True;
           end;
           Sleep(100);
      end;
@@ -5839,12 +5049,6 @@ begin
 end;
 
 constructor decodeThread.Create(CreateSuspended : boolean);
-begin
-     FreeOnTerminate := True;
-     inherited Create(CreateSuspended);
-end;
-
-constructor catThread.Create(CreateSuspended : boolean);
 begin
      FreeOnTerminate := True;
      inherited Create(CreateSuspended);
