@@ -44,6 +44,12 @@ uses
 
 Const
   JT_DLL = 'JT65v5.dll';
+  SYNC65 : array[0..125] of CTypes.cint =
+        (1,0,0,1,1,0,0,0,1,1,1,1,1,1,0,1,0,1,0,0,0,1,0,1,1,0,0,1,0,0,
+        0,1,1,1,0,0,1,1,1,1,0,1,1,0,1,1,1,1,0,0,0,1,1,0,1,0,1,0,1,1,
+        0,0,1,1,0,1,0,1,0,1,0,0,1,0,0,0,0,0,0,1,1,0,0,0,0,0,0,0,1,1,
+        0,1,0,0,1,0,1,1,0,1,0,1,0,1,0,0,1,1,0,0,1,0,0,1,0,0,0,0,1,1,
+        1,1,1,1,1,1);
 
 type
 
@@ -87,6 +93,7 @@ type
     bRReport: TButton;
     bRRR: TButton;
     Button1: TButton;
+    buttonXferMacro: TButton;
     comboTTYPorts: TComboBox;
     edRebTXOffset: TEdit;
     edRebRXOffset: TEdit;
@@ -336,7 +343,6 @@ type
     TabSheet7: TTabSheet;
     TabSheet8: TTabSheet;
     Timer1: TTimer;
-    tbTXLevel: TTrackBar;
     FBar1: TBarSeries;
     tbWFSpeed: TTrackBar;
     tbWFContrast: TTrackBar;
@@ -347,8 +353,8 @@ type
     procedure Button13Click(Sender: TObject);
     procedure Button14Click(Sender: TObject);
     procedure Button1Click(Sender: TObject);
-    procedure comboMacroListKeyUp(Sender: TObject; var Key: Word;
-      Shift: TShiftState);
+    procedure buttonXferMacroClick(Sender: TObject);
+    //procedure comboMacroListKeyUp(Sender: TObject; var Key: Word; Shift: TShiftState);
     procedure comboQRGListChange(Sender: TObject);
     procedure comboMacroListChange(Sender: TObject);
     procedure btnsetQRGClick(Sender: TObject);
@@ -377,7 +383,6 @@ type
     procedure rbTXEvenChange(Sender: TObject);
     procedure rigControlSet(Sender: TObject);
     procedure Timer1Timer(Sender: TObject);
-    procedure tbTXLevelChange(Sender: TObject);
     procedure tbMultiBinChange(Sender: TObject);
     procedure tbSingleBinChange(Sender: TObject);
 
@@ -415,7 +420,7 @@ type
     function  utcTime: TSystemTime;
     procedure InitBar;
 
-    procedure genTX(const msg : String; const txdf : Integer; const plevel : Integer);
+    procedure genTX(const msg : String; const txdf : Integer);
     function  rebelTuning(const f : Double) : CTypes.cuint;
 
     procedure removeDupes(var list : TStringList; var removes : Array of Integer);
@@ -537,7 +542,7 @@ var
   haveRebel      : Boolean; // Rebel selected and active/present?
   tmpdir         : String; // Path to user's temporary files directory
   homedir        : String; // Path to user's home directory
-  qrgset         : Array[0..63] Of String; // Holds QRG values for Rebel TX load
+  qrgset         : Array[0..125] Of String; // Holds QRG values for Rebel TX load
   clRebel         : rebel.TRebel;
 
 implementation
@@ -782,7 +787,7 @@ Begin
      lastQRG.Text := query.FieldByName('lastqrg').AsString;
      tbSingleBin.Position := query.FieldByName('sbinspace').AsInteger;
      tbMultiBin.Position := query.FieldByName('mbinspace').AsInteger;
-     tbTXLevel.Position := query.FieldByName('txlevel').AsInteger;
+     //tbTXLevel.Position := query.FieldByName('txlevel').AsInteger;
      version.Text := query.FieldByName('version').AsString;
      cbMultiOn.Checked := query.FieldByName('multion').AsBoolean;
      cbTXEqRXDF.Checked := query.FieldByName('txeqrxdf').AsBoolean;
@@ -858,7 +863,7 @@ Begin
      mval.forceDecimalAmer := False;
      mval.forceDecimalEuro := False;
      if mval.evalQRG(fs,'STRICT',ff,fi,fsc) Then qrgValid := True else qrgValid := False;
-     If TryStrToInt(TXLevel.Text,i) Then tbTXLevel.Position := i else tbTXLevel.Position := 16;
+     //If TryStrToInt(TXLevel.Text,i) Then tbTXLevel.Position := i else tbTXLevel.Position := 16;
      if useDeciAmerican.Checked then
      begin
           dChar := '.';
@@ -1818,6 +1823,7 @@ Begin
      { TODO : These 2 lines could cause a ton of trouble in TX control }
      if not couldTX then rbTXOff.Checked := True;
      couldTX := canTX and couldTX;
+     if txDirty then couldTX := False;
      // Enable TX if necessary
      { TODO : More TX code here }
      if (rbTXEven.Checked or rbTXOdd.Checked) and (not globalData.txInProgress) and couldTX and inSync Then
@@ -1825,12 +1831,10 @@ Begin
           globalData.txInProgress := False;
           if rbTXEven.Checked and (not Odd(thisUTC.Minute)) and (not globalData.txInProgress) Then
           Begin
-               //genTX(foo,i,gTXLevel,dac.d65txBuffer);
                globalData.txInProgress := True;
           end;
           if rbTXOdd.Checked and Odd(thisUTC.Minute) and (not globalData.txInProgress) Then
           Begin
-               //genTX(foo,i,gTXLevel,dac.d65txBuffer);
                globalData.txInProgress := True;
           end;
      end
@@ -2116,21 +2120,6 @@ begin
      If tbSingleBin.Position = 3 then demodulate.dmbws := 100;
      If tbSingleBin.Position = 4 then demodulate.dmbws := 200;
      Label87.Caption := 'Single ' + IntToStr(demodulate.dmbws) + ' Hz';
-end;
-
-procedure TForm1.tbTXLevelChange(Sender: TObject);
-Var
-   i   : CTypes.cint;
-begin
-     txLevel.Text := IntToStr(tbTXLevel.Position);
-     Label1.Caption := 'TX Level:  ' + IntToStr(Trunc(6.25 * tbTXLevel.Position)) +'%';
-     gTXLevel := tbTXLevel.Position * 2048;
-     i := -9999;
-     if not tryStrToInt(TrimLeft(TrimRight(edTXDF.Text)),i) Then i := 0;
-     if i > 1000 then i := 1000;
-     if i < -1000 then i := -1000;
-     //foo := TrimLeft(TrimRight(UpCase(edTXMsg.Text)));
-     //genTX(foo,i,gTXLevel,dac.d65txBuffer);
 end;
 
 function  TForm1.gText(const msg : String; var nc1 : LongWord; var nc2 : LongWord; var ng : LongWord) : Boolean;
@@ -2585,14 +2574,21 @@ Begin
      // Validates a string as only containing characters in the JT65 structured text character set
      Result := True;
      foo := UpCase(TrimLeft(TrimRight(c)));
-     for i := 1 To Length(foo) do
+     if length(foo)>0 Then
      Begin
-          if (not isLetter(foo[i])) And (not isDigit(foo[i])) Then Result := False;
-          if not Result Then
+          for i := 1 To Length(foo) do
           Begin
-               if (foo[i] = '/') or (foo[i] = ' ' ) or (foo[i] = '-') Then Result := True;
+               if (not isLetter(foo[i])) And (not isDigit(foo[i])) Then Result := False;
+               if not Result Then
+               Begin
+                    if (foo[i] = '/') or (foo[i] = ' ' ) or (foo[i] = '-') Then Result := True;
+               end;
+               if not result then break;
           end;
-          if not result then break;
+     end
+     else
+     begin
+          result := false;
      end;
 end;
 
@@ -2606,18 +2602,25 @@ Begin
      { TODO : Message validator for free text right here! }
      Result := True;
      foo := UpCase(TrimLeft(TrimRight(c)));
-     for i := 1 to Length(foo) do
+     if length(foo)>0 Then
+     Begin
+          for i := 1 to Length(foo) do
+          begin
+               a := foo[i];
+               case a of 'A'..'Z': Result := True else Result := False; end;
+               if not result then case a of '0'..'9': Result := True else Result := False; end;
+               if not result then case a of '+': Result := True else Result := False; end;
+               if not result then case a of '-': Result := True else Result := False; end;
+               if not result then case a of '.': Result := True else Result := False; end;
+               if not result then case a of '/': Result := True else Result := False; end;
+               if not result then case a of '?': Result := True else Result := False; end;
+               if not result then case a of ' ': Result := True else Result := False; end;
+               if not result then break;
+          end;
+     end
+     else
      begin
-          a := foo[i];
-          case a of 'A'..'Z': Result := True else Result := False; end;
-          if not result then case a of '0'..'9': Result := True else Result := False; end;
-          if not result then case a of '+': Result := True else Result := False; end;
-          if not result then case a of '-': Result := True else Result := False; end;
-          if not result then case a of '.': Result := True else Result := False; end;
-          if not result then case a of '/': Result := True else Result := False; end;
-          if not result then case a of '?': Result := True else Result := False; end;
-          if not result then case a of ' ': Result := True else Result := False; end;
-          if not result then break;
+          result := false;
      end;
 end;
 
@@ -4005,27 +4008,21 @@ Begin
      result := Round(f * (268435456.0/49999750.0));
 end;
 
-//procedure TForm1.genTX(const msg : String; const txdf : Integer; const plevel : Integer; var samples : Array of CTypes.cint16);
-procedure TForm1.genTX(const msg : String; const txdf : Integer; const plevel : Integer);
+procedure TForm1.genTX(const msg : String; const txdf : Integer);
 Var
    foo, sh       : String;
    form          : String;
-   i,dir,cnt     : CTypes.cint;
+   i,j,k,dir,cnt : CTypes.cint;
    nc1,nc2,ng    : LongWord;
    ng1           : LongWord;
    nc1t,nc2t,ngt : String;
    pfxt,sfxt     : String;
-   sbasetx       : String;
    syms          : Array[0..11] Of CTypes.cint;
    tsyms         : Array[0..62] Of CTypes.cint;
-   isyms         : Array[0..63] Of CTypes.cuint32;
-   ssyms         : Array[0..62] Of String;
-   sm, ft, shm   : Boolean;
-   nsamps        : CTypes.cint;
-   shmsg         : CTypes.cint;
+   sm, ft        : Boolean;
    baseTX        : CTypes.cdouble;
-   ibaseTX       : CTypes.cuint32;
 begin
+     // Validate the message for proper content BEFORE calling this
      txValid := False;
      nc1t := '';
      pfxt := '';
@@ -4033,13 +4030,10 @@ begin
      nc2t := '';
      ngt  := '';
      sh   := '';
-
      sm   := False; // Structured message type
      ft   := False; // Free text message type
-     shm  := False; // Shorthand message type
-
+     //shm  := False; // Shorthand message type
      foo := TrimLeft(TrimRight(UpCase(msg)));
-
      if messageParser(foo, nc1t, pfxt, sfxt, nc2t, ngt, sh) Then
      Begin
           sm := True;
@@ -4050,7 +4044,7 @@ begin
           end
           else
           begin
-               shm := true;
+               //shm := true;
           end;
      end
      else
@@ -4107,8 +4101,6 @@ begin
                dir := 1;
                cnt := 63;
                graycode(CTypes.pcint(@tsyms[0]),CTypes.pcint(@cnt),CTypes.pcint(@dir));
-               nsamps := 0;
-               shmsg := 0;
                // tsyms holds the 63 TX symbols - will need to look at TXDF and current dial
                // RX QRG to compute the true RF TX QRG list.  TXDF 0 = 1270.5 Hz so if dial
                // is 14076.0 and TXDF = 0 then first tone (sync) will be at 14,077,270.5 Hz
@@ -4119,14 +4111,27 @@ begin
                // So.... tone 0 (sync) = Dial QRG + 1270.5 + TXDF
                baseTX   := 1270.5;
                baseTX   := baseTX + StrToInt(edDialQRG.Text) + txdf;  // This is the floating point value in Hz of the sync carrier (base frequency - data goes up from this)
-               isyms[0] := rebelTuning(baseTX);
-               for i := 1 to 63 do isyms[i] := rebelTuning(baseTX + (2.6917 * (tsyms[i-1]+2)));
-               // Diag dump
-               for i := 0 to 63 do
+               k := rebelTuning(baseTX); // Base sync tone as RF tuning word
+               //for i := 1 to 63 do isyms[i] := rebelTuning(baseTX + (2.6917 * (tsyms[i-1]+2)));
+               j := 0;
+               for i := 0 to 125 do
                Begin
-                    qrgset[i] := IntToStr(isyms[i]);
-                    Memo1.Append(qrgset[i]);
+                    // Stuff the values - sync where SYNC65[i]=1 data where SYNC65[i]=0;
+                    if SYNC65[i]=1 Then
+                    Begin
+                         qrgset[i] := IntToStr(k);
+                    End
+                    else
+                    begin
+                         qrgset[i] := IntToStr(rebelTuning(baseTX + (2.6917 * (tsyms[j]+2))));
+                         inc(j);
+                    end;
                end;
+               // Diag dump
+               //for i := 0 to 125 do
+               //Begin
+                    //Memo1.Append(qrgset[i]);
+               //end;
                txDirty := True;  // Flag to force an update to the FSK TX
                txValid := True;
           end;
@@ -4148,8 +4153,6 @@ begin
                dir := 1;
                cnt := 63;
                graycode(CTypes.pcint(@tsyms[0]),CTypes.pcint(@cnt),CTypes.pcint(@dir));
-               nsamps := 0;
-               shmsg := 0;
                // tsyms holds the 63 TX symbols - will need to look at TXDF and current dial
                // RX QRG to compute the true RF TX QRG list.  TXDF 0 = 1270.5 Hz so if dial
                // is 14076.0 and TXDF = 0 then first tone (sync) will be at 14,077,270.5 Hz
@@ -4160,14 +4163,27 @@ begin
                // So.... tone 0 (sync) = Dial QRG + 1270.5 + TXDF
                baseTX   := 1270.5;
                baseTX   := baseTX + StrToInt(edDialQRG.Text) + txdf;  // This is the floating point value in Hz of the sync carrier (base frequency - data goes up from this)
-               isyms[0] := rebelTuning(baseTX);
-               for i := 1 to 63 do isyms[i] := rebelTuning(baseTX + (2.6917 * (tsyms[i-1]+2)));
-               // Diag dump
-               for i := 0 to 63 do
+               k := rebelTuning(baseTX); // Base sync tone as RF tuning word
+               //for i := 1 to 63 do isyms[i] := rebelTuning(baseTX + (2.6917 * (tsyms[i-1]+2)));
+               j := 0;
+               for i := 0 to 125 do
                Begin
-                    qrgset[i] := IntToStr(isyms[i]);
-                    Memo1.Append(qrgset[i]);
+                    // Stuff the values - sync where SYNC65[i]=1 data where SYNC65[i]=0;
+                    if SYNC65[i]=1 Then
+                    Begin
+                         qrgset[i] := IntToStr(k);
+                    End
+                    else
+                    begin
+                         qrgset[i] := IntToStr(rebelTuning(baseTX + (2.6917 * (tsyms[j]+2))));
+                         inc(j);
+                    end;
                end;
+               // Diag dump
+               //for i := 0 to 125 do
+               //Begin
+                    //Memo1.Append(qrgset[i]);
+               //end;
                txDirty := True;  // Flag to force an update to the FSK TX
                txValid := True;
           end;
@@ -4292,7 +4308,8 @@ begin
      end;
      if length(thisTXmsg)>1 Then
      Begin
-          genTX(thisTXmsg, StrToInt(edTXDF.Text), 100);
+          if isFText(thisTXmsg) or isSText(thisTXmsg) Then genTX(thisTXmsg, StrToInt(edTXDF.Text)) else thisTXmsg := '';
+          edTXMsg.Text := thisTXmsg; // this double checks for valid message.
      end;
 end;
 
@@ -4407,7 +4424,8 @@ end;
 
 procedure TForm1.audioChange(Sender: TObject);
 Var
-   foo,ttadc  : String;
+//   foo,ttadc  : String;
+   foo       : String;
    paResult  : TPaError;
    iadcText  : String;
 begin
@@ -4417,7 +4435,7 @@ begin
           // Audio Input device change.  Set PA to new device and update DB
           ListBox2.Items.Insert(0,'Changing PortAudio input device');
           foo := comboAudioIn.Items.Strings[comboAudioIn.ItemIndex];
-          ttadc := foo;
+          //ttadc := foo;
           if foo[1] = '0' Then iadcText := foo[2] else iadcText := foo[1..2];
           portAudio.Pa_AbortStream(paInStream);
           portAudio.Pa_CloseStream(paInStream);
@@ -4516,20 +4534,20 @@ begin
      end;
 end;
 
-procedure TForm1.comboMacroListKeyUp(Sender: TObject; var Key: Word;
-  Shift: TShiftState);
-Var
-   foo : String;
-begin
-     { TODO : Validate the message and save to db }
-     foo := Upcase(TrimLeft(TrimRight(comboMacroList.Text)));
-     if length(foo) > 13 Then
-     Begin
-          foo := foo[1..13];
-          comboMacroList.Text := foo;
-     end;
-     edTXMsg.Text := foo;
-end;
+//procedure TForm1.comboMacroListKeyUp(Sender: TObject; var Key: Word;
+//  Shift: TShiftState);
+//Var
+//   foo : String;
+//begin
+//     { TODO : Validate the message and save to db }
+//     foo := Upcase(TrimLeft(TrimRight(comboMacroList.Text)));
+//     if length(foo) > 13 Then
+//     Begin
+//          foo := foo[1..13];
+//          comboMacroList.Text := foo;
+//     end;
+//     edTXMsg.Text := foo;
+//end;
 
 procedure TForm1.Button13Click(Sender: TObject);
 begin
@@ -4548,6 +4566,18 @@ begin
      buttonConfig.Visible := False;
      PageControl.Visible  := False;
      groupLogQSO.visible  := True;
+end;
+
+procedure TForm1.buttonXferMacroClick(Sender: TObject);
+begin
+     // Transfers contents of Macro buffer to TX Message buffer
+     //function TForm1.isFText(c : String) : Boolean;
+     //function TForm1.isSText(c : String) : Boolean;
+     if isFText(comboMacroList.Text) or isSText(comboMacroList.Text) Then
+     Begin
+          edTXMsg.Text := comboMacroList.Text;
+          genTX(edTXMsg.Text,StrToInt(edTXDF.Text));
+     end;
 end;
 
 procedure TForm1.btnsetQRGClick(Sender: TObject);
@@ -7218,7 +7248,7 @@ begin
      Query.Params.ParamByName('LASTQRG').AsString   := t(lastQRG.Text);
      Query.Params.ParamByName('SBIN').AsInteger    := tbSingleBin.Position;
      Query.Params.ParamByName('MBIN').AsInteger    := tbMultiBin.Position;
-     Query.Params.ParamByName('TXLEVEL').AsInteger    := tbTXLevel.Position;
+     Query.Params.ParamByName('TXLEVEL').AsInteger    := 16;
      If not TryStrToInt(t(version.Text),i) then i := -1;
      Query.Params.ParamByName('VER').AsInteger    := i;
      Query.Params.ParamByName('MON').AsBoolean    := cbMultiOn.Checked;
@@ -7396,7 +7426,7 @@ Begin
      inIcal := 0;
      edDialQRG.Text := '0';
      editQRG.Text := '0';
-     tbTXLevel.Position := 16;
+     //tbTXLevel.Position := 16;
      // Setup decimal characters
      if useDeciAmerican.Checked then
      begin

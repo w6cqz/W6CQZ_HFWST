@@ -1,5 +1,10 @@
+// (c) 2013 CQZ Electronics
 unit rebel;
-
+{
+Note 1:  TX tuning words array is 128 instead of 126 due to my method of clocking in
+4 tuning words per round.  The last 2 values will be ignored on Rebel side, but, should
+be set to 0 to be safe.
+}
 {$mode objfpc}{$H+}
 
 interface
@@ -31,7 +36,7 @@ Type
                  prLocked    : Boolean;
                  prLoopSpeed : String;
                  prTXState   : Boolean; // True = TX on False = TX off
-                 prTXArray   : Array[0..63] Of CTypes.cuint; // Holds the 64 tuning words needed to TX a JT65 frame
+                 prTXArray   : Array[0..127] Of CTypes.cuint; // Holds the 126 tuning words needed to TX a JT65 frame [See note 1 why it's 128]
                  function    ddsWord(const hz : double; const offset : CTypes.cint; const ref : CTypes.cint) : CTypes.cuint32;
 
            Public
