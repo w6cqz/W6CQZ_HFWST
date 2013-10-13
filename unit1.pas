@@ -545,7 +545,7 @@ var
   haveRebel      : Boolean; // Rebel selected and active/present?
   tmpdir         : String; // Path to user's temporary files directory
   homedir        : String; // Path to user's home directory
-  qrgset         : Array[0..125] Of String; // Holds QRG values for Rebel TX load
+  qrgset         : Array[0..127] Of String; // Holds QRG values for Rebel TX load
   clRebel         : rebel.TRebel;
 
 implementation
@@ -609,6 +609,8 @@ Begin
      comboTTYPorts.Clear;
      comboTTYPorts.Items := clRebel.ports;
      comboTTYPorts.Items.Insert(0,'None');
+     // Begin overly protective :)
+     for i := 0 to 127 do qrgset[i] := '0';
      // Setup configuration and data directories
      homedir := getUserDir;
      dmtmpdir := homedir+'hfwst\';
@@ -1353,6 +1355,20 @@ Begin
      thisUTC     := utcTime;
      thisSecond  := thisUTC.Second;
      thisADCTick := adc.adcTick;
+     // This is a high priortiy item.
+     if rbTXOff.Checked Then
+     Begin
+          globalData.txInProgress := False;
+          i := 0;
+          while clRebel.busy do
+          begin
+               sleep(1);
+               inc(i);
+               if i > 1000 Then break;
+          end;
+          clRebel.pttOff;
+     end;
+
      Waterfall1.Repaint;
      if not demodulate.dmdemodBusy and demodulate.dmhaveDecode Then displayDecodes;
      if cbUseColor.Checked Then ListBox1.Style := lbOwnerDrawFixed else ListBox1.Style := lbStandard;
@@ -1527,16 +1543,17 @@ Begin
                end;
           end;
      end;
-     { TODO : Find logic error where I am in TX mode all is good and instead of staying so until TOLD to stop
-     it is doing one TX cycle then toggling back to TX Period = None }
      if canTX and txValid and txDirty Then
      Begin
           // A valid message is awaiting upload to Rebel
           // Load it into the class data buffer
-          for i := 0 to 63 do clRebel.setData(i,StrToInt(qrgset[i]));
-          if not clRebel.txStat Then
+          if (not clRebel.txStat) and (not clRebel.busy) Then
           Begin
+               { TODO : Be sure I can't load new data while busy or tx in progress! }
+               for i := 0 to 127 do clRebel.setData(i,StrToInt(qrgset[i]));
                if clRebel.ltx then txDirty := False else txDirty := True;
+               //if not txDirty then Memo1.Append(clRebel.debug) else Memo1.Append('0: Failed to upload FSK array');
+               //if not txDirty then Memo1.Append(clRebel.dumptx) else Memo1.Append('1: Failed to upload FSK array');
           end;
      end;
 
@@ -1544,7 +1561,7 @@ Begin
      I need to NOT start TX until second = 1.
      }
 
-     if globalData.txInProgress And (not clRebel.txStat) And canTX and (not txDirty) Then
+     if globalData.txInProgress And (not clRebel.txStat) And canTX and (not txDirty) and (not clRebel.busy) Then
      Begin
 
           // TX In progress has been set but TX not set in Rebel - make it so.
@@ -1562,10 +1579,10 @@ Begin
      if clRebel.txStat and (not globalData.txInProgress) Then
      Begin
           // TX should be off
-          clRebel.pttOff;
+          if not clRebel.busy then clRebel.pttOff; // This gets handled more aggressively elsewhere in case it is busy.
      end;
 
-     if (thisSecond>47) and clRebel.txStat Then clRebel.pttOff; { TODO : This isn't precise - if CW ID is in play TX will exceed this time - fine for now since I have no CW ID yet }
+     if (thisSecond>47) and clRebel.txStat and (not clRebel.busy) Then clRebel.pttOff; { TODO : This isn't precise - if CW ID is in play TX will exceed this time - fine for now since I have no CW ID yet }
 
      if rbOn.Checked then rbOn.Caption := 'Spots sent:  ' + IntToStr(rb.rbCount) else rbOn.Caption := 'RB Enable';
      if length(edRBCall.Text) < 3 Then rbOn.Caption := 'Disabled - Setup Data.';
@@ -1726,7 +1743,8 @@ Begin
           adc.adcECount := 0;
      end;
      // Deal with Rebel
-     if rigRebel.Checked and haveRebel and setQRG Then
+     // Changing this to defer any CAT work while busy or TX in progress for setting QRG
+     if rigRebel.Checked and haveRebel and setQRG and (not clRebel.busy) and (not clRebel.txStat) Then
      Begin
           clRebel.qrg := qsyQRG;
           if clRebel.setQRG Then
@@ -1749,7 +1767,9 @@ Begin
                setQRG := False;
           end;
      end
-     else if rigRebel.Checked and haveRebel and readQRG Then
+     // Leaving this to allow QRG/Status updates during TX
+     { TODO : Be sure attempting to read status during TX is really a good idea }
+     else if rigRebel.Checked and haveRebel and readQRG and (not clRebel.busy) Then
      Begin
           if clRebel.poll Then
           Begin
@@ -1836,8 +1856,10 @@ Begin
      if (txperiod = 1) and Odd(thisUTC.Minute) Then couldtx := True;
      if (txperiod = 0) and not Odd(thisUTC.Minute) Then couldtx := True;
 
-     { TODO : These 2 lines could cause a ton of trouble in TX control }
-     if not couldTX then rbTXOff.Checked := True;
+     { TODO : These 2 lines could cause a ton of trouble in TX control.  And it did :)}
+     //if not couldTX then rbTXOff.Checked := True;
+     // Change to if not CANTX vs could :)
+     if not canTX then rbTXOff.Checked := True;
      couldTX := canTX and couldTX;
      if txDirty then couldTX := False;
      // Enable TX if necessary
@@ -4126,26 +4148,26 @@ begin
                baseTX   := 1270.5;
                baseTX   := baseTX + StrToInt(edDialQRG.Text) + txdf;  // This is the floating point value in Hz of the sync carrier (base frequency - data goes up from this)
                k := rebelTuning(baseTX); // Base sync tone as RF tuning word
-               //for i := 1 to 63 do isyms[i] := rebelTuning(baseTX + (2.6917 * (tsyms[i-1]+2)));
+               // For this we clear the whole 128
+               for i := 0 to 127 do qrgset[i] := '0';
                j := 0;
+               // Two passes - stuff sync then stuff data.
+               // Once I debug and am sure can try rolling it into one pass.
+               // Stuff the values - sync where SYNC65[i]=1 data where SYNC65[i]=0;
+               // NOTE for this it's 125 on qrgset - DONT'T bork this and do 127 :)
+               for i := 0 to 125 do if SYNC65[i]=1 Then qrgset[i] := IntToStr(k);
                for i := 0 to 125 do
-               Begin
-                    // Stuff the values - sync where SYNC65[i]=1 data where SYNC65[i]=0;
-                    if SYNC65[i]=1 Then
+               begin
+                    if SYNC65[i]=0 Then
                     Begin
-                         qrgset[i] := IntToStr(k);
-                    End
-                    else
-                    begin
                          qrgset[i] := IntToStr(rebelTuning(baseTX + (2.6917 * (tsyms[j]+2))));
-                         inc(j);
                     end;
                end;
                // Diag dump
-               //for i := 0 to 125 do
-               //Begin
-                    //Memo1.Append(qrgset[i]);
-               //end;
+               //foo := '3,FSK VALUES FOLLOW,';
+               //for i := 0 to 124 do foo := foo + qrgset[i] + ',';
+               //foo := foo + qrgset[125] + ',0,0';
+               //Memo1.Append(foo);
                txDirty := True;  // Flag to force an update to the FSK TX
                txValid := True;
           end;
@@ -4178,26 +4200,26 @@ begin
                baseTX   := 1270.5;
                baseTX   := baseTX + StrToInt(edDialQRG.Text) + txdf;  // This is the floating point value in Hz of the sync carrier (base frequency - data goes up from this)
                k := rebelTuning(baseTX); // Base sync tone as RF tuning word
-               //for i := 1 to 63 do isyms[i] := rebelTuning(baseTX + (2.6917 * (tsyms[i-1]+2)));
+               // For this we clear the whole 128
+               for i := 0 to 127 do qrgset[i] := '0';
                j := 0;
+               // Two passes - stuff sync then stuff data.
+               // Once I debug and am sure can try rolling it into one pass.
+               // Stuff the values - sync where SYNC65[i]=1 data where SYNC65[i]=0;
+               // NOTE for this it's 125 on qrgset - DONT'T bork this and do 127 :)
+               for i := 0 to 125 do if SYNC65[i]=1 Then qrgset[i] := IntToStr(k);
                for i := 0 to 125 do
-               Begin
-                    // Stuff the values - sync where SYNC65[i]=1 data where SYNC65[i]=0;
-                    if SYNC65[i]=1 Then
+               begin
+                    if SYNC65[i]=0 Then
                     Begin
-                         qrgset[i] := IntToStr(k);
-                    End
-                    else
-                    begin
                          qrgset[i] := IntToStr(rebelTuning(baseTX + (2.6917 * (tsyms[j]+2))));
-                         inc(j);
                     end;
                end;
                // Diag dump
-               //for i := 0 to 125 do
-               //Begin
-                    //Memo1.Append(qrgset[i]);
-               //end;
+               //foo := '3,FSK VALUES FOLLOW,';
+               //for i := 0 to 124 do foo := foo + qrgset[i] + ',';
+               //foo := foo + qrgset[125] + ',0,0';
+               //Memo1.Append(foo);
                txDirty := True;  // Flag to force an update to the FSK TX
                txValid := True;
           end;

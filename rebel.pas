@@ -6,7 +6,7 @@ Note 1:  TX tuning words array is 128 instead of 126 due to my method of clockin
 be set to 0 to be safe.
 }
 {$mode objfpc}{$H+}
-
+{ TODO : Disallow commands other than PTT OFF during TX - mostly done - need to double check. }
 interface
 
 uses
@@ -34,9 +34,11 @@ Type
                  prRebVer    : String;
                  prDDSVer    : String;
                  prLocked    : Boolean;
+                 prBusy      : Boolean;
                  prLoopSpeed : String;
                  prTXState   : Boolean; // True = TX on False = TX off
                  prTXArray   : Array[0..127] Of CTypes.cuint; // Holds the 126 tuning words needed to TX a JT65 frame [See note 1 why it's 128]
+                 prDebug     : String;
                  function    ddsWord(const hz : double; const offset : CTypes.cint; const ref : CTypes.cint) : CTypes.cuint32;
 
            Public
@@ -53,6 +55,7 @@ Type
                  function    ltx        : Boolean; // Loads array into rebel for TX
                  function    getData(Index: Integer): CTypes.cuint;
                  procedure   setData(Index: Integer; AValue: CTypes.cuint);
+                 function    dumptx     : String;
 
                  property port      : String
                     read  prPort
@@ -99,6 +102,10 @@ Type
                  property txArray [Index: Integer]: CTypes.cuint
                     read  getData
                     write setData;
+                 property busy      : Boolean
+                    read  prBusy;
+                 property debug     : String
+                    read  prDebug;
     end;
 
 implementation
@@ -107,6 +114,7 @@ Var
    foo : String;
    i   : Integer;
 Begin
+     prBusy := True;
      prTTY := SynaSer.TBlockSerial.Create;
      foo := '';
      foo := synaser.GetSerialPortNames;
@@ -133,6 +141,7 @@ Begin
      prLoopSpeed := '';
      prTXState   := False;
      for i := 0 to 63 do prTXArray[i] := 0;
+     prBusy := False;
 End;
 
 Destructor TRebel.Destroy;
@@ -145,9 +154,11 @@ end;
 
 function TRebel.disconnect : Boolean;
 Begin
+     prBusy := True;
      prConnected := False;
      prTTY.CloseSocket;
      result := True;
+     prBusy := False;
 end;
 
 function TRebel.ddsWord(const hz : double; const offset : CTypes.cint; const ref : CTypes.cint) : CTypes.cuint32;
@@ -164,6 +175,7 @@ var
    foo,f2: String;
    i,j   : Integer;
 Begin
+     prBusy := True;
      // Need to do the FSK tuning word uploader here
      // Ok - this is the most critical and complex part of this entire mess.
      // I need to get 64 tuning words from ptTXArray into the Rebel.  First
@@ -181,7 +193,11 @@ Begin
                if ask and (prResponse = '1,21;') Then
                Begin
                     // Have go ahead to start upload
-                    // Command ID=20,Block {1..16},I1,I2,I3,I4;
+                    // Command ID=20,Block {1..32},I1,I2,I3,I4;
+                    //prDebug := '';
+                    //foo := '0,FSK VALUES FOLLOW,';
+                    //for j := 0 to 126 do foo := foo + IntToStr(prTXArray[j]) + ',';
+                    //prDebug := foo + IntToStr(prTXArray[127]);
                     j := 0;
                     // DAMMIT - hours wasted because I forgot to change next line from 1 to 16 to 1 to 32. GRRRRRRRRRRRRRR
                     for i := 1 to 32 do
@@ -242,6 +258,7 @@ Begin
           prError := 'Command timeout';
           result := False;
      end;
+     prBusy := False;
 end;
 
 function TRebel.getData(Index: Integer): CTypes.cuint;
@@ -254,11 +271,35 @@ begin
      prTXArray[Index] := AValue;
 end;
 
+function TRebel.dumptx: String;
+Var
+   foo : String;
+   i   : Integer;
+begin
+     prBusy := True;
+     // Reading back FSK Values from the actual stored in array values
+     // 22; = Read FSK Array
+     prCommand := '22;';  // TX ON
+     prResponse := '';
+     if ask Then
+     Begin
+          foo := prResponse;
+          result := foo;
+     end
+     else
+     begin
+          foo := 'Big fat E R R O R';
+          result := foo;
+     end;
+     prBusy := False;
+end;
+
 function TRebel.pttOn : Boolean;
 Var
    foo : String;
    i   : Integer;
 Begin
+     prBusy := True;
      // Need to turn it ON
      // 10; = ON
      prCommand := '10;';  // TX ON
@@ -284,6 +325,7 @@ Begin
           result := False;
           prError := 'Command timeout';
      end;
+     prBusy := False;
 end;
 
 function TRebel.pttOff : Boolean;
@@ -291,6 +333,7 @@ Var
    foo : String;
    i   : Integer;
 Begin
+     prBusy := True;
      // Need to turn it OFF
      // 11; = OFF
      prCommand := '11;';  // TX OFF
@@ -315,6 +358,7 @@ Begin
           result := False;
           prError := 'Command timeout';
      end;
+     prBusy := False;
 end;
 
 function TRebel.setQRG : Boolean;
@@ -323,6 +367,7 @@ var
    t   : double;
    i   : Integer;
 Begin
+     prBusy := True;
      // Sends set RX command with DDS tuning word as value
      // Take into account if band is 20M the DDS word is desired (RX + offset) - IF
      if prBand = 20 then t := prQRG-9000000.0;
@@ -350,6 +395,7 @@ Begin
           result := False;
           prError := 'Command timeout';
      end;
+     prBusy := False;
 end;
 
 function TRebel.ask : Boolean;
@@ -357,6 +403,7 @@ Var
    foo : String;
    i   : Integer;
 Begin
+     prBusy := True;
      if prConnected Then
      Begin
           if length(prCommand)>1 Then
@@ -397,6 +444,7 @@ Begin
           prError := 'Not connected';
           result := False;
      end;
+     prBusy := False;
 end;
 
 function TRebel.poll : Boolean;
@@ -405,6 +453,7 @@ Var
    ff  : Double;
    i,j : Integer;
 Begin
+     prBusy := True;
      // Poll for various values
      prCommand := '6;';  // Returns Rebel Version
      prResponse := '';
@@ -474,6 +523,7 @@ Begin
      result := True;
      //prLocked    := False;
      //prTXState   := False;
+     prBusy := False;
 end;
 
 function TRebel.Connect : Boolean;
@@ -481,6 +531,7 @@ Var
    foo : String;
    i   : Integer;
 Begin
+     prBusy := True;
      prConnected := false;
      prError := '';
      result := false;
@@ -551,6 +602,7 @@ Begin
           result  := False;
           prConnected := False;
      end;
+     prBusy := False;
 end;
 
 Function TRebel.setup : Boolean;
@@ -558,6 +610,7 @@ Var
      foo : String;
      i   : Integer;
 Begin
+     prBusy := True;
      result := False;
      // Need to wait for the sign in message
      if prConnected Then
@@ -585,6 +638,7 @@ Begin
           result := False;
           prError := 'Not connected';
      end;
+     prBusy := False;
 end;
 
 end.
