@@ -1,3 +1,6 @@
+//thisSecond  := thisUTC.Second;
+//thisADCTick := adc.adcTick;
+
 { TODO :
 Work out handlers for working JT65V2 types.  Also need to think about case of where a data item could be
 sent either in V1 or V2 format.  I think... I want to force the issue here and just use V2 for everything.
@@ -1480,7 +1483,6 @@ Begin
           Label8.Caption := 'DE ' + thisTXCall + ' ' + edGrid.Text;
      end;
 
-     { TODO : And canTX with message to TX being valid }
      // canTX is based upon having valid callsign and grid in config & valid message ready to send
      valid := True;
      // Validate prefix (if present)
@@ -1491,6 +1493,7 @@ Begin
      if length(edSuffix.Text)>0 Then if not mval.evalSuffix(edSuffix.Text) Then valid := False;
      // Validate grid
      if not mval.evalGrid(edGrid.Text) Then valid := False;
+     if (not isSText(edTXMsg.Text)) or (not isFText(edTXMsg.Text)) Then valid := False;
      canTX := valid;
      If canTX Then txControl.Visible := True else txControl.Visible := False;
 
@@ -1524,7 +1527,8 @@ Begin
                end;
           end;
      end;
-
+     { TODO : Find logic error where I am in TX mode all is good and instead of staying so until TOLD to stop
+     it is doing one TX cycle then toggling back to TX Period = None }
      if canTX and txValid and txDirty Then
      Begin
           // A valid message is awaiting upload to Rebel
@@ -1536,20 +1540,32 @@ Begin
           end;
      end;
 
-     { TODO : This is where I need to be for adding Rebel TX control }
+     { TODO : This is where I need to be for adding Rebel TX control
+     I need to NOT start TX until second = 1.
+     }
+
      if globalData.txInProgress And (not clRebel.txStat) And canTX and (not txDirty) Then
      Begin
+
           // TX In progress has been set but TX not set in Rebel - make it so.
-          clRebel.ptt;  // This is a toggle action - would be good to double check it went into TX though it is going to keep hammering it every tick until it does enable
-          { TODO : Temporary HACK do not leave this! }
-          if not clRebel.txStat Then globalData.txInProgress := False;
+          if (thisSecond=1) and (lastSecond=0) Then
+          Begin
+               clRebel.pttOn;  // This is a toggle action - would be good to double check it went into TX though it is going to keep hammering it every tick until it does enable
+               { TODO : Temporary HACK do not leave this!  It should try this more than once but less than (tm) a "lot" }
+               if not clRebel.txStat Then
+               Begin
+                    globalData.txInProgress := False;
+               end;
+          end;
      end;
 
      if clRebel.txStat and (not globalData.txInProgress) Then
      Begin
           // TX should be off
-          clRebel.ptt;  // This is a toggle action - would be good to double check it went into RX though it is going to keep hammering it every tick until it does disable
+          clRebel.pttOff;
      end;
+
+     if (thisSecond>47) and clRebel.txStat Then clRebel.pttOff; { TODO : This isn't precise - if CW ID is in play TX will exceed this time - fine for now since I have no CW ID yet }
 
      if rbOn.Checked then rbOn.Caption := 'Spots sent:  ' + IntToStr(rb.rbCount) else rbOn.Caption := 'RB Enable';
      if length(edRBCall.Text) < 3 Then rbOn.Caption := 'Disabled - Setup Data.';
@@ -2599,7 +2615,6 @@ Var
    a   : Char;
 Begin
      // Validates a string as only containing characters in the JT65 free text character set
-     { TODO : Message validator for free text right here! }
      Result := True;
      foo := UpCase(TrimLeft(TrimRight(c)));
      if length(foo)>0 Then
@@ -3507,7 +3522,6 @@ begin
           catMethod := 'Rebel';
           if cbUseSerial.Checked Then cbUseSerial.Checked := False;
           groupRebelOptions.Visible := True;
-          { TODO : Graft code to connect to rebel if it wasn't on at startup }
      end;
 
 

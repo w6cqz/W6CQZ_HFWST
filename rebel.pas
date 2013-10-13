@@ -48,7 +48,8 @@ Type
                  function    ask        : Boolean;
                  function    setQRG     : Boolean;
                  function    poll       : Boolean;
-                 function    ptt        : Boolean; // Toggles ptt - returns true and sets ptTXState true if was false - opposite if was true.
+                 function    pttOn      : Boolean;
+                 function    pttOff     : Boolean;
                  function    ltx        : Boolean; // Loads array into rebel for TX
                  function    getData(Index: Integer): CTypes.cuint;
                  procedure   setData(Index: Integer; AValue: CTypes.cuint);
@@ -182,25 +183,36 @@ Begin
                     // Have go ahead to start upload
                     // Command ID=20,Block {1..16},I1,I2,I3,I4;
                     j := 0;
-                    for i := 1 to 16 do
+                    // DAMMIT - hours wasted because I forgot to change next line from 1 to 16 to 1 to 32. GRRRRRRRRRRRRRR
+                    for i := 1 to 32 do
                     begin
                          foo := '20,'+IntToStr(i)+','+IntToStr(prTXArray[j])+','+IntToStr(prTXArray[j+1])+','+IntToStr(prTXArray[j+2])+','+IntToStr(prTXArray[j+3])+';';
                          prCommand := foo;
                          prResponse := '';
-                         if ask and (prResponse = foo) Then
+                         if ask Then
                          Begin
-                              // This indicates the block was accepted and matches what I expect it to be.
-                              f2 := prResponse;
-                              j := j+4;
+                              If prResponse = foo Then
+                              Begin
+                                   // This indicates the block was accepted and matches what I expect it to be.
+                                   f2 := prResponse;
+                                   j := j+4;
+                              end
+                              else
+                              begin
+                                   // Bad news :(
+                                   f2 := prResponse;
+                                   break;
+                              end;
                          end
                          else
                          begin
-                              // Bad news :(
                               f2 := prResponse;
+                              prError := 'Upload block fails ack';
+                              result := false;
                               break;
                          end;
                     end;
-                    if i<16 Then
+                    if i<32 Then
                     Begin
                          prError := 'Bad upload';
                          result := False;
@@ -242,66 +254,66 @@ begin
      prTXArray[Index] := AValue;
 end;
 
-function TRebel.ptt : Boolean;
+function TRebel.pttOn : Boolean;
 Var
    foo : String;
    i   : Integer;
 Begin
-     if prTXState Then
+     // Need to turn it ON
+     // 10; = ON
+     prCommand := '10;';  // TX ON
+     prResponse := '';
+     if ask Then
      Begin
-          // Need to turn it OFF
-          // 11; = OFF
-          prCommand := '11;';  // TX OFF
-          prResponse := '';
-          if ask Then
+          foo := prResponse;
+          if prResponse='1,10;' Then
           Begin
-               i := wordcount(prResponse,[',',';']);
-               if i > 1 Then foo := ExtractWord(2,prResponse,[',',';']) else foo := '';
-               if foo = '0' Then
-               Begin
-                    prTXState := False;
-                    result := True;
-               end
-               else
-               Begin
-                    prTXState := True;
-                    Result := False;
-               end;
+               prTXState := True;
+               result := True;
           end
           else
-          begin
-               // Need to be SURE if ask fails that I indicate it is still in state that was requested to change
-               prTXState := True;
-               result := False; // TX was and still is ON when it should be OFF
+          Begin
+               prTXState := False;
+               Result := False;
+               prError := 'Rebel refuses command';
           end;
      end
      else
      begin
-          // Need to turn it ON
-          // 10; = ON
-          // 10; = ON
-          prCommand := '10;';  // TX ON
-          prResponse := '';
-          if ask Then
+          prTXState := False;
+          result := False;
+          prError := 'Command timeout';
+     end;
+end;
+
+function TRebel.pttOff : Boolean;
+Var
+   foo : String;
+   i   : Integer;
+Begin
+     // Need to turn it OFF
+     // 11; = OFF
+     prCommand := '11;';  // TX OFF
+     prResponse := '';
+     if ask Then
+     Begin
+          if prResponse='1,11;' Then
           Begin
-               i := wordcount(prResponse,[',',';']);
-               if i > 1 Then foo := ExtractWord(2,prResponse,[',',';']) else foo := '';
-               if foo = '0' Then
-               Begin
-                    prTXState := False;
-                    result := False;
-               end
-               else
-               Begin
-                    prTXState := True;
-                    Result := True;
-               end;
+               prTXState := False;
+               result := True;
           end
           else
-          begin
-               prTXState := False;
-               result := False; // TX was and still is OFF when it should be ON
+          Begin
+               prTXState := True;
+               Result := False;
+               prError := 'Rebel refuses command';
           end;
+     end
+     else
+     begin
+          prTXState := False;
+          result := False;
+          prError := 'Command timeout';
      end;
 end;
 
