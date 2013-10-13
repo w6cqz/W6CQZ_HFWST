@@ -337,7 +337,6 @@ Begin
      globalData.audioComputing := False;
 End;
 
-//procedure computeSpectrum(Const dBuffer : Array of CTypes.cint16);
 procedure computeSpectrum(Const dBuffer : Array of CTypes.cfloat);
 Var
    i,x,y,z,intVar,nh,nfmid,iadj,k  : CTypes.cint;
@@ -395,54 +394,7 @@ Begin
              //specspeed2 < 0 = spectrum display off.
              doSpec := False;
              globalData.specNewSpec65 := False;
-             // Copy input
-             //for i := 0 to 4095 do auBuff65[i] := min(32766,max(-32766,dBuffer[i]));
-             //// HPF 3rd order (also converts int16 to float)
-             //for i := 0 to 4095 do
-             //begin
-             //     // Shift old samples in x[] and y[]
-             //     for k := 3 downto 1 do
-             //     begin
-             //          hxa[k] := hxa[k-1];
-             //          hya[k] := hya[k-1];
-             //     end;
-             //     // Calculate new sample
-             //     hxa[0] := auBuff65[i];
-             //     hya[0] := HACoef[0] * hxa[0];
-             //     for k := 0 to 3 do
-             //     begin
-             //          hya[0] := hya[0] + ((HACoef[k] * hxa[k]) - (HBCoef[k] * hya[k]));
-             //     end;
-             //     srealArray165[i] := hya[0];
-             //end;
-             //// LPF 19th order
-             //for i := 0 to 4095 do
-             //begin
-             //     // Shift old samples in x[] and y[]
-             //     for k := 19 downto 1 do
-             //     begin
-             //          lxa[k] := lxa[k-1];
-             //          lya[k] := lya[k-1];
-             //     end;
-             //     // Calculate new sample
-             //     lxa[0] := srealArray165[i];
-             //     lya[0] := LACoef[0] * lxa[0];
-             //     for k := 0 to 19 do
-             //     begin
-             //          lya[0] := lya[0] + ((LACoef[k] * lxa[k]) - (LBCoef[k] * lya[k]));
-             //     end;
-             //     srealArray165[i] := lya[0];
-             //end;
-             {
-             TODO : Process samples to match old conversion step from integer to float as I'm doing in ADC unit
-             Or, even better yet, do this in ADC as well since it's mostly already being done there for the main
-             frame buffer.
-             }
-             // Clear FFT Input array
-             //for i := 0 to length(fftIn65)-1 do fftIn65[i] := 0.0;
-
              // Copy data to FFT calculation buffer
-             //for i := 0 to 4095 do fftIn65[i] := srealArray165[i];
              for i := 0 to 4095 do fftIn65[i] := dBuffer[i];
 
              // Clear FFT output array
@@ -467,6 +419,7 @@ Begin
              inc(specfftCount);
              if specfftCount >= (10-specSpeed2) Then
              Begin
+                  // Removed smoothing being optional.
                   inc(specfftCount);
                   try
                      for i := 0 to length(ss65)-1 do ss65b[i] := ss65[i];

@@ -1481,12 +1481,6 @@ begin
                Begin
                     // This bin needs a decode
                     dmlastraw[rawcount] := IntToStr(i) + ' bf ';
-                    //ListBox2.Items.Insert(0,'Decode at Center DF = ' + IntToStr(i) + ' for bin = ' + IntToStr(j));
-                    // Copy lpfM to f3Buffer
-                    // Do I really need to do this?  About to find out.
-                    { TODO : Monitor that not recopying this each pass really is a good thing... seems so. }
-                    //for k := 0 to jz2 do glf3Buffer[k] := gllpfM[k];
-                    //for k := jz2+1 to 661503 do glf3Buffer[k] := 0.0;
                     // Call decoder
                     for k := 0 to 62 do
                     begin

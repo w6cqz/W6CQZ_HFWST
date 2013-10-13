@@ -8,6 +8,9 @@ uses
   Classes, SysUtils, SynaSer, Types, CTypes, StrUtils;
 
 Type
+
+    { TRebel }
+
     TRebel = Class
            Private
                  prPort      : String;
@@ -27,7 +30,8 @@ Type
                  prDDSVer    : String;
                  prLocked    : Boolean;
                  prLoopSpeed : String;
-                 prTXState   : Boolean;
+                 prTXState   : Boolean; // True = TX on False = TX off
+                 prTXArray   : Array[0..63] Of CTypes.cuint; // Holds the 64 tuning words needed to TX a JT65 frame
                  function    ddsWord(const hz : double; const offset : CTypes.cint; const ref : CTypes.cint) : CTypes.cuint32;
 
            Public
@@ -39,6 +43,10 @@ Type
                  function    ask        : Boolean;
                  function    setQRG     : Boolean;
                  function    poll       : Boolean;
+                 function    ptt        : Boolean; // Toggles ptt - returns true and sets ptTXState true if was false - opposite if was true.
+                 function    ltx        : Boolean; // Loads array into rebel for TX
+                 function    getData(Index: Integer): CTypes.cuint;
+                 procedure   setData(Index: Integer; AValue: CTypes.cuint);
 
                  property port      : String
                     read  prPort
@@ -81,13 +89,17 @@ Type
                  property loops     : String
                     read  prLoopSpeed;
                  property txStat    : Boolean
-                    read  prTXState;
+                    read  prTXState; // True = PTT on False = PTT off
+                 property txArray [Index: Integer]: CTypes.cuint
+                    read  getData
+                    write setData;
     end;
 
 implementation
 constructor TRebel.Create;
 Var
    foo : String;
+   i   : Integer;
 Begin
      prTTY := SynaSer.TBlockSerial.Create;
      foo := '';
@@ -114,6 +126,7 @@ Begin
      prLocked    := False;
      prLoopSpeed := '';
      prTXState   := False;
+     for i := 0 to 63 do prTXArray[i] := 0;
 End;
 
 Destructor TRebel.Destroy;
@@ -138,6 +151,153 @@ Begin
      // 14076000
      // 14076000 + 718 * (2^28/49999750) = 14076718 * 5.3687359636798183990919954599773 = 75574182.177179045895229476147381 = 75574182
      result := Round((hz+offset) * (268435456/ref));
+end;
+
+function TRebel.ltx : Boolean;
+var
+   foo,f2: String;
+   i,j   : Integer;
+Begin
+     // Need to do the FSK tuning word uploader here
+     // Ok - this is the most critical and complex part of this entire mess.
+     // I need to get 64 tuning words from ptTXArray into the Rebel.  First
+     // I need to get a go ahead to start the upload then clock the values in
+     // 4 at a time with an ack between each push.
+     prCommand := '5;';  // Request to upload FSK Words  I need to get back 1,5; as response.  0,5; means Rebel can't do this now.
+     prResponse := '';
+     if ask Then
+     Begin
+          if prResponse = '1,5;' Then
+          Begin
+               // Lets be double sure and send command 21 to clear any data already uploaded.
+               prCommand := '21;';
+               prResponse := '';
+               if ask and (prResponse = '1,21;') Then
+               Begin
+                    // Have go ahead to start upload
+                    // Command ID=20,Block {1..16},I1,I2,I3,I4;
+                    j := 0;
+                    for i := 1 to 16 do
+                    begin
+                         foo := '20,'+IntToStr(i)+','+IntToStr(prTXArray[j])+','+IntToStr(prTXArray[j+1])+','+IntToStr(prTXArray[j+2])+','+IntToStr(prTXArray[j+3])+';';
+                         prCommand := foo;
+                         prResponse := '';
+                         if ask and (prResponse = foo) Then
+                         Begin
+                              // This indicates the block was accepted and matches what I expect it to be.
+                              f2 := prResponse;
+                              j := j+4;
+                         end
+                         else
+                         begin
+                              // Bad news :(
+                              f2 := prResponse;
+                              break;
+                         end;
+                    end;
+                    if i<16 Then
+                    Begin
+                         prError := 'Bad upload';
+                         result := False;
+                    end
+                    else
+                    begin
+                         prError := '';
+                         result := True;
+                    end;
+               end
+               else
+               begin
+                    prError := 'Clear fails';
+                    result := False;
+               end;
+          end
+          else
+          begin
+               // Rebel can't deal with this now.
+               prError := 'Rebel refuses upload';
+               result := False;
+          end;
+     end
+     else
+     begin
+          // Rebel can't deal with this now.
+          prError := 'Command timeout';
+          result := False;
+     end;
+end;
+
+function TRebel.getData(Index: Integer): CTypes.cuint;
+begin
+     result := prTXArray[Index];
+end;
+
+procedure TRebel.setData(Index: Integer; AValue: CTypes.cuint);
+begin
+     prTXArray[Index] := AValue;
+end;
+
+function TRebel.ptt : Boolean;
+Var
+   foo : String;
+   i   : Integer;
+Begin
+     if prTXState Then
+     Begin
+          // Need to turn it OFF
+          // 11; = OFF
+          prCommand := '11;';  // TX OFF
+          prResponse := '';
+          if ask Then
+          Begin
+               i := wordcount(prResponse,[',',';']);
+               if i > 1 Then foo := ExtractWord(2,prResponse,[',',';']) else foo := '';
+               if foo = '0' Then
+               Begin
+                    prTXState := False;
+                    result := True;
+               end
+               else
+               Begin
+                    prTXState := True;
+                    Result := False;
+               end;
+          end
+          else
+          begin
+               // Need to be SURE if ask fails that I indicate it is still in state that was requested to change
+               prTXState := True;
+               result := False; // TX was and still is ON when it should be OFF
+          end;
+     end
+     else
+     begin
+          // Need to turn it ON
+          // 10; = ON
+          // 10; = ON
+          prCommand := '10;';  // TX ON
+          prResponse := '';
+          if ask Then
+          Begin
+               i := wordcount(prResponse,[',',';']);
+               if i > 1 Then foo := ExtractWord(2,prResponse,[',',';']) else foo := '';
+               if foo = '0' Then
+               Begin
+                    prTXState := False;
+                    result := False;
+               end
+               else
+               Begin
+                    prTXState := True;
+                    Result := True;
+               end;
+          end
+          else
+          begin
+               prTXState := False;
+               result := False; // TX was and still is OFF when it should be ON
+          end;
+     end;
 end;
 
 function TRebel.setQRG : Boolean;
