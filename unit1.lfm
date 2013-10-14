@@ -225,7 +225,7 @@ object Form1: TForm1
     Height = 23
     Top = 6
     Width = 205
-    Caption = 'HFWST v0.3 (Phoenix)'
+    Caption = 'HFWST v0.4 (Phoenix)'
     Font.Height = -19
     Font.Name = 'Arial'
     Font.Style = [fsBold]
@@ -2675,7 +2675,6 @@ object Form1: TForm1
       Width = 67
       Anchors = [akLeft]
       Caption = 'Log QSO'
-      Enabled = False
       OnClick = Button1Click
       TabOrder = 23
     end

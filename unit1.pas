@@ -1362,13 +1362,7 @@ Begin
      Begin
           globalData.txInProgress := False;
           i := 0;
-          while clRebel.busy do
-          begin
-               sleep(1);
-               inc(i);
-               if i > 1000 Then break;
-          end;
-          clRebel.pttOff;
+          if clRebel.txStat then clRebel.pttOff;
      end;
 
      Waterfall1.Repaint;
@@ -1629,11 +1623,13 @@ Begin
      if (thisSecond = 47) And (lastSecond = 46) And InSync And paActive And not decoderBusy And not didTX Then
      Begin
           // Attempt a decode
-          globalData.txInProgress := False;
           if thisUTC.Hour < 10 Then thisTS := '0' + IntToStr(thisUTC.Hour) + ':' else thisTS := IntToStr(thisUTC.Hour) + ':';
           if thisUTC.Minute < 10 Then thisTS := thisTS + '0' + IntToStr(thisUTC.Minute) else thisTS := thisTS + IntToStr(thisUTC.Minute);
           doDecode := True;
      end;
+
+     if thisSecond = 48 Then globalData.txInProgress := False;
+
      // Frame progress indicator
      if (thisSecond < 48) Then ProgressBar1.Position := thisSecond;
      if (thisSecond = 47) And (lastSecond = 46) And InSync And paActive Then eopQRG := StrToInt(edDialQRG.Text); // Track start/end frame QRG values
