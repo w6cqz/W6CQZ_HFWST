@@ -546,6 +546,7 @@ var
   tmpdir         : String; // Path to user's temporary files directory
   homedir        : String; // Path to user's home directory
   qrgset         : Array[0..127] Of String; // Holds QRG values for Rebel TX load
+  didTX          : Boolean; // Flag to indicate we did a TX this period so no decoder run
   clRebel         : rebel.TRebel;
 
 implementation
@@ -601,6 +602,7 @@ Begin
      // Mark TX content as clean so any changes will lead to update
      txDirty := False;
      txValid := False;
+     didTX := False;
      // Let adc know it is on first run so it can do its init
      adc.adcFirst := True;
      // Setup rebel object and the serial port support so we use this rebel or not.
@@ -1572,6 +1574,10 @@ Begin
                if not clRebel.txStat Then
                Begin
                     globalData.txInProgress := False;
+               end
+               else
+               begin
+                    didTX := True;
                end;
           end;
      end;
@@ -1620,7 +1626,7 @@ Var
   foo : String;
 Begin
      // Items that run on each new second or selected new seconds
-     if (thisSecond = 47) And (lastSecond = 46) And InSync And paActive And not decoderBusy Then
+     if (thisSecond = 47) And (lastSecond = 46) And InSync And paActive And not decoderBusy And not didTX Then
      Begin
           // Attempt a decode
           globalData.txInProgress := False;
@@ -1840,6 +1846,7 @@ Begin
      SetExceptionMask([exInvalidOp, exDenormalized, exZeroDivide, exOverflow, exUnderflow, exPrecision]);
      // RX to index = 0
      adc.d65rxBufferIdx := 0;
+     didTX := False;
      if not inSync Then
      Begin
           inSync := True;
