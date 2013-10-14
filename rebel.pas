@@ -156,6 +156,7 @@ function TRebel.disconnect : Boolean;
 Begin
      prBusy := True;
      prConnected := False;
+     if prTXState Then pttOff;
      prTTY.CloseSocket;
      result := True;
      prBusy := False;

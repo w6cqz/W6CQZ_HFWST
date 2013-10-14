@@ -2,6 +2,8 @@
 //thisADCTick := adc.adcTick;
 
 { TODO :
+Also stop all command calls during TX cycle other than a TX abort.
+
 Work out handlers for working JT65V2 types.  Also need to think about case of where a data item could be
 sent either in V1 or V2 format.  I think... I want to force the issue here and just use V2 for everything.
 It's the only way to insure more update from ancient versions.
@@ -442,8 +444,6 @@ type
     procedure updateDB;
     procedure setDefaults;
     procedure setupDB(const cfgPath : String);
-    //procedure mgen(const msg : String; var isValid : Boolean; var isBreakIn : Boolean; var level : Integer; var response : String; var connectTo : String; var fullCall : String; var hisGrid : String);
-    //procedure mgen(const msg : String; var isValid : Boolean; var isBreakIn : Boolean; var level : Integer; var response : String; var connectTo : String; var fullCall : String; var hisGrid : String; var sdf : String; var sdB : String);
     procedure mgen(const msg : String; var isValid : Boolean; var isBreakIn : Boolean; var level : Integer; var response : String; var connectTo : String; var fullCall : String; var hisGrid : String; var sdf : String; var sdB : String; var txp : Integer);
 
     function t(const s : String) : String;
@@ -1768,8 +1768,8 @@ Begin
           end;
      end
      // Leaving this to allow QRG/Status updates during TX
-     { TODO : Be sure attempting to read status during TX is really a good idea }
-     else if rigRebel.Checked and haveRebel and readQRG and (not clRebel.busy) Then
+     { TODO : Be sure attempting to read status during TX is really a good idea.  Seems it's not - lags HFWST.}
+     else if rigRebel.Checked and haveRebel and readQRG and (not clRebel.busy) and (not clRebel.txStat) Then
      Begin
           if clRebel.poll Then
           Begin
@@ -4161,6 +4161,7 @@ begin
                     if SYNC65[i]=0 Then
                     Begin
                          qrgset[i] := IntToStr(rebelTuning(baseTX + (2.6917 * (tsyms[j]+2))));
+                         inc(j); // Not to self - yes it generates nice 2 tone FSK if you leave this line out.
                     end;
                end;
                // Diag dump
@@ -4734,6 +4735,7 @@ begin
           if not rbThread.FreeOnTerminate Then rbThread.Free;
           decoderThread.Terminate;
           if not decoderThread.FreeOnTerminate Then decoderThread.Free;
+          if clRebel.txStat Then clRebel.pttOff;
           clRebel.destroy;
      end;
 end;
