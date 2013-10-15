@@ -195,10 +195,10 @@ Begin
                Begin
                     // Have go ahead to start upload
                     // Command ID=20,Block {1..32},I1,I2,I3,I4;
-                    //prDebug := '';
-                    //foo := '0,FSK VALUES FOLLOW,';
-                    //for j := 0 to 126 do foo := foo + IntToStr(prTXArray[j]) + ',';
-                    //prDebug := foo + IntToStr(prTXArray[127]);
+                    prDebug := '';
+                    foo := '0,FSK VALUES FOLLOW,';
+                    for j := 0 to 126 do foo := foo + IntToStr(prTXArray[j]) + ',';
+                    prDebug := foo + IntToStr(prTXArray[127]);
                     j := 0;
                     // DAMMIT - hours wasted because I forgot to change next line from 1 to 16 to 1 to 32. GRRRRRRRRRRRRRR
                     for i := 1 to 32 do

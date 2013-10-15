@@ -196,11 +196,14 @@ object Form1: TForm1
     ParentFont = False
   end
   object ListBox2: TListBox
+    AnchorSideBottom.Control = Owner
+    AnchorSideBottom.Side = asrBottom
     Left = 1000
-    Height = 39
+    Height = 41
     Top = 504
     Width = 360
     Anchors = [akTop, akLeft, akBottom]
+    BorderSpacing.Bottom = 5
     Font.Height = -11
     Font.Name = 'Arial'
     ItemHeight = 0
@@ -225,7 +228,7 @@ object Form1: TForm1
     Height = 23
     Top = 6
     Width = 205
-    Caption = 'HFWST v0.4 (Phoenix)'
+    Caption = 'HFWST v0.5 (Phoenix)'
     Font.Height = -19
     Font.Name = 'Arial'
     Font.Style = [fsBold]
@@ -1750,11 +1753,14 @@ object Form1: TForm1
     Visible = False
   end
   object ListBox1: TListBox
+    AnchorSideBottom.Control = Owner
+    AnchorSideBottom.Side = asrBottom
     Left = 8
-    Height = 222
+    Height = 224
     Top = 321
     Width = 580
     Anchors = [akTop, akLeft, akBottom]
+    BorderSpacing.Bottom = 5
     Constraints.MaxWidth = 580
     Constraints.MinHeight = 220
     Constraints.MinWidth = 580
@@ -2083,11 +2089,14 @@ object Form1: TForm1
     ParentFont = False
   end
   object Memo1: TMemo
+    AnchorSideRight.Control = Owner
+    AnchorSideRight.Side = asrBottom
     Left = 1368
     Height = 522
     Top = 6
     Width = 248
     Anchors = [akTop, akLeft, akRight]
+    BorderSpacing.Right = 5
     Constraints.MinWidth = 248
     OnDblClick = Memo1DblClick
     ScrollBars = ssAutoBoth
@@ -2420,26 +2429,10 @@ object Form1: TForm1
       ParentFont = False
       TabOrder = 10
     end
-    object txControl: TButton
-      Left = 6
-      Height = 24
-      Top = 135
-      Width = 347
-      Anchors = [akLeft]
-      BorderSpacing.Around = 2
-      Caption = 'Enable TX'
-      Enabled = False
-      Font.Height = -16
-      Font.Name = 'Arial'
-      Font.Style = [fsBold]
-      OnClick = txControlClick
-      ParentFont = False
-      TabOrder = 11
-    end
     object rbTXEven: TRadioButton
-      Left = 177
+      Left = 176
       Height = 20
-      Top = 222
+      Top = 136
       Width = 51
       Anchors = [akLeft]
       Caption = 'Even'
@@ -2448,12 +2441,12 @@ object Form1: TForm1
       Font.Style = [fsBold]
       OnChange = rbTXEvenChange
       ParentFont = False
-      TabOrder = 12
+      TabOrder = 11
     end
     object rbTXOdd: TRadioButton
-      Left = 235
+      Left = 234
       Height = 20
-      Top = 222
+      Top = 136
       Width = 46
       Anchors = [akLeft]
       Caption = 'Odd'
@@ -2462,12 +2455,12 @@ object Form1: TForm1
       Font.Style = [fsBold]
       OnChange = rbTXEvenChange
       ParentFont = False
-      TabOrder = 14
+      TabOrder = 12
     end
     object Label11: TLabel
-      Left = 232
+      Left = 293
       Height = 17
-      Top = 205
+      Top = 138
       Width = 64
       Anchors = [akLeft]
       Caption = 'TX Period'
@@ -2485,12 +2478,11 @@ object Form1: TForm1
       Anchors = [akLeft]
       Caption = 'TX=RX DF'
       Checked = True
-      Enabled = False
       Font.Height = -13
       Font.Name = 'Arial'
       ParentFont = False
       State = cbChecked
-      TabOrder = 15
+      TabOrder = 13
     end
     object cbMultiOn: TCheckBox
       Left = 9
@@ -2506,7 +2498,7 @@ object Form1: TForm1
       Font.Style = [fsBold]
       ParentFont = False
       State = cbChecked
-      TabOrder = 16
+      TabOrder = 14
     end
     object Label87: TLabel
       Left = 183
@@ -2545,7 +2537,7 @@ object Form1: TForm1
       Position = 3
       ShowSelRange = False
       Anchors = [akLeft, akBottom]
-      TabOrder = 17
+      TabOrder = 15
     end
     object tbMultiBin: TTrackBar
       Left = 280
@@ -2558,7 +2550,7 @@ object Form1: TForm1
       Position = 3
       ShowSelRange = False
       Anchors = [akLeft, akBottom]
-      TabOrder = 18
+      TabOrder = 16
     end
     object Label79: TLabel
       Left = 9
@@ -2585,7 +2577,7 @@ object Form1: TForm1
       OnChange = edRXDFChange
       OnDblClick = edRXDFDblClick
       ParentFont = False
-      TabOrder = 19
+      TabOrder = 17
       Text = '0'
     end
     object Label19: TLabel
@@ -2613,7 +2605,7 @@ object Form1: TForm1
       MaxLength = 5
       OnDblClick = edTXDFDblClick
       ParentFont = False
-      TabOrder = 20
+      TabOrder = 18
       Text = '0'
     end
     object Label92: TLabel
@@ -2639,7 +2631,7 @@ object Form1: TForm1
       ItemHeight = 22
       OnChange = comboMacroListChange
       ParentFont = False
-      TabOrder = 21
+      TabOrder = 19
     end
     object Label10: TLabel
       Left = 4
@@ -2666,7 +2658,7 @@ object Form1: TForm1
       OnDblClick = edTXMsgDblClick
       ParentFont = False
       ReadOnly = True
-      TabOrder = 22
+      TabOrder = 20
     end
     object Button1: TButton
       Left = 96
@@ -2676,23 +2668,7 @@ object Form1: TForm1
       Anchors = [akLeft]
       Caption = 'Log QSO'
       OnClick = Button1Click
-      TabOrder = 23
-    end
-    object rbTXOff: TRadioButton
-      Left = 296
-      Height = 20
-      Top = 221
-      Width = 38
-      Anchors = [akLeft]
-      Caption = 'Off'
-      Checked = True
-      Font.Height = -13
-      Font.Name = 'Arial'
-      Font.Style = [fsBold]
-      OnChange = rbTXEvenChange
-      ParentFont = False
-      TabOrder = 13
-      TabStop = True
+      TabOrder = 21
     end
     object Label14: TLabel
       Left = 95
@@ -2718,10 +2694,30 @@ object Form1: TForm1
       Font.Style = [fsBold]
       OnClick = buttonXferMacroClick
       ParentFont = False
-      TabOrder = 24
+      TabOrder = 22
+    end
+    object toggleTX: TToggleBox
+      Left = 7
+      Height = 24
+      Top = 135
+      Width = 155
+      Anchors = [akLeft]
+      BorderSpacing.Around = 2
+      Caption = 'Enable TX'
+      Enabled = False
+      Font.Height = -16
+      Font.Name = 'Arial'
+      Font.Style = [fsBold]
+      OnClick = toggleTXClick
+      ParentFont = False
+      TabOrder = 23
     end
   end
   object Memo2: TMemo
+    AnchorSideRight.Control = Owner
+    AnchorSideRight.Side = asrBottom
+    AnchorSideBottom.Control = Owner
+    AnchorSideBottom.Side = asrBottom
     Left = 1368
     Height = 131
     Top = 536
@@ -2736,6 +2732,7 @@ object Form1: TForm1
     TabOrder = 17
   end
   object Memo3: TMemo
+    AnchorSideBottom.Side = asrBottom
     Left = 1000
     Height = 274
     Top = 224
