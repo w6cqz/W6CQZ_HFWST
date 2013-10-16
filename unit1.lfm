@@ -186,9 +186,10 @@ object Form1: TForm1
   end
   object Label15: TLabel
     Left = 8
-    Height = 1
+    Height = 23
     Top = 6
-    Width = 1
+    Width = 76
+    Caption = '               '
     Font.Height = -19
     Font.Name = 'Arial'
     Font.Style = [fsBold]
@@ -212,7 +213,7 @@ object Form1: TForm1
     TabOrder = 1
   end
   object Label16: TLabel
-    Left = 496
+    Left = 415
     Height = 23
     Top = 6
     Width = 185
@@ -228,7 +229,7 @@ object Form1: TForm1
     Height = 23
     Top = 6
     Width = 205
-    Caption = 'HFWST v0.5 (Phoenix)'
+    Caption = 'HFWST [Phoenix v0.6]'
     Font.Height = -19
     Font.Name = 'Arial'
     Font.Style = [fsBold]
@@ -308,7 +309,7 @@ object Form1: TForm1
     TabOrder = 2
   end
   object Label8: TLabel
-    Left = 233
+    Left = 176
     Height = 23
     Top = 6
     Width = 35
@@ -2392,7 +2393,7 @@ object Form1: TForm1
       ParentFont = False
     end
     object Label9: TLabel
-      Left = 310
+      Left = 305
       Height = 17
       Top = 186
       Width = 43
@@ -2430,18 +2431,20 @@ object Form1: TForm1
       TabOrder = 10
     end
     object rbTXEven: TRadioButton
-      Left = 176
+      Left = 175
       Height = 20
       Top = 136
       Width = 51
       Anchors = [akLeft]
       Caption = 'Even'
+      Checked = True
       Font.Height = -13
       Font.Name = 'Arial'
       Font.Style = [fsBold]
       OnChange = rbTXEvenChange
       ParentFont = False
-      TabOrder = 11
+      TabOrder = 12
+      TabStop = True
     end
     object rbTXOdd: TRadioButton
       Left = 234
@@ -2455,7 +2458,7 @@ object Form1: TForm1
       Font.Style = [fsBold]
       OnChange = rbTXEvenChange
       ParentFont = False
-      TabOrder = 12
+      TabOrder = 11
     end
     object Label11: TLabel
       Left = 293
@@ -2661,13 +2664,21 @@ object Form1: TForm1
       TabOrder = 20
     end
     object Button1: TButton
-      Left = 96
-      Height = 24
-      Top = 162
-      Width = 67
-      Anchors = [akLeft]
+      AnchorSideTop.Control = Label5
+      AnchorSideTop.Side = asrBottom
+      AnchorSideBottom.Control = Label87
+      Left = 176
+      Height = 27
+      Top = 213
+      Width = 87
+      BorderSpacing.Top = 10
+      BorderSpacing.Bottom = 5
       Caption = 'Log QSO'
+      Font.Height = -13
+      Font.Name = 'Arial'
+      Font.Style = [fsBold]
       OnClick = Button1Click
+      ParentFont = False
       TabOrder = 21
     end
     object Label14: TLabel

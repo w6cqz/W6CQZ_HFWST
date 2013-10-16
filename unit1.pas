@@ -1481,7 +1481,7 @@ Begin
           thisTXcall := TrimLeft(TrimRight(UpCase(edPrefix.Text))) + '/' + TrimLeft(Trimright(UpCase(edCall.Text)));
           thisTXgrid := TrimLeft(TrimRight(UpCase(getLocalGrid)));
           if Length(thisTXGrid)>4 Then thisTXGrid := thisTXGrid[1..4];
-          Label8.Caption := 'DE ' + thisTXCall + ' in ' + edGrid.Text;
+          Label8.Caption := thisTXCall + ' (' + edGrid.Text + ')';
      end;
 
      If (Length(edPrefix.Text)=0) And (Length(edSuffix.Text)>0) And ((Length(edCall.Text)>2) And (Length(edCall.Text)<7)) And ((Length(getLocalGrid)=4) Or (Length(getLocalGrid)=6)) Then
@@ -1489,7 +1489,7 @@ Begin
           thisTXcall := TrimLeft(Trimright(UpCase(edCall.Text))) + '/' + TrimLeft(TrimRight(UpCase(edSuffix.Text)));
           thisTXgrid := TrimLeft(TrimRight(UpCase(getLocalGrid)));
           if Length(thisTXGrid)>4 Then thisTXGrid := thisTXGrid[1..4];
-          Label8.Caption := 'DE ' + thisTXCall + ' ' + edGrid.Text;
+          Label8.Caption := thisTXCall + ' (' + edGrid.Text + ')';
      end;
 
      If (Length(edPrefix.Text)=0) And (Length(edSuffix.Text)=0) And ((Length(edCall.Text)>2) And (Length(edCall.Text)<7)) And ((Length(getLocalGrid)=4) Or (Length(getLocalGrid)=6)) Then
@@ -1497,7 +1497,7 @@ Begin
           thisTXcall := TrimLeft(Trimright(UpCase(edCall.Text)));
           thisTXgrid := TrimLeft(TrimRight(UpCase(getLocalGrid)));
           if Length(thisTXGrid)>4 Then thisTXGrid := thisTXGrid[1..4];
-          Label8.Caption := 'DE ' + thisTXCall + ' ' + edGrid.Text;
+          Label8.Caption := thisTXCall + ' (' + edGrid.Text + ')';
      end;
 
      // canTX is based upon having valid callsign and grid in config & valid message ready to send
@@ -1513,11 +1513,16 @@ Begin
      if (not isSText(edTXMsg.Text)) or (not isFText(edTXMsg.Text)) Then valid := False;
      canTX := valid;
      If canTX Then toggleTX.Enabled := True else toggleTX.Enabled := False;
-     If toggleTX.Checked Then toggleTX.Caption := 'Disable TX' else toggleTX.Caption := 'Enable TX';
-
-     { TODO Fix }
-     //If txOn Then Label12.Caption := 'PTT:  ON' else Label12.Caption := 'PTT:  OFF';
-     //If txOn Then Label12.Font.Color := clRed else Label12.Font.Color := clBlack;
+     If toggleTX.Checked Then
+     Begin
+          if clRebel.txStat Then toggleTX.Caption := 'HALT TX' else toggleTX.Caption := 'Disable TX';
+     End
+     else
+     Begin
+          toggleTX.Caption := 'Enable TX';
+          globalData.txInProgress := False;
+          if clRebel.txStat and (not clRebel.busy) then clRebel.pttOff;
+     end;
 
      if not canTX Then
      Begin
@@ -1528,7 +1533,7 @@ Begin
      begin
           If globalData.txInProgress Then
           Begin
-               Label16.Caption := 'TX:  TRANSMITTING';
+               Label16.Caption := 'TX:  ' + thisTXMsg;
                Label16.Font.Color := clRed;
           end
           else
@@ -1609,7 +1614,7 @@ Begin
      I need to NOT start TX until second = 1.
      }
 
-     If toggleTX.Checked Then toggleTX.Caption := 'Disable TX' else toggleTX.Caption := 'Enable TX';
+     //If toggleTX.Checked Then toggleTX.Caption := 'Disable TX' else toggleTX.Caption := 'Enable TX';
 
      if not toggleTX.Checked then canTX := False;
 
@@ -1692,8 +1697,8 @@ Begin
      // Update clock display
      foo := '';
      if thisUTC.Month < 10 Then foo := '0' + IntToStr(thisUTC.Month) + '-' else foo := IntToStr(thisUTC.Month) + '-';
-     if thisUTC.Day   < 10 Then foo := foo + '0' + IntToStr(thisUTC.Day) + '-' else foo := foo + IntToStr(thisUTC.Day) + '-';
-     foo := foo + IntToStr(thisUTC.Year) + '  ';
+     if thisUTC.Day   < 10 Then foo := foo + '0' + IntToStr(thisUTC.Day) else foo := foo + IntToStr(thisUTC.Day);
+     foo := foo + '  ';
      if thisUTC.Hour  < 10 Then foo := foo + '0' + IntToStr(thisUTC.Hour) + ':' else foo := foo + IntToStr(thisUTC.Hour) + ':';
      if thisUTC.Minute < 10 Then foo := foo + '0' + IntToStr(thisUTC.Minute) + ':' else foo := foo + IntToStr(thisUTC.Minute) + ':';
      if thisUTC.Second < 10 Then foo := foo + '0' + IntToStr(thisUTC.Second) else foo := foo + IntToStr(thisUTC.Second);
@@ -1973,7 +1978,8 @@ procedure TForm1.adcdacTick;
 Begin
      // Events triggered from ADC/DAC callback counter change
      // Compute spectrum and audio levels.
-     if adc.haveAU And (not demodulate.dmdemodBusy) Then
+     { TODO : Be sure following change to look at Rebel Busy txStat not cause problems) }
+     if adc.haveAU And (not demodulate.dmdemodBusy) And (not clRebel.txStat) Then
      Begin
           // Compute/display audio level(s)
           if adc.adcMono Then
@@ -2003,9 +2009,13 @@ Begin
           // 1 sLevel = .4dB
           // db = (sLevel*0.4)-20
           adc.haveAU := False;
+     end
+     else
+     begin
+          adc.haveAU := False;
      end;
 
-     If adc.haveSpec And (not demodulate.dmdemodBusy) Then
+     If adc.haveSpec And (not demodulate.dmdemodBusy) And (not clRebel.txStat) Then
      Begin
           // Compute/update spectrum display
           if adc.adcMono Then
@@ -2016,6 +2026,10 @@ Begin
           begin
                if adc.adcChan = 1 Then spectrum.computeSpectrum(adc.adclast4k1F) else spectrum.computeSpectrum(adc.adclast4k2F);
           end;
+          adc.haveSpec := False;
+     end
+     else
+     begin
           adc.haveSpec := False;
      end;
 end;
@@ -3538,6 +3552,7 @@ begin
           Begin
                if isBreakIn Then Memo2.Append('[TE] ' + response + ' to ' + connectTo + ' [' + fullCall + '] @ ' + hisGrid + ' Proto ' + IntToStr(level) + '[' + sdb + 'dB @ ' + sdf + 'Hz]') else Memo2.Append('[IM] ' + response + ' to ' + connectTo + ' [' + fullCall + '] @ ' + hisGrid + ' Proto ' + IntToStr(level) + '[' + sdb + 'dB @ ' + sdf + 'Hz]');
                edTXMsg.Text := response;
+               thisTXMsg := response;
                edTXToCall.Text := fullCall;
                edTXReport.Text := sdb;
                if cbTXeqRXDF.Checked Then
@@ -3545,7 +3560,13 @@ begin
                     { TODO : Changing this so my DF stays at TXDF unless I tell it to move }
                     edTXDF.Text := sdf;
                     edRXDF.Text := sdf;
+               end
+               else
+               begin
+                    sdf := edTXDF.Text;
+                    edRXDF.text := '0';
                end;
+
                if isFText(response) or isSText(response) Then
                Begin
                     Memo2.Append('Generating message:  ' + response + ' at TXDF ' + sdf);
