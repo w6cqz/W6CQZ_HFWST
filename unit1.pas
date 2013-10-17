@@ -5,7 +5,6 @@
 URGENT
 
 Work out method to be sure a change to TXDF regnerates message.  More complex than first glance indicates with new way of doing things :(
-Need TX Marker back in spectrum header (like yesterday)
 
 Work out handlers for working JT65V2 types.  Also need to think about case of where a data item could be
 sent either in V1 or V2 format.  I think... I want to force the issue here and just use V2 for everything.
@@ -549,7 +548,8 @@ var
   homedir        : String; // Path to user's home directory
   qrgset         : Array[0..127] Of String; // Holds QRG values for Rebel TX load
   didTX          : Boolean; // Flag to indicate we did a TX this period so no decoder run
-  clRebel         : rebel.TRebel;
+  clRebel        : rebel.TRebel;
+  lastTXDF       : String;
 
 implementation
 
@@ -839,6 +839,7 @@ Begin
      comboMacroList.ItemIndex := 0;
      query.Active := False;
      // Lets read some config
+     lastTXDF := '';
      inDev  := savedIADC;
      pttDev := -1;
      If not TryStrToInt(edPort.Text,pttDev) Then pttDev := -1;
@@ -954,6 +955,7 @@ Begin
      if FBar1 = nil then InitBar;
      FBar1.Clear;
      FBar1.Marks.Style := TSeriesMarksStyle(smsNone);
+
      txOn := False;
      ListBox1.Clear;
      ListBox2.Clear;
@@ -1382,6 +1384,40 @@ Begin
      mval.forceDecimalAmer := False;
      mval.forceDecimalEuro := False;
      if mval.evalQRG(fs,'STRICT',ff,fi,fsc) Then qrgValid := True else qrgValid := False;
+     if lastTXDF <> edTXDF.Text
+     Then
+     Begin
+          lastTXDF := edTXDF.Text;
+          FBar1.Clear;
+          if TryStrToInt(lastTXDF,fi) Then
+          Begin
+               if fi < -1050 Then
+               Begin
+                    fi := -1050;
+                    edTXDF.text := '-1050';
+                    lastTXDF := '-1050';
+               end;
+               if fi > 1050 Then
+               Begin
+                    fi := 1050;
+                    edTXDF.text := '1050';
+                    lastTXDF := '1050';
+               end;
+               ff := fi;
+               for i := 0 to 80 do
+               Begin
+                    if i=0 then FBar1.AddXY(ff/100.0, 5.0, '', clRed) else FBar1.AddXY((ff+(i*2.5))/100.0, 5.0, '', clRed);
+               end;
+          end
+          else
+          begin
+               ff := 0.0;
+               for i := 0 to 80 do
+               Begin
+                    if i=0 then FBar1.AddXY(ff/100.0, 5.0, '', clRed) else FBar1.AddXY((ff+(i*2.5))/100.0, 5.0, '', clRed);
+               end;
+          end;
+     end;
 
      Label121.Caption := 'Decoder Resolution:  ' + IntToStr(demodulate.dmbw) + ' Hz';
      if kvcount > 0 Then Label95.Caption := PadLeft(IntToStr(kvcount),5) + '  ' + FormatFloat('0.0',(100.0*(kvcount/(kvcount+bmcount)))) + '%';
