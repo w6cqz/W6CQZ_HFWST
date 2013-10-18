@@ -3,8 +3,9 @@
 
 { TODO :
 URGENT
-
 Work out method to be sure a change to TXDF regnerates message.  More complex than first glance indicates with new way of doing things :(
+Fix clearing msg buffer during TX disabling controls
+Fix message currently in TX display being slow to update (shows previous then updates to proper)
 
 Work out handlers for working JT65V2 types.  Also need to think about case of where a data item could be
 sent either in V1 or V2 format.  I think... I want to force the issue here and just use V2 for everything.
@@ -550,6 +551,7 @@ var
   didTX          : Boolean; // Flag to indicate we did a TX this period so no decoder run
   clRebel        : rebel.TRebel;
   lastTXDF       : String;
+  transmitting   : String; // Holds message currently being transmitted
 
 implementation
 
@@ -955,6 +957,11 @@ Begin
      if FBar1 = nil then InitBar;
      FBar1.Clear;
      FBar1.Marks.Style := TSeriesMarksStyle(smsNone);
+     ff := 0.0;
+     for i := 0 to 80 do
+     Begin
+          if i=0 then FBar1.AddXY(ff/100.0, 5.0, '', clRed) else FBar1.AddXY((ff+(i*2.5))/100.0, 5.0, '', clRed);
+     end;
 
      txOn := False;
      ListBox1.Clear;
@@ -1473,8 +1480,6 @@ Begin
           Label27.Caption := edDialQRG.Text;
      end;
 
-     //if RadioButton1.Checked And globalData.txInProgress Then globalData.txInProgress := False;
-
      spectrum.specColorMap := spColorMap.ItemIndex;
 
      If tbMultiBin.Position = 1 then demodulate.dmbw := 20;
@@ -1569,7 +1574,7 @@ Begin
      begin
           If globalData.txInProgress Then
           Begin
-               Label16.Caption := 'TX:  ' + thisTXMsg;
+               Label16.Caption := 'TX:  ' + transmitting;
                Label16.Font.Color := clRed;
           end
           else
@@ -1641,8 +1646,6 @@ Begin
                begin
                     Memo1.Append('Message upload/readback complete.  Good to go.');
                end;
-
-               //if not txDirty then Memo1.Append(clRebel.dumptx) else Memo1.Append('1: Failed to upload FSK array');
           end;
      end;
 
@@ -1660,6 +1663,7 @@ Begin
           // TX In progress has been set but TX not set in Rebel - make it so.
           if (thisSecond=1) and (lastSecond=0) Then
           Begin
+               transmitting := thisTXmsg;
                clRebel.pttOn;  // This is a toggle action - would be good to double check it went into TX though it is going to keep hammering it every tick until it does enable
                { TODO : Temporary HACK do not leave this!  It should try this more than once but less than (tm) a "lot" }
                if not clRebel.txStat Then
@@ -1947,7 +1951,6 @@ Begin
      end;
      // TX to index = 0
      //dac.d65txBufferIdx := 0;
-     FBar1.Clear;
 
      // Set flag for TX ability
      //txperiod       : Integer; // 1 = Odd 0 = Even
@@ -4772,6 +4775,7 @@ begin
      if isFText(comboMacroList.Text) or isSText(comboMacroList.Text) Then
      Begin
           edTXMsg.Text := comboMacroList.Text;
+          thisTXMsg := comboMacroList.Text;
           genTX(edTXMsg.Text,StrToInt(edTXDF.Text));
      end;
 end;

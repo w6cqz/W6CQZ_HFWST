@@ -31,70 +31,6 @@ uses
 Const
   JT_DLL = 'JT65v5.dll';
 
-  // 19 pole butterworth LPF - good for < ~2.5KHz (this is an IIR type)
-  LACoef : array[0..19] of CTypes.cfloat =
-        (
-        0.00001939180997620892,
-        0.00036844438954796945,
-        0.00331599950593172540,
-        0.01879066386694644400,
-        0.07516265546778577700,
-        0.22548796640335733000,
-        0.52613858827450044000,
-        0.97711452108121499000,
-        1.46567178162182250000,
-        1.79137662198222760000,
-        1.79137662198222760000,
-        1.46567178162182250000,
-        0.97711452108121499000,
-        0.52613858827450044000,
-        0.22548796640335733000,
-        0.07516265546778577700,
-        0.01879066386694644400,
-        0.00331599950593172540,
-        0.00036844438954796945,
-        0.00001939180997620892
-        );
-
-  LBCoef : array[0..19] of CTypes.cfloat =
-        (
-        1.00000000000000000000,
-        0.30124524681121684000,
-        2.62368718667596430000,
-        0.68183386600980578000,
-        2.71043558836035330000,
-        0.59957920836218892000,
-        1.42524899306136610000,
-        0.26375059355045877000,
-        0.41246083660156979000,
-        0.06237667312611505600,
-        0.06644496002297710400,
-        0.00794483191686967340,
-        0.00575615778774987010,
-        0.00051759803100776295,
-        0.00024561616410988675,
-        0.00001526235709911922,
-        0.00000429882913347158,
-        0.00000015515020059209,
-        0.00000001973933115243,
-        0.00000000023001431849
-        );
-  // 3 pole butterworth HPF - good for > ~400Hz (This is an IIR type)
-  HACoef : array[0..3] of CTypes.cfloat =
-      (
-      0.79309546371795214000,
-      -2.37928639115385640000,
-      2.37928639115385640000,
-      -0.79309546371795214000
-      );
-  HBCoef : array[0..3] of CTypes.cfloat =
-      (
-      1.00000000000000000000,
-      -2.54502682052873870000,
-      2.18780625843708300000,
-      -0.63322898404546324000
-      );
-
 type
 
   decoded  = Record
@@ -1352,7 +1288,7 @@ begin
           dmlastraw[i]      := '';
      end;
      dmdecodecount := 0;
-     rawcount := 1; // Index for saving raw decoder outputs
+     rawcount := 0; // Index for saving raw decoder outputs
 
      // Setup temporary spaces
      setLength(glInBuffer,661504);
@@ -1387,7 +1323,8 @@ begin
      // Interesting... got a basevb < -16.0 with a reasonably strong signal mixtures
      // { TODO : Watch this }
      // I think I'll make it -21 for basevb but revert to -16 if it blows up
-     dmlastraw[0] := 'basevb=' + FormatFloat('0.0',basevb) + ' avesq=' + formatfloat('0.0',avesq);
+     dmlastraw[rawcount] := 'basevb=' + FormatFloat('0.0',basevb) + ' avesq=' + formatfloat('0.0',avesq);
+     inc(rawcount);
      if (avesq <> 0.0) And (basevb > -21.0) And (basevb < 21.0) Then
      Begin
           set65;
@@ -1450,6 +1387,8 @@ begin
 
           syncount := 0;
           msync(CTypes.pcfloat(@glf3Buffer[0]),CTypes.pcint(@jz2),CTypes.pcint(@syncount),CTypes.pcfloat(@dtxa[0]),CTypes.pcfloat(@dfxa[0]),CTypes.pcfloat(@snrxa[0]),CTypes.pcfloat(@snrsynca[0]),CTypes.pcint(@lical),PChar(wif));
+          if syncount = 0 then dmlastraw[rawcount] := 'No usable sync signals found';
+          if syncount = 0 then inc(rawcount);
 
           // Time to start USING the data I'm getting from msync.
           // 1 - If snrx < -29 kill it.
@@ -1460,6 +1399,7 @@ begin
 
           for i := 0 to 254 do
           begin
+               { TODO : Think about the dtxa test... it may be source of some failed decodes in that it sometimes gives crazy values that still decode proper.... }
                if (dtxa[i] < -5.5) Or (dtxa[i] > 5.5) Or (snrxa[i] < -29.6) Or (dfxa[i] < -1100.0) Or (dfxa[i] > 1100.0) Then dfxa[i] := -9999.0;
           end;
 
