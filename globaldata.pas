@@ -7,12 +7,12 @@ interface
 uses
   Classes, SysUtils;
 
-Var
+//Var
    // Global Vars
-   specNewSpec65       : Boolean;
-   audioComputing      : Boolean;
-   spectrumComputing65 : Boolean;
-   specMs65            : TMemoryStream;
+   //specNewSpec65       : Boolean;
+   //audioComputing      : Boolean;
+   //spectrumComputing65 : Boolean;
+   //specMs65            : TMemoryStream;
 
    // The variable list above comprises those variables used in more than two
    // units (inclusive of maincode).  Addition of variables to this list should

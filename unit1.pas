@@ -1,6 +1,3 @@
-//thisSecond  := thisUTC.Second;
-//thisADCTick := adc.adcTick;
-
 { TODO :
 URGENT
 Move all code involving TX control into txControl() : Boolean;
@@ -48,7 +45,7 @@ uses
   Classes, SysUtils, FileUtil, Forms, Controls, Graphics, Dialogs, StdCtrls,
   ExtCtrls, Math, StrUtils, CTypes, Windows, lconvencoding, ComCtrls, EditBtn,
   DbCtrls, TAGraph, TASeries, TAChartUtils, Types, portaudio, adc, spectrum,
-  waterfall1, spot, demodulate, BufDataset,  sqlite3conn, sqldb, valobject, rebel;
+  waterfall1, spot, demodulate, BufDataset, sqlite3conn, sqldb, valobject, rebel;
 
 Const
   JT_DLL = 'JT65v5.dll';
@@ -361,7 +358,6 @@ type
     procedure Button14Click(Sender: TObject);
     procedure Button1Click(Sender: TObject);
     procedure buttonXferMacroClick(Sender: TObject);
-    //procedure comboMacroListKeyUp(Sender: TObject; var Key: Word; Shift: TShiftState);
     procedure comboQRGListChange(Sender: TObject);
     procedure comboMacroListChange(Sender: TObject);
     procedure btnsetQRGClick(Sender: TObject);
@@ -419,12 +415,12 @@ type
                               var connectTo     : String;
                               var fullCall      : String;
                               var hisGrid       : String);
-//    procedure breakOutFields(const msg : String; var mvalid : Boolean);
+    procedure breakOutFields(const msg : String; var mvalid : Boolean);
     procedure displayDecodes;
 
     function  db(x : CTypes.cfloat) : CTypes.cfloat;
     procedure toggleTXClick(Sender: TObject);
-    function  txControl() : Boolean;
+    function  txControl : Boolean;
     function  utcTime: TSystemTime;
     procedure InitBar;
 
@@ -474,6 +470,9 @@ Type
 
 var
   Form1          : TForm1;
+  clRebel        : rebel.TRebel;  // Class holder for Rebel
+  rb             : spot.TSpot;    // Class holder for RB spotting
+  mval           : valobject.TValidator;  // Class holder for validation
   firstPass      : Boolean;
   firstTick      : Boolean;
   inSync         : Boolean;
@@ -492,13 +491,8 @@ var
   ppaInParams    : PPaStreamParameters;
 //  ppaOutParams   : PPaStreamParameters;
   paInStream     : PPaStream;
-  adcSpecAvg1    : Integer;
-  adcSpecAvg2    : Integer;
-  firstAU1       : Boolean;
-  firstAU2       : Boolean;
   inDev          : Integer;//,outDev   : Integer;
   inIcal,pttDev  : Integer;
-  gtxlevel       : CTypes.cint;
   auLevel        : Integer;
   auLevel1       : Integer;
   auLevel2       : Integer;
@@ -506,8 +500,6 @@ var
   thisTXgrid     : String;
   thisTXmsg      : String;
   thisTXdf       : Integer;
-  rb             : spot.TSpot;
-  mval           : valobject.TValidator;
   rbping         : Boolean;
   rbposted       : CTypes.cuint64;
   doDecode       : Boolean;
@@ -550,7 +542,6 @@ var
   homedir        : String; // Path to user's home directory
   qrgset         : Array[0..127] Of String; // Holds QRG values for Rebel TX load
   didTX          : Boolean; // Flag to indicate we did a TX this period so no decoder run
-  clRebel        : rebel.TRebel;
   lastTXDF       : String;
   transmitting   : String; // Holds message currently being transmitted
   txInProgress           : Boolean; // tx in progress
@@ -945,7 +936,6 @@ Begin
      spectrum.specVGain    := 7;  // 7 is "normal" can range from 1 to 13
      spectrum.specContrast := 1;
      spectrum.specGain     := 0;
-
      thisADCTick := 0;
      lastADCTick := 0;
      aulevel := 0;
@@ -1172,8 +1162,6 @@ Begin
                adc.adcChan := 1;
                adc.adcLDgain := 0;
                adc.adcRDgain := 0;
-               adcSpecAvg1 := 0;
-               adcSpecAvg2 := 0;
                // output
                //paOutParams.channelCount := 2;
                //if outDev > -1 Then paOutParams.device := outDev else paOutParams.device := defO;
@@ -1901,6 +1889,8 @@ Begin
                ListBox2.Items.Insert(0,'QSY to ' + IntToStr(qsyQRG) + ' complete');
                // CLEAR the TX message on a QSY to force a renegeration
                edTXMsg.Text := '';
+               edRXDF.Text := '0';
+               edTXDF.Text := '0';
                edDialQRG.Text := IntToStr(qsyQRG);
                readQRG := False;
                setQRG := False;
@@ -2071,7 +2061,6 @@ Begin
           // Compute/display audio level(s)
           if adc.adcMono Then
           Begin
-               //if aulevel = 0 Then aulevel := spectrum.computeAudio(adc.adclast2k1) else aulevel := (aulevel + spectrum.computeAudio(adc.adclast2k1)) div 2;
                aulevel := spectrum.computeAudio(adc.adclast2k1);
                Label108.Caption := IntToStr(Trunc((aulevel*0.4)-20)) + 'dB';
                Label78.Caption := 'Mono:';
@@ -2081,10 +2070,8 @@ Begin
           end
           else
           begin
-               //if aulevel1 = 0 Then aulevel1 := spectrum.computeAudio(adc.adclast2k1) else aulevel1 := (aulevel1 + spectrum.computeAudio(adc.adclast2k1)) div 2;
                aulevel1 := spectrum.computeAudio(adc.adclast2k1);
                Label108.Caption := IntToStr(Trunc((aulevel1*0.4)-20)) + 'dB';
-               //if aulevel2 = 0 Then aulevel2 := spectrum.computeAudio(adc.adclast2k2) else aulevel2 := (aulevel2 + spectrum.computeAudio(adc.adclast2k2)) div 2;
                aulevel2 := spectrum.computeAudio(adc.adclast2k1);
                Label109.Caption := IntToStr(Trunc((aulevel2*0.4)-20)) + 'dB';
                Label3.Caption := 'Audio Levels';
@@ -2827,156 +2814,155 @@ Begin
      end;
 end;
 
-//{ TODO : breakOutFields can -eventually- go away - it's here for testing - mgen is the real thing. }
-//
-//procedure TForm1.breakOutFields(const msg : String; var mvalid : Boolean);
-//Var
-//  foo       : String;
-//  exchange  : exch;
-//  i,wc      : Integer;
-//  isiglevel : Integer;
-//  gonogo    : Boolean;
-//  toparse   : String;
-//  isValid   : Boolean;
-//  isBreakIn : Boolean;
-//  level     : Integer;
-//  response  : String;
-//  connectTo : String;
-//  fullCall  : String;
-//  hisGrid   : String;
-//Begin
-//     mvalid   := False;
-//     gonogo   := False;
-//     isValid  := False;
-//     // Get the decode to parse
-//     foo := msg;
-//     foo := DelSpace1(foo);
-//     foo := StringReplace(foo,' ',',',[rfReplaceAll,rfIgnoreCase]);
-//
-//     // Now with a structured message I'll have...
-//     // UTC, Sync, dB, DT, DF, EC, NC1, Call FROM, MSG
-//     // Where NC1 is one of [CQ, CQ ###, QRZ, DE, CALLSIGN]
-//     // Where MSG is one of [Grid,-##,R-##,RRR,RO,73]
-//
-//     // First check is for first two characters to be numeric AND wordcount
-//     // = 9 or 10.  10 Handles case of a CQ ### format (not seen on HF, but...)
-//     // If not wc = 9 or 10 then it's not something to parse here.
-//     i := 0;
-//     wc := wordcount(foo,[',']);
-//     if (wc=8) or (wc=9) or (wc=10) Then
-//     Begin
-//          if wc=8 Then
-//          Begin
-//               // Parse string into parts (8 word exchange)
-//               exchange.utc  := TrimLeft(TrimRight(UpCase(ExtractWord(1,foo,[',']))));
-//               exchange.sync := TrimLeft(TrimRight(UpCase(ExtractWord(2,foo,[',']))));
-//               exchange.db   := TrimLeft(TrimRight(UpCase(ExtractWord(3,foo,[',']))));
-//               exchange.dt   := TrimLeft(TrimRight(UpCase(ExtractWord(4,foo,[',']))));
-//               exchange.df   := TrimLeft(TrimRight(UpCase(ExtractWord(5,foo,[',']))));
-//               exchange.ec   := TrimLeft(TrimRight(UpCase(ExtractWord(6,foo,[',']))));
-//               exchange.nc1  := TrimLeft(TrimRight(UpCase(ExtractWord(7,foo,[',']))));
-//               exchange.nc1s := '';
-//               exchange.nc2  := TrimLeft(TrimRight(UpCase(ExtractWord(8,foo,[',']))));
-//               exchange.ng   := '';
-//          end;
-//          if wc=9 Then
-//          Begin
-//               // Parse string into parts (9 word exchange)
-//               exchange.utc  := TrimLeft(TrimRight(UpCase(ExtractWord(1,foo,[',']))));
-//               exchange.sync := TrimLeft(TrimRight(UpCase(ExtractWord(2,foo,[',']))));
-//               exchange.db   := TrimLeft(TrimRight(UpCase(ExtractWord(3,foo,[',']))));
-//               exchange.dt   := TrimLeft(TrimRight(UpCase(ExtractWord(4,foo,[',']))));
-//               exchange.df   := TrimLeft(TrimRight(UpCase(ExtractWord(5,foo,[',']))));
-//               exchange.ec   := TrimLeft(TrimRight(UpCase(ExtractWord(6,foo,[',']))));
-//               exchange.nc1  := TrimLeft(TrimRight(UpCase(ExtractWord(7,foo,[',']))));
-//               exchange.nc1s := '';
-//               exchange.nc2  := TrimLeft(TrimRight(UpCase(ExtractWord(8,foo,[',']))));
-//               exchange.ng   := TrimLeft(TrimRight(UpCase(ExtractWord(9,foo,[',']))));
-//          End;
-//          if wc=10 Then
-//          Begin
-//               // Parse string into parts (10 word exchange)
-//               exchange.utc  := TrimLeft(TrimRight(UpCase(ExtractWord(1,foo,[',']))));
-//               exchange.sync := TrimLeft(TrimRight(UpCase(ExtractWord(2,foo,[',']))));
-//               exchange.db   := TrimLeft(TrimRight(UpCase(ExtractWord(3,foo,[',']))));
-//               exchange.dt   := TrimLeft(TrimRight(UpCase(ExtractWord(4,foo,[',']))));
-//               exchange.df   := TrimLeft(TrimRight(UpCase(ExtractWord(5,foo,[',']))));
-//               exchange.ec   := TrimLeft(TrimRight(UpCase(ExtractWord(6,foo,[',']))));
-//               exchange.nc1  := TrimLeft(TrimRight(UpCase(ExtractWord(7,foo,[',']))));
-//               exchange.nc1s := TrimLeft(TrimRight(UpCase(ExtractWord(8,foo,[',']))));
-//               exchange.nc2  := TrimLeft(TrimRight(UpCase(ExtractWord(9,foo,[',']))));
-//               exchange.ng   := TrimLeft(TrimRight(UpCase(ExtractWord(10,foo,[',']))));
-//          End;
-//
-//          i := 0;
-//          if TryStrToInt(exchange.utc[1..2],i) Then gonogo := True else gonogo := False;
-//
-//          if gonogo Then
-//          Begin
-//               isiglevel := -30;
-//               if not tryStrToInt(exchange.db,isiglevel) Then
-//               Begin
-//                    gonogo := False;
-//               End
-//               Else
-//               Begin
-//                    gonogo := True;
-//                    if isiglevel > -1 Then
-//                    Begin
-//                         isiglevel := -1;
-//                    End;
-//                    if isiglevel < -30 Then
-//                    Begin
-//                         isiglevel := -30;
-//                    End;
-//               End;
-//          End;
-//
-//          If gonogo then
-//          begin
-//               gonogo := False;
-//               i := -9999;
-//               if not TryStrToInt(exchange.df,i) Then
-//               begin
-//                    gonogo := False;
-//               end
-//               else
-//               begin
-//                    if (i<-1100) or (i>1100) Then gonogo := False else gonogo := True;
-//               end;
-//          end;
-//
-//          if gonogo Then
-//          Begin
-//               gonogo := False;
-//               // Have signal report and DF
-//               // Now can Call the message parser
-//               toParse := '';
-//               if wc = 8 Then toParse  := exchange.nc1  + ' ' + exchange.nc2;
-//               if wc = 9 Then toParse  := exchange.nc1  + ' ' + exchange.nc2 + ' ' + exchange.ng;
-//               if wc = 10 Then toParse := exchange.nc1  + ' ' + exchange.nc1s + ' ' + exchange.nc2 + ' ' + exchange.ng;
-//
-//               isValid   := False;
-//               isBreakIn := False;
-//               level     := 0;
-//               response  := '';
-//               connectTo := '';
-//               fullCall  := '';
-//               hisGrid   := '';
-//
-//               decomposeDecode(toParse,inQSOWith,isValid,isBreakIn,level,response,connectTo,fullCall,hisGrid);
-//
-//               if not isValid then
-//               Begin
-//                    mvalid := False;
-//               end
-//               else
-//               begin
-//                    mvalid := True;
-//               end;
-//          end;
-//     end;
-//end;
+procedure TForm1.breakOutFields(const msg : String; var mvalid : Boolean);
+Var
+  foo       : String;
+  exchange  : exch;
+  i,wc      : Integer;
+  isiglevel : Integer;
+  gonogo    : Boolean;
+  toparse   : String;
+  isValid   : Boolean;
+  isBreakIn : Boolean;
+  level     : Integer;
+  response  : String;
+  connectTo : String;
+  fullCall  : String;
+  hisGrid   : String;
+Begin
+     { TODO : Simplify this to reuse for parsing logging data }
+     mvalid   := False;
+     gonogo   := False;
+     isValid  := False;
+     // Get the decode to parse
+     foo := msg;
+     foo := DelSpace1(foo);
+     foo := StringReplace(foo,' ',',',[rfReplaceAll,rfIgnoreCase]);
+
+     // Now with a structured message I'll have...
+     // UTC, Sync, dB, DT, DF, EC, NC1, Call FROM, MSG
+     // Where NC1 is one of [CQ, CQ ###, QRZ, DE, CALLSIGN]
+     // Where MSG is one of [Grid,-##,R-##,RRR,RO,73]
+
+     // First check is for first two characters to be numeric AND wordcount
+     // = 9 or 10.  10 Handles case of a CQ ### format (not seen on HF, but...)
+     // If not wc = 9 or 10 then it's not something to parse here.
+     i := 0;
+     wc := wordcount(foo,[',']);
+     if (wc=8) or (wc=9) or (wc=10) Then
+     Begin
+          if wc=8 Then
+          Begin
+               // Parse string into parts (8 word exchange)
+               exchange.utc  := TrimLeft(TrimRight(UpCase(ExtractWord(1,foo,[',']))));
+               exchange.sync := TrimLeft(TrimRight(UpCase(ExtractWord(2,foo,[',']))));
+               exchange.db   := TrimLeft(TrimRight(UpCase(ExtractWord(3,foo,[',']))));
+               exchange.dt   := TrimLeft(TrimRight(UpCase(ExtractWord(4,foo,[',']))));
+               exchange.df   := TrimLeft(TrimRight(UpCase(ExtractWord(5,foo,[',']))));
+               exchange.ec   := TrimLeft(TrimRight(UpCase(ExtractWord(6,foo,[',']))));
+               exchange.nc1  := TrimLeft(TrimRight(UpCase(ExtractWord(7,foo,[',']))));
+               exchange.nc1s := '';
+               exchange.nc2  := TrimLeft(TrimRight(UpCase(ExtractWord(8,foo,[',']))));
+               exchange.ng   := '';
+          end;
+          if wc=9 Then
+          Begin
+               // Parse string into parts (9 word exchange)
+               exchange.utc  := TrimLeft(TrimRight(UpCase(ExtractWord(1,foo,[',']))));
+               exchange.sync := TrimLeft(TrimRight(UpCase(ExtractWord(2,foo,[',']))));
+               exchange.db   := TrimLeft(TrimRight(UpCase(ExtractWord(3,foo,[',']))));
+               exchange.dt   := TrimLeft(TrimRight(UpCase(ExtractWord(4,foo,[',']))));
+               exchange.df   := TrimLeft(TrimRight(UpCase(ExtractWord(5,foo,[',']))));
+               exchange.ec   := TrimLeft(TrimRight(UpCase(ExtractWord(6,foo,[',']))));
+               exchange.nc1  := TrimLeft(TrimRight(UpCase(ExtractWord(7,foo,[',']))));
+               exchange.nc1s := '';
+               exchange.nc2  := TrimLeft(TrimRight(UpCase(ExtractWord(8,foo,[',']))));
+               exchange.ng   := TrimLeft(TrimRight(UpCase(ExtractWord(9,foo,[',']))));
+          End;
+          if wc=10 Then
+          Begin
+               // Parse string into parts (10 word exchange)
+               exchange.utc  := TrimLeft(TrimRight(UpCase(ExtractWord(1,foo,[',']))));
+               exchange.sync := TrimLeft(TrimRight(UpCase(ExtractWord(2,foo,[',']))));
+               exchange.db   := TrimLeft(TrimRight(UpCase(ExtractWord(3,foo,[',']))));
+               exchange.dt   := TrimLeft(TrimRight(UpCase(ExtractWord(4,foo,[',']))));
+               exchange.df   := TrimLeft(TrimRight(UpCase(ExtractWord(5,foo,[',']))));
+               exchange.ec   := TrimLeft(TrimRight(UpCase(ExtractWord(6,foo,[',']))));
+               exchange.nc1  := TrimLeft(TrimRight(UpCase(ExtractWord(7,foo,[',']))));
+               exchange.nc1s := TrimLeft(TrimRight(UpCase(ExtractWord(8,foo,[',']))));
+               exchange.nc2  := TrimLeft(TrimRight(UpCase(ExtractWord(9,foo,[',']))));
+               exchange.ng   := TrimLeft(TrimRight(UpCase(ExtractWord(10,foo,[',']))));
+          End;
+
+          i := 0;
+          if TryStrToInt(exchange.utc[1..2],i) Then gonogo := True else gonogo := False;
+
+          if gonogo Then
+          Begin
+               isiglevel := -30;
+               if not tryStrToInt(exchange.db,isiglevel) Then
+               Begin
+                    gonogo := False;
+               End
+               Else
+               Begin
+                    gonogo := True;
+                    if isiglevel > -1 Then
+                    Begin
+                         isiglevel := -1;
+                    End;
+                    if isiglevel < -30 Then
+                    Begin
+                         isiglevel := -30;
+                    End;
+               End;
+          End;
+
+          If gonogo then
+          begin
+               gonogo := False;
+               i := -9999;
+               if not TryStrToInt(exchange.df,i) Then
+               begin
+                    gonogo := False;
+               end
+               else
+               begin
+                    if (i<-1100) or (i>1100) Then gonogo := False else gonogo := True;
+               end;
+          end;
+
+          if gonogo Then
+          Begin
+               gonogo := False;
+               // Have signal report and DF
+               // Now can Call the message parser
+               toParse := '';
+               if wc = 8 Then toParse  := exchange.nc1  + ' ' + exchange.nc2;
+               if wc = 9 Then toParse  := exchange.nc1  + ' ' + exchange.nc2 + ' ' + exchange.ng;
+               if wc = 10 Then toParse := exchange.nc1  + ' ' + exchange.nc1s + ' ' + exchange.nc2 + ' ' + exchange.ng;
+
+               isValid   := False;
+               isBreakIn := False;
+               level     := 0;
+               response  := '';
+               connectTo := '';
+               fullCall  := '';
+               hisGrid   := '';
+
+               decomposeDecode(toParse,inQSOWith,isValid,isBreakIn,level,response,connectTo,fullCall,hisGrid);
+
+               if not isValid then
+               Begin
+                    mvalid := False;
+               end
+               else
+               begin
+                    mvalid := True;
+               end;
+          end;
+     end;
+end;
 
 procedure TForm1.decomposeDecode(const exchange    : String;
                                  const connectedTo : String;
@@ -3068,7 +3054,7 @@ Begin
           //   QRZ Prefix/Call                           1
           //   QRZ Call/Suffix                           1
           level := 1;
-          if (nc1 = 'CQ') or (nc1 = 'QRZ') or (nc1 = 'DE') Then
+          if (nc1 = 'CQ') or (nc1 = 'QRZ') Then
           Begin
                // Handler for CQ or QRZ [Call or Prefix/Call or Call/Suffix] types.
                level   := 1;
@@ -3134,8 +3120,17 @@ Begin
                          if nc2 = 'RRR' Then response := connectedTo + ' 73';
                          if nc2 = '73'  Then response := connectedTo + ' 73';
 
-                         If (Length(nc2)=3) And (nc2[1]='-') Then response := connectedTo + ' R-' + sigLevel;
-                         If (Length(nc2)=4) And (nc2[1..2]='R-') Then response := connectedTo + ' RRR';
+                         If (Length(nc2)=3) And (nc2[1]='-') Then
+                         Begin
+                              response := connectedTo + ' R-' + sigLevel;
+                              // Grab the signal report for log
+                              logMySig.Text := nc2;
+                         end;
+                         If (Length(nc2)=4) And (nc2[1..2]='R-') Then
+                         Begin
+                              response := connectedTo + ' RRR';
+                              logMySig.Text := nc2;
+                         end;
                     End;
                end
                else
@@ -3604,7 +3599,7 @@ Begin
      end;
 end;
 
-function TForm1.txControl() : Boolean;
+function TForm1.txControl : Boolean;
 Var
   t1,t2 : Boolean;
 Begin
@@ -3634,6 +3629,8 @@ Begin
           Begin
                // Message is valid.  Check callsign and grid
                { TODO : Wire this up and don't assume it's already done. }
+               //if isCallsign()
+               //if isGrid()
                t1 := true;
           end;
      end;
@@ -3642,7 +3639,7 @@ end;
 
 procedure TForm1.ListBox1DblClick(Sender: TObject);
 Var
-  foo       : String;
+  foo,ldate : String;
   i, txp    : Integer;
   tvalid    : Boolean;
   isBreakIn : Boolean;
@@ -3674,11 +3671,19 @@ begin
           mgen(foo, tValid, isBreakin, Level, response, connectTo, fullCall, hisgrid, sdf, sdb, txp);
           if tValid Then
           Begin
+               ldate := IntToStr(thisUTC.Year);
+               if thisUTC.Month < 10 then ldate := ldate + '0' + IntToStr(thisUTC.Month) else ldate := ldate + IntToStr(thisUTC.Month);
+               if thisUTC.Day < 10 then ldate := ldate + '0' + IntToStr(thisUTC.Day) else ldate := ldate + IntToStr(thisUTC.Day);
+               ldate := ldate + ' ';
+               if thisUTC.Hour < 10 then ldate := ldate + '0' + IntToStr(thisUTC.Hour) else ldate := ldate + IntToStr(thisUTC.Hour);
+               if thisUTC.Minute < 10 then ldate := ldate + '0' + IntToStr(thisUTC.Minute) else ldate := ldate + IntToStr(thisUTC.Minute);
+               logTimeOn.Text := ldate;
                if isBreakIn Then Memo2.Append('[TE] ' + response + ' to ' + connectTo + ' [' + fullCall + '] @ ' + hisGrid + ' Proto ' + IntToStr(level) + '[' + sdb + 'dB @ ' + sdf + 'Hz]') else Memo2.Append('[IM] ' + response + ' to ' + connectTo + ' [' + fullCall + '] @ ' + hisGrid + ' Proto ' + IntToStr(level) + '[' + sdb + 'dB @ ' + sdf + 'Hz]');
                { TODO : Pull logging data here }
                logCallsign.Text := fullCall;
                logSigReport.Text := sdb;
                logQRG.Text := FormatFloat('0.0000',(StrToInt(edDialQRG.Text)/1000000.0));
+               logTimeOn.Text := IntToStr(thisUTC.Year) + IntToStr(thisUTC.Month) + IntToStr(thisUTC.Day) + ' ' + IntToStr(thisUTC.Hour) + IntToStr(thisUTC.Minute);
                edTXMsg.Text := response;
                thisTXMsg := response;
                edTXToCall.Text := fullCall;
@@ -4763,8 +4768,6 @@ begin
           adc.adcChan := 1;
           adc.adcLDgain := 0;
           adc.adcRDgain := 0;
-          adcSpecAvg1 := 0;
-          adcSpecAvg2 := 0;
           // Attempt to open selected devices, both must pass open/start to continue.
           // Initialize RX stream.
           paResult := portaudio.Pa_OpenStream(PPaStream(paInStream),PPaStreamParameters(ppaInParams),PPaStreamParameters(Nil),CTypes.cdouble(11025.0),CTypes.culong(64),TPaStreamFlags(0),PPaStreamCallback(@adc.adcCallback),Pointer(Self));
@@ -5001,7 +5004,6 @@ end;
 
 procedure TForm1.FormCreate(Sender: TObject);
 begin
-     gTXLevel   := 32767;
      srun       := 0.0;
      lrun       := 0.0;
      demodulate.dmrcount := 0;
@@ -5012,8 +5014,6 @@ begin
      inSync      := False;
      paActive    := False;
      firstTick   := True;
-     firstAU1    := True;
-     firstAU2    := True;
      thisUTC     := utcTime;
      thisSecond  := thisUTC.Second;
      lastSecond  := 0;

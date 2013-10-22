@@ -5,7 +5,7 @@ unit spectrum;
 interface
 
 uses
-  Classes, SysUtils, CTypes, cmaps, fftw_jl, globalData, graphics, Math;
+  Classes, SysUtils, CTypes, cmaps, fftw_jl, graphics, Math;
 
 Const
   JT_DLL = 'JT65v5.dll';
@@ -324,8 +324,10 @@ Var
    specSmooth      : Boolean;
    specagc         : CTypes.cuint64;
    specuseagc      : Boolean;
-
-
+   audiocomputing  : Boolean;
+   spectrumComputing65 : Boolean;
+   specNewSpec65   : Boolean;
+   specMs65        : TMemoryStream;
 implementation
 
 function chebyLP(const f : CTypes.cfloat) : CTypes.cfloat;
@@ -468,7 +470,7 @@ Var
    i                          : Integer;
    specLrms                   : CTypes.cfloat;
 Begin
-     globalData.audioComputing := True;
+     audioComputing := True;
      Try
         Result := 0;
         for i := 0 to 2047 do lrealArray[i] := 0.0;
@@ -513,7 +515,7 @@ Begin
         //dlog.fileDebug('Exception raised in audio level computation');
         Result := 0;
      End;
-     globalData.audioComputing := False;
+     audioComputing := False;
 End;
 
 procedure computeSpectrum(Const dBuffer : Array of CTypes.cfloat);
@@ -540,7 +542,7 @@ Var
 
 Begin
      // Compute spectrum display.  Expects 4096 samples in dBuffer
-     globalData.spectrumComputing65 := True;
+     spectrumComputing65 := True;
      nh := 2048;
      If specFirstRun Then
      Begin
@@ -572,7 +574,7 @@ Begin
         begin
              //specspeed2 < 0 = spectrum display off.
              doSpec := False;
-             globalData.specNewSpec65 := False;
+             specNewSpec65 := False;
              // Adjust to float and copy data to FFT calculation buffer
 
              // Apply lpf
@@ -794,23 +796,23 @@ Begin
                        inc(z);
                   end;
                   // Write BMP to memory stream
-                  globalData.specMs65.Position := 0;
+                  specMs65.Position := 0;
                   z := SizeOf(bmpH);
-                  globalData.specMs65.Write(bmpH,SizeOf(bmpH));
+                  specMs65.Write(bmpH,SizeOf(bmpH));
                   z := SizeOf(bmpD);
-                  globalData.specMs65.Write(bmpD,SizeOf(bmpd));
-                  globalData.specNewSpec65 := True;
+                  specMs65.Write(bmpD,SizeOf(bmpd));
+                  specNewSpec65 := True;
              End
              Else
              Begin
-                  globalData.specNewSpec65 := False;
+                  specNewSpec65 := False;
              End;
         end;
      Except
         //dlog.fileDebug('Exception raised in spectrum computation');
-        globalData.specNewSpec65 := False;
+        specNewSpec65 := False;
      End;
-     globalData.spectrumComputing65 := False;
+     spectrumComputing65 := False;
      specFirstRun := False;
 End;
 
