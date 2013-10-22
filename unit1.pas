@@ -3,9 +3,10 @@
 
 { TODO :
 URGENT
+Move all code involving TX control into txControl() : Boolean;
 Work out method to be sure a change to TXDF regnerates message.  More complex than first glance indicates with new way of doing things :(
-Fix clearing msg buffer during TX disabling controls
-Fix message currently in TX display being slow to update (shows previous then updates to proper)
+
+Extract received signal report for logging
 
 Work out handlers for working JT65V2 types.  Also need to think about case of where a data item could be
 sent either in V1 or V2 format.  I think... I want to force the issue here and just use V2 for everything.
@@ -46,9 +47,8 @@ interface
 uses
   Classes, SysUtils, FileUtil, Forms, Controls, Graphics, Dialogs, StdCtrls,
   ExtCtrls, Math, StrUtils, CTypes, Windows, lconvencoding, ComCtrls, EditBtn,
-  DbCtrls, TAGraph, TASeries, TAChartUtils, Types, portaudio, globalData, adc,
-  spectrum, waterfall1, spot, demodulate, BufDataset,  sqlite3conn, sqldb,
-  valobject, rebel;
+  DbCtrls, TAGraph, TASeries, TAChartUtils, Types, portaudio, adc, spectrum,
+  waterfall1, spot, demodulate, BufDataset,  sqlite3conn, sqldb, valobject, rebel;
 
 Const
   JT_DLL = 'JT65v5.dll';
@@ -424,6 +424,7 @@ type
 
     function  db(x : CTypes.cfloat) : CTypes.cfloat;
     procedure toggleTXClick(Sender: TObject);
+    function  txControl() : Boolean;
     function  utcTime: TSystemTime;
     procedure InitBar;
 
@@ -552,6 +553,7 @@ var
   clRebel        : rebel.TRebel;
   lastTXDF       : String;
   transmitting   : String; // Holds message currently being transmitted
+  txInProgress           : Boolean; // tx in progress
 
 implementation
 
@@ -667,7 +669,9 @@ Begin
           halt;
      end;
      // Create sqlite3 store, if necessary
-     if not fileExists(cfgPath + 'jt65hf_datastore') Then setupDB(cfgPath);
+     //if not fileExists(cfgPath + 'jt65hf_datastore') Then setupDB(cfgPath);
+     // Changing this as of 10.21.2013 to force an update to DB
+     if not fileExists(cfgPath + 'jt65hfI0') Then setupDB(cfgPath);
      // Housekeeping items here
      cfgdir := cfgPath;
      demodulate.dmwispath := TrimFilename(cfgDir+'wisdom2.dat');
@@ -675,7 +679,7 @@ Begin
 
      // Query db for configuration with instance id = 1 and if it exists
      // read config, if not set to defaults and prompt for config update
-     sqlite3.DatabaseName := cfgPath + 'jt65hf_datastore';
+     sqlite3.DatabaseName := cfgPath + 'jt65hfI0';
      query.Active := False;
      query.SQL.Clear;
      query.SQL.Add('SELECT * FROM config WHERE instance = 1;');
@@ -802,6 +806,8 @@ Begin
      version.Text := query.FieldByName('version').AsString;
      cbMultiOn.Checked := query.FieldByName('multion').AsBoolean;
      cbTXEqRXDF.Checked := query.FieldByName('txeqrxdf').AsBoolean;
+     edRebRXOffset.Text := query.FieldByName('rebrxoffset').AsString;
+     edRebTXOffset.Text := query.FieldByName('rebtxoffset').AsString;
      query.Active := False;
      // Setup rigcontrol object (used even if not using "real" rig control)
      rigControlSet(useDeciAuto);
@@ -940,8 +946,6 @@ Begin
      spectrum.specContrast := 1;
      spectrum.specGain     := 0;
 
-     globalData.specMs65  := TMemoryStream.Create;
-     globalData.specMs65.Position := 0;
      thisADCTick := 0;
      lastADCTick := 0;
      aulevel := 0;
@@ -968,7 +972,8 @@ Begin
      ListBox2.Clear;
      Memo1.Clear;
      // Create and initialize TWaterfallControl
-     Waterfall1 := TWaterfallControl1.Create(Self);
+     Waterfall1 := TWaterfallControl1.Create(self);
+     Waterfall1.init;
      Waterfall1.Height := 180;
      Waterfall1.Width  := 747;
      Waterfall1.Top    := 68;
@@ -1202,7 +1207,7 @@ Begin
                ListBox2.Items.Insert(0,'Started input device');
 
                // Initialize tx stream.
-               globalData.txInProgress := False;
+               txInProgress := false;
                //paResult := portaudio.Pa_OpenStream(PPaStream(paOutStream),PPaStreamParameters(Nil),PPaStreamParameters(ppaOutParams),CTypes.cdouble(11025.0),CTypes.culong(0),TPaStreamFlags(0),PPaStreamCallback(@dac.dacCallback),Pointer(Self));
                //if paResult <> 0 Then
                //Begin
@@ -1351,6 +1356,43 @@ Begin
                ShowMessage('Bad com port value - please check configuration.');
           end;
      end;
+     // Read in defaults if Rebel is on
+     if haveRebel Then
+     Begin
+          if clRebel.poll Then
+          Begin
+               edDialQRG.Text:= IntToStr(Round(clRebel.qrg));
+          end;
+          // Check to see if offset is different for RX/TX than defaults
+          // hardwired in Rebel.  If so - update Rebel as we assume HFWST
+          // has the correct values (maybe not the best assumption, but, safest
+          // one).
+          if clRebel.txOffset <> StrToInt(edRebTXOffset.Text) Then
+          Begin
+               // fix it
+               if tryStrToInt(edRebTXOffset.Text,i) then clRebel.txOffset := i else clRebel.txOffset := 0;
+          end;
+          if clRebel.rxOffset <> StrToInt(edRebRXOffset.Text) Then
+          Begin
+               // fix it
+               if tryStrToInt(edRebRXOffset.Text,i) then clRebel.rxOffset := i else clRebel.rxOffset := 0;
+          end;
+          // push changes to Rebel
+          if not clRebel.setOffsets Then ShowMessage('Could not set offsets.' + sLineBreak + clRebel.lerror);
+          // Set QRG for proper default on band
+          if clRebel.band = 20 Then
+          Begin
+               clRebel.qrg := 14076000.0;
+               clRebel.setQRG;
+               clRebel.poll;
+          end;
+          if clRebel.band = 40 Then
+          Begin
+               clRebel.qrg := 7076000.0;
+               clRebel.setQRG;
+               clRebel.poll;
+          end;
+     end;
 
      readQRG   := True;
      firstTick := False;
@@ -1372,11 +1414,11 @@ Begin
      // This is a high priortiy item.
      if not toggleTX.Checked Then
      Begin
-          globalData.txInProgress := False;
+          txInProgress := false;
           if clRebel.txStat and (not clRebel.busy) then clRebel.pttOff;
      end;
 
-     If not clRebel.txStat then Waterfall1.Repaint;
+     If not clRebel.txStat then Waterfall1.repaint;
 
      If toggleTX.Checked then toggleTX.state := cbChecked else toggleTX.state := cbUnchecked;
 
@@ -1553,7 +1595,8 @@ Begin
      if not mval.evalGrid(edGrid.Text) Then valid := False;
      if (not isSText(edTXMsg.Text)) or (not isFText(edTXMsg.Text)) Then valid := False;
      canTX := valid;
-     If canTX Then toggleTX.Enabled := True else toggleTX.Enabled := False;
+     // Changing this so it doesn't disable the control while TX is in progress.
+     If canTX or clRebel.TXStat Then toggleTX.Enabled := True else toggleTX.Enabled := False;
      If toggleTX.Checked Then
      Begin
           if clRebel.txStat Then toggleTX.Caption := 'HALT TX' else toggleTX.Caption := 'Disable TX';
@@ -1561,7 +1604,7 @@ Begin
      else
      Begin
           toggleTX.Caption := 'Enable TX';
-          globalData.txInProgress := False;
+          txInProgress := false;
           if clRebel.txStat and (not clRebel.busy) then clRebel.pttOff;
      end;
 
@@ -1572,7 +1615,7 @@ Begin
      end
      else
      begin
-          If globalData.txInProgress Then
+          If txInProgress Then
           Begin
                Label16.Caption := 'TX:  ' + transmitting;
                Label16.Font.Color := clRed;
@@ -1653,11 +1696,9 @@ Begin
      I need to NOT start TX until second = 1.
      }
 
-     //If toggleTX.Checked Then toggleTX.Caption := 'Disable TX' else toggleTX.Caption := 'Enable TX';
-
      if not toggleTX.Checked then canTX := False;
 
-     if globalData.txInProgress And (not clRebel.txStat) And canTX and (not txDirty) and (not clRebel.busy) Then
+     if txInProgress And (not clRebel.txStat) And canTX and (not txDirty) and (not clRebel.busy) Then
      Begin
 
           // TX In progress has been set but TX not set in Rebel - make it so.
@@ -1668,7 +1709,7 @@ Begin
                { TODO : Temporary HACK do not leave this!  It should try this more than once but less than (tm) a "lot" }
                if not clRebel.txStat Then
                Begin
-                    globalData.txInProgress := False;
+                    txInProgress := false;
                end
                else
                begin
@@ -1677,13 +1718,18 @@ Begin
           end;
      end;
 
-     if clRebel.txStat and (not globalData.txInProgress) Then
+     if clRebel.txStat and (not txInProgress) Then
      Begin
           // TX should be off
           if not clRebel.busy then clRebel.pttOff; // This gets handled more aggressively elsewhere in case it is busy.
      end;
 
-     if (thisSecond>47) and clRebel.txStat and (not clRebel.busy) Then clRebel.pttOff; { TODO : This isn't precise - if CW ID is in play TX will exceed this time - fine for now since I have no CW ID yet }
+     if (thisSecond>47) and clRebel.txStat and (not clRebel.busy) Then
+     Begin
+          { TODO : This isn't precise - if CW ID is in play TX will exceed this time - fine for now since I have no CW ID yet }
+          clRebel.pttOff;
+          transmitting := '';
+     end;
 
      if rbOn.Checked then rbOn.Caption := 'Spots sent:  ' + IntToStr(rb.rbCount) else rbOn.Caption := 'RB Enable';
      if length(edRBCall.Text) < 3 Then rbOn.Caption := 'Disabled - Setup Data.';
@@ -1729,7 +1775,7 @@ Begin
           doDecode := True;
      end;
 
-     if thisSecond = 48 Then globalData.txInProgress := False;
+     if thisSecond = 48 Then txInProgress := False;
 
      // Frame progress indicator
      if (thisSecond < 48) Then ProgressBar1.Position := thisSecond;
@@ -1853,6 +1899,8 @@ Begin
           if clRebel.setQRG Then
           Begin
                ListBox2.Items.Insert(0,'QSY to ' + IntToStr(qsyQRG) + ' complete');
+               // CLEAR the TX message on a QSY to force a renegeration
+               edTXMsg.Text := '';
                edDialQRG.Text := IntToStr(qsyQRG);
                readQRG := False;
                setQRG := False;
@@ -1870,13 +1918,12 @@ Begin
                setQRG := False;
           end;
      end
-     // Leaving this to allow QRG/Status updates during TX
-     { TODO : Be sure attempting to read status during TX is really a good idea.  Seems it's not - lags HFWST.}
+
      else if rigRebel.Checked and haveRebel and readQRG and (not clRebel.busy) and (not clRebel.txStat) Then
      Begin
           if clRebel.poll Then
           Begin
-               edDialQRG.Text:= IntToStr(Round(clRebel.qrg));;
+               edDialQRG.Text:= IntToStr(Round(clRebel.qrg));
           end;
           readQRG := False;
           setQRG := False;
@@ -1892,7 +1939,7 @@ Begin
           Label47.Caption := 'Band Select:  ' + IntToStr(clRebel.band);
           Label50.Caption := 'RX Offset:  ' + IntToStr(clRebel.rxoffset);
           Label51.Caption := 'TX Offset:  ' + IntToStr(clRebel.txoffset);
-          Label52.Caption := 'RX Frequency:  ' + FormatFloat('0.0',clRebel.qrg);
+          Label52.Caption := 'RX Frequency:  ' + IntToStr(Round(clRebel.qrg));
           TabSheet10.Visible := True;
      end
      else
@@ -1962,26 +2009,27 @@ Begin
      { TODO : These 2 lines could cause a ton of trouble in TX control.  And it did :)}
      //if not couldTX then rbTXOff.Checked := True;
      // Change to if not CANTX vs could :)
-     if not canTX then toggleTX.Checked := False;
+     // Honoring Rebel being in TX already so it doesn't cancel TX if you clear the message buffer
+     if not canTX and not clRebel.txStat then toggleTX.Checked := False;
      couldTX := canTX and couldTX;
      if txDirty then couldTX := False;
      // Enable TX if necessary
      { TODO : More TX code here }
-     if (rbTXEven.Checked or rbTXOdd.Checked) and (not globalData.txInProgress) and couldTX and inSync Then
+     if (rbTXEven.Checked or rbTXOdd.Checked) and (not txInProgress) and couldTX and inSync Then
      Begin
-          globalData.txInProgress := False;
-          if rbTXEven.Checked and (not Odd(thisUTC.Minute)) and (not globalData.txInProgress) Then
+          txInProgress := False;
+          if rbTXEven.Checked and (not Odd(thisUTC.Minute)) and (not txInProgress) Then
           Begin
-               globalData.txInProgress := True;
+               txInProgress := true;
           end;
-          if rbTXOdd.Checked and Odd(thisUTC.Minute) and (not globalData.txInProgress) Then
+          if rbTXOdd.Checked and Odd(thisUTC.Minute) and (not txInProgress) Then
           Begin
-               globalData.txInProgress := True;
+               txInProgress := true;
           end;
      end
      else
      begin
-          globalData.txInProgress := False;
+          txInProgress := false;
      end;
 
 
@@ -2180,6 +2228,7 @@ Begin
                          if demodulate.dmdecodes[i].sf = 'S' Then
                          Begin
                               ListBox1.Items.Insert(0, demodulate.dmdecodes[i].utc + ' ' + demodulate.dmdecodes[i].sync + ' ' + demodulate.dmdecodes[i].db + ' ' + afoo + ' ' + demodulate.dmdecodes[i].df + '  ' + demodulate.dmdecodes[i].ec + '  ' + demodulate.dmdecodes[i].dec);
+                              { TODO : Add call to grab signal report for logging in this general area }
 //                              tvalid := False;
 //                              breakOutFields(demodulate.dmdecodes[i].utc + ' ' + demodulate.dmdecodes[i].sync + ' ' + demodulate.dmdecodes[i].db + ' ' + afoo + ' ' + demodulate.dmdecodes[i].df + '  ' + demodulate.dmdecodes[i].ec + '  ' + demodulate.dmdecodes[i].dec, tvalid);
 //                              if not tvalid then inc(pfails);
@@ -3555,6 +3604,42 @@ Begin
      end;
 end;
 
+function TForm1.txControl() : Boolean;
+Var
+  t1,t2 : Boolean;
+Begin
+     // Call this to see if you can TX at top of new minute.  Idea is to put ALL the logic for
+     // being sure you can TX in O N E spot.
+     // Ok - first.  What defines when you can TX?
+     // Is TX enabled?
+     // Is this minute matching the selected period?
+     // Is a valid message in place?
+     // Is the callsign and grid info correct for this program's user?
+     // If any of that is false answer is false.
+     result := False;
+     t1 := False;
+     t2 := False;
+     if toggleTX.Checked Then
+     Begin
+          // TX is enabled.  Is this a correct minute to TX?
+          if Odd(thisUTC.Minute) And rbTXOdd.Checked Then t1 := true else t1 := false;
+          if (not Odd(thisUTC.Minute)) And rbTXEven.Checked then t2 := true else t2 := false;
+          if t1 or t2 then t1 := true else t1 := false;
+          if t1 Then
+          Begin
+               // Correct minute to TX - check message
+               if isStext(edTXMsg.Text) or isFText(edTXMsg.Text) Then t1 := true else t1 := false;
+          end;
+          if t1 Then
+          Begin
+               // Message is valid.  Check callsign and grid
+               { TODO : Wire this up and don't assume it's already done. }
+               t1 := true;
+          end;
+     end;
+     result := t1;
+end;
+
 procedure TForm1.ListBox1DblClick(Sender: TObject);
 Var
   foo       : String;
@@ -3590,6 +3675,10 @@ begin
           if tValid Then
           Begin
                if isBreakIn Then Memo2.Append('[TE] ' + response + ' to ' + connectTo + ' [' + fullCall + '] @ ' + hisGrid + ' Proto ' + IntToStr(level) + '[' + sdb + 'dB @ ' + sdf + 'Hz]') else Memo2.Append('[IM] ' + response + ' to ' + connectTo + ' [' + fullCall + '] @ ' + hisGrid + ' Proto ' + IntToStr(level) + '[' + sdb + 'dB @ ' + sdf + 'Hz]');
+               { TODO : Pull logging data here }
+               logCallsign.Text := fullCall;
+               logSigReport.Text := sdb;
+               logQRG.Text := FormatFloat('0.0000',(StrToInt(edDialQRG.Text)/1000000.0));
                edTXMsg.Text := response;
                thisTXMsg := response;
                edTXToCall.Text := fullCall;
@@ -3609,22 +3698,29 @@ begin
                if isFText(response) or isSText(response) Then
                Begin
                     Memo2.Append('Generating message:  ' + response + ' at TXDF ' + sdf);
-                    genTX(response, StrToInt(sdf));
+                    genTX(response, StrToInt(sdf)+clRebel.txOffset);
                     if txp=0 then rbTxEven.Checked := True else rbTxOdd.Checked := True;
                     if not isBreakin then toggleTX.State := cbChecked else toggleTX.State := cbUnchecked;
                     if not isBreakin then toggleTX.Checked := True else toggleTX.Checked := false;
                end
                else
                begin
+                    // This shouldn't happen, but, message is invalid.
                     edTXMsg.Text := '';
                     edTXToCall.Text := '';
                     edTXReport.Text := '';
-                    toggleTX.Checked := True;
+                    toggleTX.Checked := False;
+                    toggleTX.State := cbUnChecked;
                end;
           end
           else
           begin
                Memo2.Append('No message can be generated');
+               edTXMsg.Text := '';
+               edTXToCall.Text := '';
+               edTXReport.Text := '';
+               toggleTX.Checked := False;
+               toggleTX.State := cbUnChecked;
           end;
      End;
 end;
@@ -4502,7 +4598,7 @@ begin
      end;
      if length(thisTXmsg)>1 Then
      Begin
-          if isFText(thisTXmsg) or isSText(thisTXmsg) Then genTX(thisTXmsg, StrToInt(edTXDF.Text)) else thisTXmsg := '';
+          if isFText(thisTXmsg) or isSText(thisTXmsg) Then genTX(thisTXmsg, StrToInt(edTXDF.Text)+clRebel.txOffset) else thisTXmsg := '';
           edTXMsg.Text := thisTXmsg; // this double checks for valid message.
           Memo2.Append('Message to send:  ' + thisTXMSg + ' at TXDF ' + edTXDF.Text);
      end
@@ -4776,7 +4872,7 @@ begin
      Begin
           edTXMsg.Text := comboMacroList.Text;
           thisTXMsg := comboMacroList.Text;
-          genTX(edTXMsg.Text,StrToInt(edTXDF.Text));
+          genTX(edTXMsg.Text,StrToInt(edTXDF.Text)+clRebel.txOffset);
      end;
 end;
 
@@ -7372,7 +7468,8 @@ begin
      foo := foo + 'multioffqso=:MQSOOFF,automultion=:MAUTOON,halttxsetsmulti=:MHALTMON,defaultsetsmulti=:MDEFMON,';
      foo := foo + 'decimal=:DECI,cwid=:CWID,cwidcall=:CWCALL,disableoptfft=:NOOPTFFT,disablekv=:NOKV,';
      foo := foo + 'lastqrg=:LASTQRG,sbinspace=:SBIN,mbinspace=:MBIN,txlevel=:TXLEVEL,version=:VER,';
-     foo := foo + 'multion=:MON,txeqrxdf=:TXEQRX,needcfg=:NEEDCFG WHERE instance=:INSTANCE';
+     foo := foo + 'multion=:MON,txeqrxdf=:TXEQRX,needcfg=:NEEDCFG,rebrxoffset=:RXOFFSET,rebtxoffset=:TXOFFSET WHERE instance=:INSTANCE';
+
      query.SQL.Text := foo;
      Query.Params.ParamByName('PREFIX').AsString     := t(edPrefix.Text);
      Query.Params.ParamByName('CALL').AsString       := t(edCall.Text);
@@ -7456,6 +7553,8 @@ begin
      Query.Params.ParamByName('TXEQRX').AsBoolean := cbTXEqRXDF.Checked;
      Query.Params.ParamByName('NEEDCFG').AsBoolean := False;
      Query.Params.ParamByName('INSTANCE').AsInteger := 1;
+     Query.Params.ParamByName('RXOFFSET').AsString := t(edRebRXOffset.Text);
+     Query.Params.ParamByName('TXOFFSET').AsString := t(edRebTXOffset.Text);
      transaction.StartTransaction;
      query.ExecSQL;
      transaction.Commit;
@@ -7470,7 +7569,7 @@ Var
 Begin
      showMessage('Building initial config - this may take some time and program will appear non-responsive.');
      setG;
-     sqlite3.DatabaseName := cfgPath + 'jt65hf_datastore';
+     sqlite3.DatabaseName := cfgPath + 'jt65hfI0';
      query.SQL.Clear;
      query.SQL.Add('CREATE TABLE ngdb(id integer primary key, xlate string(5))');
      query.ExecSQL;
@@ -7503,6 +7602,8 @@ Begin
      query.Params.ParamByName('QRG').AsFloat := 7076300.0;
      query.ExecSQL;
      query.Params.ParamByName('QRG').AsFloat := 10138000.0;
+     query.ExecSQL;
+     query.Params.ParamByName('QRG').AsFloat := 10147000.0;
      query.ExecSQL;
      query.Params.ParamByName('QRG').AsFloat := 14075300.0;
      query.ExecSQL;
@@ -7559,7 +7660,7 @@ Begin
      foo := foo + 'multioffqso bool, automultion bool, halttxsetsmulti bool, defaultsetsmulti bool, ';
      foo := foo + 'decimal varchar(10), cwid varchar(10), cwidcall varchar(11), disableoptfft bool, disablekv bool, ';
      foo := foo + 'lastqrg varchar(10), sbinspace integer, mbinspace integer, txlevel integer, version integer, ';
-     foo := foo + 'multion bool, txeqrxdf bool, needcfg bool)';
+     foo := foo + 'multion bool, txeqrxdf bool, needcfg bool, rebrxoffset string, rebtxoffset string)';
      query.SQL.Clear;
      query.SQL.Add(foo);
      query.ExecSQL;
@@ -7587,6 +7688,9 @@ Begin
      edPort.Text := '-1';
      cbUseTXWD.Checked := True;
      edTXWD.Text := '10';
+     rbRebBaud115200.Checked:=True;
+     edRebRXOffset.Text:='700';
+     edRebTXOffset.Text:='0';
      // Tabsheet 3
      cbDivideDecodes.Checked := True;
      cbCompactDivides.Checked := True;

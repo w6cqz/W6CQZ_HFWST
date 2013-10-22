@@ -9,7 +9,6 @@ uses
 
 Var
    // Global Vars
-   txInProgress        : Boolean;
    specNewSpec65       : Boolean;
    audioComputing      : Boolean;
    spectrumComputing65 : Boolean;

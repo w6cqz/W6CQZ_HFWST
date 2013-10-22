@@ -6,7 +6,6 @@ Note 1:  TX tuning words array is 128 instead of 126 due to my method of clockin
 be set to 0 to be safe.
 }
 {$mode objfpc}{$H+}
-{ TODO : Disallow commands other than PTT OFF during TX - mostly done - need to double check. }
 interface
 
 uses
@@ -53,6 +52,7 @@ Type
                  function    pttOn      : Boolean;
                  function    pttOff     : Boolean;
                  function    ltx        : Boolean; // Loads array into rebel for TX
+                 function    setOffsets : Boolean;
                  function    getData(Index: Integer): CTypes.cuint;
                  procedure   setData(Index: Integer; AValue: CTypes.cuint);
                  function    dumptx     : String;
@@ -71,7 +71,7 @@ Type
                  property response  : String
                     read  prResponse
                     write prResponse;
-                 property error     : String
+                 property lerror    : String
                     read  prError;
                  property ports     : TStringList
                     read  prPorts;
@@ -200,7 +200,6 @@ Begin
                     for j := 0 to 126 do foo := foo + IntToStr(prTXArray[j]) + ',';
                     prDebug := foo + IntToStr(prTXArray[127]);
                     j := 0;
-                    // DAMMIT - hours wasted because I forgot to change next line from 1 to 16 to 1 to 32. GRRRRRRRRRRRRRR
                     for i := 1 to 32 do
                     begin
                          foo := '20,'+IntToStr(i)+','+IntToStr(prTXArray[j])+','+IntToStr(prTXArray[j+1])+','+IntToStr(prTXArray[j+2])+','+IntToStr(prTXArray[j+3])+';';
@@ -262,6 +261,56 @@ Begin
      prBusy := False;
 end;
 
+function TRebel.setOffsets: Boolean;
+begin
+     prBusy := True;
+     prError := '';
+     // Need to set RX and TX offsets
+     // 16,INTEGER; = Set RX Offset
+     prCommand := '16,' + IntToStr(prRXOffset) + ';';  // RX Offset
+     prResponse := '';
+     if ask Then
+     Begin
+          if prResponse='1,' + IntToStr(prRXOffset) + ';' Then
+          Begin
+               result := True;
+          end
+          else
+          Begin
+               Result := False;
+               prError := 'RX Offset fails';
+          end;
+     end
+     else
+     begin
+          prTXState := False;
+          result := False;
+          prError := 'Command timeout RX Offset';
+     end;
+
+     prCommand := '17,' + IntToStr(prTXOffset) + ';';  // TX Offset
+     prResponse := '';
+     if ask Then
+     Begin
+          if prResponse='1,' + IntToStr(prTXOffset) + ';' Then
+          Begin
+               result := True;
+          end
+          else
+          Begin
+               Result := False;
+               if Length(prError)>0 Then prError := ' TX Offset fails' else prError :='TX Offset fails';
+          end;
+     end
+     else
+     begin
+          prTXState := False;
+          result := False;
+          prError := 'Command timeout TX Offset';
+     end;
+     prBusy := False;
+end;
+
 function TRebel.getData(Index: Integer): CTypes.cuint;
 begin
      result := prTXArray[Index];
@@ -289,8 +338,8 @@ begin
      end
      else
      begin
-          foo := 'Big fat E R R O R';
-          result := foo;
+          prError := 'FSK Readback fault';
+          result := 'Big fat E R R O R';
      end;
      prBusy := False;
 end;
@@ -371,15 +420,17 @@ Begin
      prBusy := True;
      // Sends set RX command with DDS tuning word as value
      // Take into account if band is 20M the DDS word is desired (RX + offset) - IF
+     // WARNING WARNING WARNING WARNING and MORE WARNING
+     //
      if prBand = 20 then t := prQRG-9000000.0;
-     prCommand := '3,' + IntToStr(ddsWord(t,prRXOffset,prDDSRef)) + ';';  // Sets RX frequency
+     prCommand := '3,' + IntToStr(ddsWord(t,prRXOffset+prTXOffset,prDDSRef)) + ';';  // Sets RX frequency
      prResponse := '';
      if ask Then
      Begin
           i := wordcount(prResponse,[',',';']);
           if i > 1 Then foo := ExtractWord(2,prResponse,[',',';']) else foo := '-1';
           // Response sends back the tuning word and it should be = to what we calculated :)
-          if IntToStr(ddsWord(t,prRXOffset,prDDSRef)) = foo Then
+          if IntToStr(ddsWord(t,prRXOffset+prTXOffset,prDDSRef)) = foo Then
           Begin
                result := True;
                prError := '';
@@ -510,7 +561,7 @@ Begin
           i := wordcount(prResponse,[',',';']);
           if i > 1 Then if tryStrToInt(ExtractWord(2,prResponse,[',',';']),i) then j := i else j := 0;
           if (j>0) and (prDDSRef>0) then ff := j/(268435456.0/prDDSRef) else ff := 0.0;
-          if ff>0 Then prQRG := (ff + 9000000.0)-prRXOffset;
+          if ff>0 Then prQRG := (ff + 9000000.0)-(prRXOffset+prTXOffset);
      end;
 
      prCommand := '15;';  // Returns Loop speed as string
@@ -520,10 +571,7 @@ Begin
           i := wordcount(prResponse,[',',';']);
           if i > 1 Then prLoopSpeed := ExtractWord(2,prResponse,[',',';']) else prLoopSpeed := '';
      end;
-
      result := True;
-     //prLocked    := False;
-     //prTXState   := False;
      prBusy := False;
 end;
 
@@ -613,7 +661,7 @@ Var
 Begin
      prBusy := True;
      result := False;
-     // Need to wait for the sign in message
+     // Need to wait for the sign in message - This WILL change from '1,Rebel Command Ready;'
      if prConnected Then
      Begin
           i := 0;

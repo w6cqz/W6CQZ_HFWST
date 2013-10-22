@@ -12,11 +12,18 @@ type
   property
      onMouseDown;
   public
+     procedure init;
      procedure EraseBackground(DC: HDC); override;
      procedure Paint; override;
   end;
 
 implementation
+
+  Procedure TWaterfallControl1.init;
+  Begin
+       globalData.specMs65  := TMemoryStream.Create;
+       globalData.specMs65.Position := 0;
+  end;
 
   procedure TWaterfallControl1.EraseBackground(DC: HDC);
   begin
