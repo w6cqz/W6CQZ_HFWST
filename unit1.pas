@@ -1,20 +1,18 @@
 { TODO :
 URGENT
-Move all code involving TX control into txControl() : Boolean;
 Work out method to be sure a change to TXDF regnerates message.  More complex than first glance indicates with new way of doing things :(
 
-Extract received signal report for logging
+Extract received signal report for logging // Partially completed - need to move parser such that it gets for qso by button
+Move all code involving TX control into txControl() : Boolean;  // Semi done
 
 Work out handlers for working JT65V2 types.  Also need to think about case of where a data item could be
 sent either in V1 or V2 format.  I think... I want to force the issue here and just use V2 for everything.
 It's the only way to insure more update from ancient versions.
 
+Add logging code
 Fix reversed prefix/suffix in decoder
-Any change to message, dial QRG or TXDF must regenerate the TX Message Data
-Work out using single entry box for free text and generated message content
 Look into issue with loss of net leading to program hang on exit if RB on - timeout too long on attempt to http is likely problem
 Begin to graft sound output code in
-Add logging code
 Add macro edit/define
 Add qrg edit/define
 Add worked call tracking taking into consideration a call worked in one grid is not
@@ -99,6 +97,7 @@ type
     bRRR: TButton;
     Button1: TButton;
     buttonXferMacro: TButton;
+    cbNoDecoderLPF: TCheckBox;
     comboTTYPorts: TComboBox;
     edRebTXOffset: TEdit;
     edRebRXOffset: TEdit;
@@ -496,10 +495,6 @@ var
   auLevel        : Integer;
   auLevel1       : Integer;
   auLevel2       : Integer;
-  thisTXcall     : String;
-  thisTXgrid     : String;
-  thisTXmsg      : String;
-  thisTXdf       : Integer;
   rbping         : Boolean;
   rbposted       : CTypes.cuint64;
   doDecode       : Boolean;
@@ -542,9 +537,14 @@ var
   homedir        : String; // Path to user's home directory
   qrgset         : Array[0..127] Of String; // Holds QRG values for Rebel TX load
   didTX          : Boolean; // Flag to indicate we did a TX this period so no decoder run
-  lastTXDF       : String;
-  transmitting   : String; // Holds message currently being transmitted
-  txInProgress           : Boolean; // tx in progress
+  lastTXDF       : String;  // Used to indicate marker above spectrum needs to change
+  txInProgress   : Boolean; // tx in progress
+  thisTXcall     : String;  // Station callsign (full with prefix or suffix if needed)
+  thisTXgrid     : String;  // Station grid
+  thisTXmsg      : String;  // Messages to TX
+  thisTXdf       : Integer; // DF for current TX message
+  transmitting   : String;  // Holds message currently being transmitted
+  transmitted    : String;  // Last message transmitted (used to compare to above for same TX message count)
 
 implementation
 
@@ -1409,7 +1409,7 @@ Begin
      If not clRebel.txStat then Waterfall1.repaint;
 
      If toggleTX.Checked then toggleTX.state := cbChecked else toggleTX.state := cbUnchecked;
-
+     If cbNoDecoderLPF.Checked Then demodulate.dmNoFilter := True else demodulate.dmNoFilter := False;
      if not demodulate.dmdemodBusy and demodulate.dmhaveDecode Then displayDecodes;
      if cbUseColor.Checked Then ListBox1.Style := lbOwnerDrawFixed else ListBox1.Style := lbStandard;
 
@@ -1421,6 +1421,8 @@ Begin
      mval.forceDecimalAmer := False;
      mval.forceDecimalEuro := False;
      if mval.evalQRG(fs,'STRICT',ff,fi,fsc) Then qrgValid := True else qrgValid := False;
+
+     // Update spectrum header TX marker if needed
      if lastTXDF <> edTXDF.Text
      Then
      Begin
@@ -1464,8 +1466,6 @@ Begin
      if mfc > 0 Then Label113.Caption := PadLeft(IntToStr(mfc),5);
      if v1c > 0 Then Label116.Caption := PadLeft(IntToStr(v1c),5);
      if v2c > 0 Then Label117.Caption := PadLeft(IntToStr(v2c),5);
-
-     //if (sopQRG = eopQRG) And (sopQRG = StrToInt(edDialQRG.Text)) Then Label122.Caption := 'RB QRG Synchronized' else Label122.Caption := 'RB QRG Not Synchronized';
 
      if qrgValid and (length(edRBCall.Text)>2) Then
      Begin
@@ -1583,8 +1583,11 @@ Begin
      if not mval.evalGrid(edGrid.Text) Then valid := False;
      if (not isSText(edTXMsg.Text)) or (not isFText(edTXMsg.Text)) Then valid := False;
      canTX := valid;
+
      // Changing this so it doesn't disable the control while TX is in progress.
      If canTX or clRebel.TXStat Then toggleTX.Enabled := True else toggleTX.Enabled := False;
+
+     // Update TX control based upon current context
      If toggleTX.Checked Then
      Begin
           if clRebel.txStat Then toggleTX.Caption := 'HALT TX' else toggleTX.Caption := 'Disable TX';
@@ -1622,6 +1625,7 @@ Begin
                end;
           end;
      end;
+
      if canTX and txValid and txDirty Then
      Begin
           // A valid message is awaiting upload to Rebel
@@ -1671,11 +1675,14 @@ Begin
                Begin
                     { TODO : Don't let this continue forever if it fails repeatedly. }
                     Memo1.Append('Message upload and readback compare fails.');
-                    txDirty := True; // This is the line that will be trouble if it keeps trying this forever.
+                    // Changing this to delete the TX buffer message so it doesn't go
+                    // into an infinite loop should the Rebel be in distress for some
+                    // reason.
+                    edTXMsg.Text := '';
                end
                else
                begin
-                    Memo1.Append('Message upload/readback complete.  Good to go.');
+                    Memo1.Append('Rebel has message');
                end;
           end;
      end;
@@ -1684,15 +1691,12 @@ Begin
      I need to NOT start TX until second = 1.
      }
 
-     if not toggleTX.Checked then canTX := False;
-
-     if txInProgress And (not clRebel.txStat) And canTX and (not txDirty) and (not clRebel.busy) Then
+     if (not clRebel.txStat) And (not clRebel.busy) And txControl And txInProgress Then
      Begin
-
+          transmitting := thisTXmsg; // Moving this up so it displays TX message with no delay.
           // TX In progress has been set but TX not set in Rebel - make it so.
           if (thisSecond=1) and (lastSecond=0) Then
           Begin
-               transmitting := thisTXmsg;
                clRebel.pttOn;  // This is a toggle action - would be good to double check it went into TX though it is going to keep hammering it every tick until it does enable
                { TODO : Temporary HACK do not leave this!  It should try this more than once but less than (tm) a "lot" }
                if not clRebel.txStat Then
@@ -1989,23 +1993,13 @@ Begin
      // TX to index = 0
      //dac.d65txBufferIdx := 0;
 
-     // Set flag for TX ability
-     //txperiod       : Integer; // 1 = Odd 0 = Even
-     //couldtx        : Boolean; // If one could TX this period (it matches even/odd selection)
-     couldtx := False;
-     if (txperiod = 1) and Odd(thisUTC.Minute) Then couldtx := True;
-     if (txperiod = 0) and not Odd(thisUTC.Minute) Then couldtx := True;
-
-     { TODO : These 2 lines could cause a ton of trouble in TX control.  And it did :)}
-     //if not couldTX then rbTXOff.Checked := True;
-     // Change to if not CANTX vs could :)
      // Honoring Rebel being in TX already so it doesn't cancel TX if you clear the message buffer
+     canTX := txControl;
      if not canTX and not clRebel.txStat then toggleTX.Checked := False;
-     couldTX := canTX and couldTX;
-     if txDirty then couldTX := False;
+
      // Enable TX if necessary
      { TODO : More TX code here }
-     if (rbTXEven.Checked or rbTXOdd.Checked) and (not txInProgress) and couldTX and inSync Then
+     if not txInProgress and inSync and txControl Then
      Begin
           txInProgress := False;
           if rbTXEven.Checked and (not Odd(thisUTC.Minute)) and (not txInProgress) Then
@@ -2021,7 +2015,6 @@ Begin
      begin
           txInProgress := false;
      end;
-
 
      // Prune decoder output display
      if ListBox1.Items.Count > 250 Then
@@ -3628,12 +3621,15 @@ Begin
           if t1 Then
           Begin
                // Message is valid.  Check callsign and grid
-               { TODO : Wire this up and don't assume it's already done. }
-               //if isCallsign()
-               //if isGrid()
+               { TODO : This should really evaluate if a suffix or prefix is in play }
+               if not isCallsign(edCall.Text) then t1 := False;
+               if not isGrid(edGrid.Text) then t1 := False;
                t1 := true;
           end;
      end;
+     if txDirty then t1 := False; // Message has not been uploaded to Rebel
+     if not txValid then t1 := False; // txValid is set true by mgen when a valid message is in place
+     if rigRebel.Checked and (not haveRebel) Then t1 := False; // Can't TX if Rebel isn't here
      result := t1;
 end;
 
@@ -4557,7 +4553,9 @@ begin
      Begin
           thisTXmsg := 'CQ ' + thisTXCall + ' ' + thisTXgrid;
           edTXMsg.Text := thisTXmsg;
-
+          // Not sure this is best idea... but when calling CQ one should not move.
+          cbTXeqRXDF.Checked := False;
+          edRXDF.Text := edTXDF.Text;
      end;
      if Sender = bQRZ Then
      Begin
@@ -4824,7 +4822,8 @@ begin
      if comboMacroList.ItemIndex > 0 Then
      Begin
           comboMacroList.ReadOnly := True;
-          edTXMsg.Text := comboMacroList.Items.Strings[comboMacroList.ItemIndex];
+          // Changing this to require pushing the transfer macro to TX buffer button.
+          //edTXMsg.Text := comboMacroList.Items.Strings[comboMacroList.ItemIndex];
      end
      else
      begin

@@ -394,12 +394,12 @@ object Form1: TForm1
     TabOrder = 8
   end
   object PageControl: TPageControl
-    Left = 224
+    Left = 152
     Height = 216
-    Top = 248
+    Top = 35
     Width = 747
-    ActivePage = TabSheet1
-    TabIndex = 0
+    ActivePage = TabSheet9
+    TabIndex = 3
     TabOrder = 5
     Visible = False
     object TabSheet1: TTabSheet
@@ -1077,6 +1077,14 @@ object Form1: TForm1
         Width = 63
         Caption = 'current qrg'
         ParentColor = False
+      end
+      object cbNoDecoderLPF: TCheckBox
+        Left = 228
+        Height = 20
+        Top = 138
+        Width = 114
+        Caption = 'No decoder LPF'
+        TabOrder = 4
       end
     end
     object TabSheet2: TTabSheet
@@ -2248,7 +2256,7 @@ object Form1: TForm1
       Left = 6
       Height = 25
       Top = 72
-      Width = 63
+      Width = 54
       Anchors = [akLeft]
       BorderSpacing.Around = 2
       Caption = 'CQ'
@@ -2260,10 +2268,10 @@ object Form1: TForm1
       TabOrder = 0
     end
     object bQRZ: TButton
-      Left = 96
-      Height = 25
+      Left = 224
+      Height = 57
       Top = 72
-      Width = 50
+      Width = 41
       Anchors = [akLeft]
       BorderSpacing.Around = 2
       Caption = 'QRZ'
@@ -2275,9 +2283,9 @@ object Form1: TForm1
       TabOrder = 1
     end
     object bDE: TButton
-      Left = 176
+      Left = 272
       Height = 25
-      Top = 72
+      Top = 104
       Width = 81
       Anchors = [akLeft]
       BorderSpacing.Around = 2
@@ -2290,10 +2298,10 @@ object Form1: TForm1
       TabOrder = 2
     end
     object b73x: TButton
-      Left = 281
+      Left = 272
       Height = 25
       Top = 72
-      Width = 72
+      Width = 81
       Anchors = [akLeft]
       BorderSpacing.Around = 2
       Caption = 'DE + 73'
@@ -2308,7 +2316,7 @@ object Form1: TForm1
       Left = 6
       Height = 25
       Top = 104
-      Width = 97
+      Width = 90
       Anchors = [akLeft]
       BorderSpacing.Around = 2
       Caption = 'Answer CQ'
@@ -2320,9 +2328,9 @@ object Form1: TForm1
       TabOrder = 4
     end
     object bReport: TButton
-      Left = 120
+      Left = 69
       Height = 25
-      Top = 104
+      Top = 72
       Width = 43
       Anchors = [akLeft]
       BorderSpacing.Around = 2
@@ -2335,10 +2343,10 @@ object Form1: TForm1
       TabOrder = 5
     end
     object bRReport: TButton
-      Left = 184
+      Left = 112
       Height = 25
       Top = 104
-      Width = 48
+      Width = 50
       Anchors = [akLeft]
       BorderSpacing.Around = 2
       Caption = 'R-##'
@@ -2350,10 +2358,10 @@ object Form1: TForm1
       TabOrder = 6
     end
     object bRRR: TButton
-      Left = 250
+      Left = 120
       Height = 25
-      Top = 104
-      Width = 48
+      Top = 72
+      Width = 42
       Anchors = [akLeft]
       BorderSpacing.Around = 2
       Caption = 'RRR'
@@ -2365,10 +2373,10 @@ object Form1: TForm1
       TabOrder = 7
     end
     object b73: TButton
-      Left = 320
-      Height = 25
-      Top = 104
-      Width = 33
+      Left = 176
+      Height = 57
+      Top = 72
+      Width = 42
       Anchors = [akLeft]
       BorderSpacing.Around = 2
       Caption = '73'
