@@ -2,6 +2,9 @@
 URGENT
 Work out method to be sure a change to TXDF regnerates message.  More complex than first glance indicates with new way of doing things :(
 
+The message parser is not robust in handling technically incorrect responses to CQ - the "state machine" is not recognizing going into connected
+mode unless it gets the one and only perfectly correct response type to a CQ.  Fix.
+
 Extract received signal report for logging // Partially completed - need to move parser such that it gets for qso by button
 Move all code involving TX control into txControl() : Boolean;  // Semi done
 
@@ -43,7 +46,8 @@ uses
   Classes, SysUtils, FileUtil, Forms, Controls, Graphics, Dialogs, StdCtrls,
   ExtCtrls, Math, StrUtils, CTypes, Windows, lconvencoding, ComCtrls, EditBtn,
   DbCtrls, TAGraph, TASeries, TAChartUtils, Types, portaudio, adc, spectrum,
-  waterfall1, spot, demodulate, BufDataset, sqlite3conn, sqldb, valobject, rebel;
+  waterfall1, spot, demodulate, BufDataset, sqlite3conn, sqldb, valobject,
+  rebel;
 
 Const
   JT_DLL = 'JT65v5.dll';
@@ -1755,8 +1759,8 @@ end;
 
 procedure TForm1.OncePerSecond;
 Var
-  i   : Integer;
-  foo : String;
+  i,j   : Integer;
+  foo   : String;
 Begin
      // Items that run on each new second or selected new seconds
      if (thisSecond = 47) And (lastSecond = 46) And InSync And paActive And not decoderBusy And not didTX Then
@@ -1765,6 +1769,40 @@ Begin
           if thisUTC.Hour < 10 Then thisTS := '0' + IntToStr(thisUTC.Hour) + ':' else thisTS := IntToStr(thisUTC.Hour) + ':';
           if thisUTC.Minute < 10 Then thisTS := thisTS + '0' + IntToStr(thisUTC.Minute) else thisTS := thisTS + IntToStr(thisUTC.Minute);
           doDecode := True;
+     end;
+     if clRebel.txOffset <> StrToInt(edRebTXOffset.Text) Then
+     Begin
+          // fix it
+          if tryStrToInt(edRebTXOffset.Text,i) then clRebel.txOffset := i else clRebel.txOffset := 0;
+          qsyQRG := StrToInt(edDialQRG.Text);
+          setQRG := True;
+          if not clRebel.Busy then
+          begin
+               clRebel.setOffsets;
+               qsyQRG := StrToInt(edDialQRG.Text);
+               setQRG := True;
+          end;
+     end;
+     if clRebel.rxOffset <> StrToInt(edRebRXOffset.Text) Then
+     Begin
+          // fix it
+          if tryStrToInt(edRebRXOffset.Text,i) then
+          Begin
+               j := clRebel.rxOffset;
+               clRebel.rxOffset := i;
+               if not clRebel.busy then
+               begin
+                    clRebel.setOffsets;
+                    qsyQRG := StrToInt(edDialQRG.Text);
+                    setQRG := True;
+               end;
+               j := clRebel.rxOffset;
+               j := j;
+          end
+          else
+          begin
+               clRebel.rxOffset := 0;
+          end;
      end;
 
      if thisSecond = 48 Then txInProgress := False;
@@ -1994,7 +2032,7 @@ Begin
      //dac.d65txBufferIdx := 0;
 
      // Honoring Rebel being in TX already so it doesn't cancel TX if you clear the message buffer
-     canTX := txControl;
+     if txValid and not txDirty then canTX := True;
      if not canTX and not clRebel.txStat then toggleTX.Checked := False;
 
      // Enable TX if necessary

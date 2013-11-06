@@ -439,42 +439,42 @@ Begin
      begin
           if bins[i] > 0 then bins[i] := 1 else bins[i] := 0;
      end;
-     if binspace = 20 Then
-     Begin
-          // Looking for clusters of 3 consecutive bins - these will likely be
-          // dupes (spectral leakage) - if things go wrong DEBUG this :)
-          // So far so good on this - not seeing any immediate meltdown and it
-          // has certainly killed the true dupes.
-          bl := 0;
-          bm := 1;
-          bh := 2;
-          hl := False;
-          hm := False;
-          hh := False;
-          While bh < 101 Do
-          Begin
-               if bins[bl] > 0 Then hl := True;
-               if bins[bm] > 0 Then hm := True;
-               if bins[bh] > 0 Then hh := True;
-               if (hl And hm) or (hm And hh) Then
-               Begin
-                    bins[bl] := 0;
-                    bins[bh] := 0;
-                    bl := bh+1;
-                    bm := bh+2;
-                    bh := bh+3;
-               end
-               else
-               begin
-                    inc(bl);
-                    inc(bm);
-                    inc(bh);
-               end;
-               hl := False;
-               hm := False;
-               hh := False;
-          end;
-     end;
+     //if binspace = 20 Then
+     //Begin
+     //     // Looking for clusters of 3 consecutive bins - these will likely be
+     //     // dupes (spectral leakage) - if things go wrong DEBUG this :)
+     //     // So far so good on this - not seeing any immediate meltdown and it
+     //     // has certainly killed the true dupes.
+     //     bl := 0;
+     //     bm := 1;
+     //     bh := 2;
+     //     hl := False;
+     //     hm := False;
+     //     hh := False;
+     //     While bh < 101 Do
+     //     Begin
+     //          if bins[bl] > 0 Then hl := True;
+     //          if bins[bm] > 0 Then hm := True;
+     //          if bins[bh] > 0 Then hh := True;
+     //          if (hl And hm) or (hm And hh) Then
+     //          Begin
+     //               bins[bl] := 0;
+     //               bins[bh] := 0;
+     //               bl := bh+1;
+     //               bm := bh+2;
+     //               bh := bh+3;
+     //          end
+     //          else
+     //          begin
+     //               inc(bl);
+     //               inc(bm);
+     //               inc(bh);
+     //          end;
+     //          hl := False;
+     //          hm := False;
+     //          hh := False;
+     //     end;
+     //end;
 End;
 
 function  dSyms(var   nc1 : LongWord; var   nc2 : LongWord; var   ng : LongWord; const syms : Array Of Integer) : Boolean;
@@ -1247,6 +1247,7 @@ Var
    lnc1,lnc2,lng : LongWord;
    wisPath       : String;
    rawcount      : Integer;
+   ave           : Single;
 begin
      dmenter      := Now;
      dmdemodBusy  := True;
@@ -1326,8 +1327,24 @@ begin
      // samps[] contains 16 bit signed integer input samples
      jz := 524287;  // This truncates the last symbol to get a POT transform - otherwise I have to move up to 1048575 - can't see a problem with that so far
 
+
      // Apply lpf and convert to float (or not)
-     if dmNoFilter Then for i := 0 to jz do glf1Buffer[i] := samps[i] else for i := 0 to jz do glf1Buffer[i] := chebyLP(samps[i]);
+     if dmNoFilter Then
+     Begin
+          ave := 0.0;
+          for i := 0 to jz do ave := ave + samps[i];
+          ave := ave/(jz+1);
+          for i := 0 to jz do glf1Buffer[i] := samps[i]-ave;
+          //for i := 0 to jz do glf1Buffer[i] := samps[i];
+     end
+     else
+     begin
+          ave := 0.0;
+          for i := 0 to jz do ave := ave + samps[i];
+          ave := ave/(jz+1);
+          for i := 0 to jz do glf1Buffer[i] := samps[i]-ave;
+          for i := 0 to jz do glf1Buffer[i] := 5.0*chebyLP(glf1Buffer[i]);  // 5.0 scaling is an experimentally derived (guessed) value.
+     end;
 
      set65;
      jz2 := 0;
@@ -1400,7 +1417,21 @@ begin
                lddtx    := 0.0;
                mouseDF2 := i;
                afc      := 1;
-               cqz65(CTypes.pcfloat(@glf2buffer[4096]),CTypes.pcint(@jz2),CTypes.pcint(@bw),CTypes.pcint(@MouseDF2),CTypes.pcint(@afc),PChar(wif),CTypes.pcint(@lical),CTypes.pcint(@idf),CTypes.pcint(@lsym1[0]),CTypes.pcint(@lsym2[0]),CTypes.pcint(@lsym1p[0]),CTypes.pcint(@lsym2p[0]),CTypes.pcint(@lflag),CTypes.pcint(@ljdf),CTypes.pcint(@lnsync),CTypes.pcint(@lnsnr),CTypes.pcfloat(@lddtx));
+               //cqz65(CTypes.pcfloat(@glf2buffer[2048]),CTypes.pcint(@jz2),CTypes.pcint(@bw),CTypes.pcint(@MouseDF2),CTypes.pcint(@afc),PChar(wif),CTypes.pcint(@lical),CTypes.pcint(@idf),CTypes.pcint(@lsym1[0]),CTypes.pcint(@lsym2[0]),CTypes.pcint(@lsym1p[0]),CTypes.pcint(@lsym2p[0]),CTypes.pcint(@lflag),CTypes.pcint(@ljdf),CTypes.pcint(@lnsync),CTypes.pcint(@lnsnr),CTypes.pcfloat(@lddtx));
+               // Shaka when the walls fell!
+               // There's an ambiguity to getting the timing loop in "perfect" sync due to timer resolution of main loop
+               // But - over long duration the average DT settles and the offset in glf2buffer passed to cqz65 offers a
+               // chance to zero that in.
+               // So... at 11025 samples/second I have 1/11025 seconds per sample or 0.09070294784580498866213151927438 milliseconds.
+               // If I recall correctly the decoder wants the data from t+1 not t0 which is where the offset comes from in the call
+               // to cqz65.
+               // In a perfect alignment this would imply starting at sample offset 11025 but 4096 is the default determined... likely
+               // because I'm not quite correct about when the decoder wants to see start, but, 4096 has worked for years!  :)
+               // So... I should be able to comepensate be sliding the offset from 0 to some sensible max to get, on average, perfect
+               // time sync on decoding in reference to average DT of all receptions pushing toward average = 0.
+               // This *IS NOT* necessary - just a for me fun geek exercise in what if realm.
+               cqz65(CTypes.pcfloat(@glf2buffer[2560]),CTypes.pcint(@jz2),CTypes.pcint(@bw),CTypes.pcint(@MouseDF2),CTypes.pcint(@afc),PChar(wif),CTypes.pcint(@lical),CTypes.pcint(@idf),CTypes.pcint(@lsym1[0]),CTypes.pcint(@lsym2[0]),CTypes.pcint(@lsym1p[0]),CTypes.pcint(@lsym2p[0]),CTypes.pcint(@lflag),CTypes.pcint(@ljdf),CTypes.pcint(@lnsync),CTypes.pcint(@lnsnr),CTypes.pcfloat(@lddtx));
+               //cqz65(CTypes.pcfloat(@glf2buffer[4096]),CTypes.pcint(@jz2),CTypes.pcint(@bw),CTypes.pcint(@MouseDF2),CTypes.pcint(@afc),PChar(wif),CTypes.pcint(@lical),CTypes.pcint(@idf),CTypes.pcint(@lsym1[0]),CTypes.pcint(@lsym2[0]),CTypes.pcint(@lsym1p[0]),CTypes.pcint(@lsym2p[0]),CTypes.pcint(@lflag),CTypes.pcint(@ljdf),CTypes.pcint(@lnsync),CTypes.pcint(@lnsnr),CTypes.pcfloat(@lddtx));
                for k := 0 to 50 do rsera[k]  := 0;
                for k:= 0 to 11 do decsyms[k] := 0;
                foo := IntToStr(ljdf) + ' df ' + IntToStr(lnsnr) + ' db ' + FormatFloat('0.0',lddtx) + ' dt ' + IntToStr(lnsync) + ' sy';
