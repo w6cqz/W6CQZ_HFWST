@@ -62,7 +62,6 @@
         <Filename Value="project1.lpr"/>
         <IsPartOfProject Value="True"/>
         <UnitName Value="project1"/>
-        <IsVisibleTab Value="True"/>
         <EditorIndex Value="9"/>
         <WindowIndex Value="0"/>
         <TopLine Value="1"/>
@@ -187,6 +186,7 @@
         <Filename Value="demodulate.pas"/>
         <IsPartOfProject Value="True"/>
         <UnitName Value="demodulate"/>
+        <IsVisibleTab Value="True"/>
         <EditorIndex Value="11"/>
         <WindowIndex Value="0"/>
         <TopLine Value="1128"/>
