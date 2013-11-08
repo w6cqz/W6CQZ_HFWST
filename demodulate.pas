@@ -1,3 +1,22 @@
+{
+  Compared to decoder circa JT65-HF 1.0.9.x this is somewhat less efficient
+  at getting decodes but a quantum leap ahead in speed.  I need to ponder why
+  the decoder is failing to pick out some it should and I have a feeling but
+  need to think it through.  For now - it's good enough to get going with.
+
+  LPF Samples since I changed libJT65 - Confirmed working properly by
+  applying to spectrum display with a 1.5K LPF - a -9 db signal above 1.5K
+  did not appear ;)  Also added HPF with a 400 Hz edge - it's 3 pole so 400
+  is fine.
+
+  Removed all calls to lpf1 - replaced with a simple 2x decimate and above
+  referenced BPF action.
+
+  Moved BPF to ADC unit so it can run in real time on the much smaller sample
+  blocks.  This saves around 120...150 mS in the decoder.  Small - yes, but, for
+  future things this might make a more substantial difference. :)
+}
+
 // (c) 2013 CQZ Electronics
 unit demodulate;
 
@@ -12,6 +31,41 @@ uses
 Const
   JT_DLL = 'JT65v5.dll';
 
+  // 3rd Order Chebyshew 31 Tap LP @ 11025 SR - Cut = 2756.25 FIR
+  FCoef : array[0..30] of CTypes.cfloat =
+  (
+          -0.00011753584728398901,
+          0.00057932254918358799,
+          -0.00024168184072524018,
+          -0.00110149892718046090,
+          0.00146276806264856200,
+          0.00136918684703630170,
+          -0.00471945229590514400,
+          0.00101649838647534460,
+          0.01029207847227662000,
+          -0.01160052019356516300,
+          -0.01549293997818550900,
+          0.04687373238409223800,
+          -0.01216210647818348800,
+          -0.11244796622913100000,
+          0.27087501413827342000,
+          0.65083020190034790000,
+          0.27087501413827342000,
+          -0.11244796622913100000,
+          -0.01216210647818348800,
+          0.04687373238409223800,
+          -0.01549293997818550900,
+          -0.01160052019356516300,
+          0.01029207847227662000,
+          0.00101649838647534460,
+          -0.00471945229590514400,
+          0.00136918684703630170,
+          0.00146276806264856200,
+          -0.00110149892718046090,
+          -0.00024168184072524018,
+          0.00057932254918358799,
+          -0.00011753584728398901
+      );
 type
 
   decoded  = Record
@@ -58,8 +112,7 @@ type
       dbfsent  : Boolean;
   end;
 
-
-  function demod(Const samps : Array Of CTypes.cint16) : Boolean;
+  function fdemod(Const samps : Array Of CTypes.cfloat) : Boolean;
 
   Var
      dmical        : CTypes.cint;
@@ -76,12 +129,13 @@ type
      dmlastraw     : Array[0..499] Of String;
      dmdecodecount : Integer;
      dmtmpdir      : String;
-     //chebyBuff     : Array[0..254] Of CTypes.cfloat;
-     //dmNoFilter    : Boolean;
+     chebyBuff     : Array[0..254] Of CTypes.cfloat;
+     dmNoFilter    : Boolean;
+
 implementation
 
 procedure set65; cdecl; external JT_DLL name 'setup65_';
-procedure lpf1(dat : CTypes.pcfloat; jz : CTypes.pcint; nz : CTypes.pcint; mousedf : CTypes.pcint; mousedf2 : CTypes.pcint; ical : CTypes.pcint; wisfile : PChar); cdecl; external JT_DLL name 'lpf1_';
+//procedure lpf1(dat : CTypes.pcfloat; jz : CTypes.pcint; nz : CTypes.pcint; mousedf : CTypes.pcint; mousedf2 : CTypes.pcint; ical : CTypes.pcint; wisfile : PChar); cdecl; external JT_DLL name 'lpf1_';
 procedure msync(dat : CTypes.pcfloat; jz : CTypes.pcint; syncount : CTypes.pcint; dtxa : CTypes.pcfloat; dfxa : CTypes.pcfloat; snrxa : CTypes.pcfloat; snrsynca : CTypes.pcfloat; ical : CTypes.pcint; wisfile : PChar); cdecl; external JT_DLL name 'msync65_';
 procedure cqz65(dat         : CTypes.pcfloat;
                 jz          : CTypes.pcint;
@@ -103,6 +157,17 @@ procedure cqz65(dat         : CTypes.pcfloat;
                ); cdecl; external JT_DLL name 'cqz65_';
 
 procedure rsdecode(Pcsyms : CTypes.pcint; Pera : CTypes.pcint; Pnera : CTypes.pcint; Pdsyms : CTypes.pcint; Pcount : CTypes.pcint); cdecl; external JT_DLL name 'rs_decode_';
+
+function chebyLP(const f : CTypes.cfloat) : CTypes.cfloat;
+Var
+   n : Integer;
+   y : CTypes.cfloat;
+Begin
+     for n := 30 downto 1 do chebyBuff[n] := chebyBuff[n-1];
+     chebyBuff[0] := f;
+     for n := 0 to 30 do y := FCoef[n] * chebyBuff[n];
+     result := y;
+end;
 
 function isControlb(c : String) : Boolean;
 Var
@@ -164,6 +229,8 @@ end;
 procedure populateBins(const dfxa : Array of CTypes.cfloat; const syncount : CTypes.cint; const binspace : CTypes.cint; Var bins : Array of CTypes.cint);
 Var
    i,passtest : Integer;
+   bl,bm,bh   : Integer;
+   hl,hm,hh   : Boolean;
 Begin
      for i := 0 to syncount-1 do
      begin
@@ -372,6 +439,42 @@ Begin
      begin
           if bins[i] > 0 then bins[i] := 1 else bins[i] := 0;
      end;
+     //if binspace = 20 Then
+     //Begin
+     //     // Looking for clusters of 3 consecutive bins - these will likely be
+     //     // dupes (spectral leakage) - if things go wrong DEBUG this :)
+     //     // So far so good on this - not seeing any immediate meltdown and it
+     //     // has certainly killed the true dupes.
+     //     bl := 0;
+     //     bm := 1;
+     //     bh := 2;
+     //     hl := False;
+     //     hm := False;
+     //     hh := False;
+     //     While bh < 101 Do
+     //     Begin
+     //          if bins[bl] > 0 Then hl := True;
+     //          if bins[bm] > 0 Then hm := True;
+     //          if bins[bh] > 0 Then hh := True;
+     //          if (hl And hm) or (hm And hh) Then
+     //          Begin
+     //               bins[bl] := 0;
+     //               bins[bh] := 0;
+     //               bl := bh+1;
+     //               bm := bh+2;
+     //               bh := bh+3;
+     //          end
+     //          else
+     //          begin
+     //               inc(bl);
+     //               inc(bm);
+     //               inc(bh);
+     //          end;
+     //          hl := False;
+     //          hm := False;
+     //          hh := False;
+     //     end;
+     //end;
 End;
 
 function  dSyms(var   nc1 : LongWord; var   nc2 : LongWord; var   ng : LongWord; const syms : Array Of Integer) : Boolean;
@@ -985,11 +1088,11 @@ end;
 
 Function evalKV(const fname : String; Var decoded : String; Var sf : String; Var ver : String; var nc1 : LongWord; var nc2 : LongWord; var ng : LongWord) : Boolean;
 Var
-   kvSec2,kvCount,ierr,i,j : CTypes.cint;
-   kvProc                  : TProcess;
-   kvDat                   : Array[0..11] of CTypes.cint;
-   kvFile                  : File Of CTypes.cint;
-   foo,kvfullname          : String;
+   kvSec2, kvCount,ierr,i,j : CTypes.cint;
+   kvProc                   : TProcess;
+   kvDat                    : Array[0..11] of CTypes.cint;
+   kvFile                   : File Of CTypes.cint;
+   foo,kvfullname           : String;
 Begin
      // Looking for a KV decode
      Result  := false;
@@ -1029,7 +1132,7 @@ Begin
              AssignFile(kvFile,kvfullname);
              Reset(kvFile);
              //ListBox2.Items.Insert(0,'kv size = ' + IntToStr(System.FileSize(kvfile)));
-             j := System.FileSize(kvfile);
+             j:=System.FileSize(kvfile);
              If j > 256 Then
              Begin
                   // Seek to nsec2 (256)
@@ -1074,7 +1177,7 @@ Begin
              End
              Else
              Begin
-                  if j <> 256 Then
+                  if j<>256 Then
                   Begin
                        Result := False;
                   end;
@@ -1107,12 +1210,10 @@ Begin
 
 end;
 
-function demod(Const samps : Array Of CTypes.cint16) : Boolean;
+function fdemod(Const samps : Array Of CTypes.cfloat) : Boolean;
 Var
-   glinbuffer    : Array of CTypes.cint;
-   glf1buffer    : Array of CTypes.cfloat;
-   glf3buffer    : Array[0..661503] of CTypes.cfloat;
-   gllpfm        : Array[0..661503] Of Ctypes.cfloat;
+   glf1buffer    : Array[0..524287] of CTypes.cfloat;
+   glf2buffer    : Array[0..262143] of CTypes.cfloat;
    dfxa          : Array[0..254] Of CTypes.cfloat;
    snrsynca      : Array[0..254] Of CTypes.cfloat;
    snrxa         : Array[0..254] Of CTypes.cfloat;
@@ -1124,21 +1225,15 @@ Var
    rsecount      : CTypes.cint;
    rscount       : CTypes.cint;
    i,jz2,k,jz,bw : CTypes.cint;
-   nave          : CTypes.cint;
    lical,idf,j   : CTypes.cint;
-   lmousedf      : CTypes.cint;
    mousedf2,afc  : CTypes.cint;
    syncount      : CTypes.cint;
    foo,ver       : String;
    wif           : PChar;
-   fsum,ave,sq   : CTypes.cfloat;
-   ffoo,avesq    : CTypes.cfloat;
-   basevb        : CTypes.cfloat;
    lflag,ljdf    : CTypes.cint;
    lnsync,lnsnr  : CTypes.cint;
    lddtx         : CTypes.cfloat;
    wc,passcount  : Integer;
-   rawcount      : Integer;
    foo1,foo2     : String;
    bins          : Array[0..100] Of CTypes.cint;
    clearList     : TStringList;
@@ -1151,12 +1246,13 @@ Var
    dmexit        : TDateTime;
    lnc1,lnc2,lng : LongWord;
    wisPath       : String;
+   rawcount      : Integer;
+   ave           : Single;
 begin
      dmenter      := Now;
      dmdemodBusy  := True;
      dmhaveDecode := False;
      thisUTC      := utcTime;
-
      bw           := dmbw;  // Sets decoder bin space in hertz
      if (bw<20) Or (bw>200) Then bw := 100;
 
@@ -1185,12 +1281,6 @@ begin
      // ical = 21 = FFTW_MEASURE set, no load/yes save wisdom.  Use ical = 21 to save wisdom.
      //
 
-     // Clear the bins
-     for i := 0 to 100 do
-     begin
-          bins[i] := 0;
-     end;
-
      if dmical > -1 Then
      Begin
           if dmical = 1 Then
@@ -1203,8 +1293,6 @@ begin
           End;
      End;
 
-     // DEBUG - Following may be a mistake.... I may need to rebuild
-     // the pchar variable each time.. let's see.
      if dmFirstPass Then
      Begin
           wif := StrAlloc(256);
@@ -1214,7 +1302,6 @@ begin
      end;
 
      dmfirstPass := False;
-     rawcount := 0;
 
      // Clean the decoder returns array/record
      // Yes, 500 entries is a lot. Method, madness and etc.  :)
@@ -1229,257 +1316,247 @@ begin
           dmdecodes[i].ec   := '';
           dmdecodes[i].dec  := '';
           dmdecodes[i].clr  := true;
+          dmlastraw[i]      := '';
      end;
+     dmdecodecount := 0;
+     rawcount := 0; // Index for saving raw decoder outputs
 
-     // Setup temporary spaces
-     setLength(glInBuffer,661504);
-     setLength(glf1Buffer,661504);
-
-     // Clear internal buffers
-     for i := 0 to 661503 do
-     Begin
-          glInBuffer[i] := 0;
-          glf1Buffer[i] := 0.0;
-          glf3Buffer[i] := 0.0;
-          gllpfM[i] := 0.0;
-          //if i < 101 Then bins[i] := 0;
-          if i < 12 then decsyms[i] := 0;
-     end;
+     // Clear bin indicators
+     for i := 0 to 100 do bins[i] := 0;
 
      // samps[] contains 16 bit signed integer input samples
-     // Convert samps to f1buffer (int16 to float)
-     fsum := 0.0;
-     nave := 0;
-     jz := 524287;
+     jz := 524287;  // This truncates the last symbol to get a POT transform - otherwise I have to move up to 1048575 - can't see a problem with that so far
 
-     for i := 0 to jz do fsum := fsum + samps[i];
-     nave := Round(fsum/(jz+1));
-     if nave <> 0 Then
-     Begin
-          for i := 0 to jz do glinBuffer[i] := min(32766,max(-32766,samps[i]-nave));
-     End
-     Else
-     Begin
-          for i := 0 to jz do glinBuffer[i] := min(32766,max(-32766,samps[i]));
-     End;
-     fsum := 0.0;
-     ave := 0.0;
-     for i := 0 to jz do
-     Begin
-          glf1Buffer[i] := 0.1 * glinBuffer[i];
-          fsum := fsum + glf3Buffer[i];
-     End;
-     ave := fsum/(jz+1);
-     if ave <> 0.0 Then for i := 0 to jz do glf1Buffer[i] := glf1Buffer[i]-ave;
 
-     // From this point on f1Buffer becomes sole sample holder.
-     // Figure average level
-     sq := 0.0;
-     for i := 0 to jz do
+     // Apply lpf and convert to float (or not)
+     if dmNoFilter Then
+     Begin
+          ave := 0.0;
+          for i := 0 to jz do ave := ave + samps[i];
+          ave := ave/(jz+1);
+          for i := 0 to jz do glf1Buffer[i] := samps[i]-ave;
+          //for i := 0 to jz do glf1Buffer[i] := samps[i];
+     end
+     else
      begin
-          ffoo := glf1Buffer[i];
-          if ffoo <> 0 Then sq := sq + power(ffoo,2);
+          ave := 0.0;
+          for i := 0 to jz do ave := ave + samps[i];
+          ave := ave/(jz+1);
+          for i := 0 to jz do glf1Buffer[i] := samps[i]-ave;
+          for i := 0 to jz do glf1Buffer[i] := 5.0*chebyLP(glf1Buffer[i]);  // 5.0 scaling is an experimentally derived (guessed) value.
      end;
-     avesq := sq/jz;
-     basevb := db(avesq) - 44;
-     //decCount := 0;
-     if (avesq <> 0.0) And (basevb > -16.0) And (basevb < 21.0) Then
-     Begin
-          set65;
-          // Run msync
-          lmousedf := 0;
-          jz2 := 0;
-          mousedf2 := 0;
-          for i := 0 to jz do gllpfM[i] := glf1Buffer[i];
-          lpf1(CTypes.pcfloat(@gllpfM[0]),CTypes.pcint(@jz),CTypes.pcint(@jz2),CTypes.pcint(@lmousedf),CTypes.pcint(@mousedf2),CTypes.pcint(@lical),PChar(wif));
-          // msync will want a downsampled and lpf version of data.
-          // Copy lpfM to f3Buffer
-          for j := 0 to jz2 do glf3Buffer[j] := gllpfM[j];
-          for j := jz2+1 to 661503 do glf3Buffer[j] := 0.0;
-          for i := 0 to 254 do
-          begin
-               dtxa[i]     := 0.0;
-               dfxa[i]     := 0.0;
-               snrxa[i]    := 0.0;
-               snrsynca[i] := 0.0;
-          end;
-          syncount := 0;
-          msync(CTypes.pcfloat(@glf3Buffer[0]),CTypes.pcint(@jz2),CTypes.pcint(@syncount),CTypes.pcfloat(@dtxa[0]),CTypes.pcfloat(@dfxa[0]),CTypes.pcfloat(@snrxa[0]),CTypes.pcfloat(@snrsynca[0]),CTypes.pcint(@lical),PChar(wif));
 
-          populateBins(dfxa, syncount, bw, bins);
+     set65;
+     jz2 := 0;
+     mousedf2 := 0;
+     // Simple 2x decimate on the (previously) LPF filtered sample data. SR now 11025/2 = 5512.5
+     j := 0;
+     jz2 := 262143;
+     for i := 0 to jz2 do
+     begin
+          glf2Buffer[i] := glf1buffer[j];
+          j := j+2;
+     end;
 
-          passcount := 0;
-          for i := 0 to 100 do if bins[i] > 0 Then inc(passcount);
-          // Passcount is number of potential bins with sync detected.
+     // For future reference - don't bother trying to window the data here for FFT
+     // It looks like one (or more) is applied in the fortran code, and, it seems
+     // to do little good for the spectrum as well.  In here as I keep forgetting this.
 
-          i := -1000;
-          j := 0;
-          // Walk the passband -1000 ... +1000 Hertz in (2000/bin spacing) + 1 steps.
-          // bins[0...100] has been set for bins needing a decode
-          // Bin space = 100 steps = (2000/100)+1 = 21
-          // Bin space =  50 steps = (2000/50)+1  = 41
-          while i < 1001 do
-          begin
-               if bins[j] > 0 Then
+     // Clear msync indicators
+     for i := 0 to 254 do
+     begin
+          dtxa[i]     := 0.0;
+          dfxa[i]     := 0.0;
+          snrxa[i]    := 0.0;
+          snrsynca[i] := 0.0;
+     end;
+     syncount := 0;
+     // Run msync
+     msync(CTypes.pcfloat(@glf2Buffer[0]),CTypes.pcint(@jz2),CTypes.pcint(@syncount),CTypes.pcfloat(@dtxa[0]),CTypes.pcfloat(@dfxa[0]),CTypes.pcfloat(@snrxa[0]),CTypes.pcfloat(@snrsynca[0]),CTypes.pcint(@lical),PChar(wif));
+     //if syncount = 0 then dmlastraw[rawcount] := 'No usable sync signals found';
+     //if syncount = 0 then inc(rawcount);
+     // Time to start USING the data I'm getting from msync.
+     // 1 - If snrx < -29 kill it.
+     // 2 - if dtx > 5 or < -5 kill it.
+     // snrsync not needed
+     // 3 - if dfx < -1100 or > 1100 kill it.
+     // Just set dfx to -9999 then populate bins will ignore it.
+     for i := 0 to 254 do
+     begin
+          { TODO : Think about the dtxa test... it may be source of some failed decodes in that it sometimes gives crazy values that still decode proper.... }
+          if (dtxa[i] < -10.0) Or (dtxa[i] > 10.0) Or (snrxa[i] < -29.9999) Or (dfxa[i] < -1100.0) Or (dfxa[i] > 1100.0) Then dfxa[i] := -9999.0;
+     end;
+     populateBins(dfxa, syncount, bw, bins);
+     passcount := 0;
+     for i := 0 to 100 do if bins[i] > 0 Then inc(passcount);
+     // Passcount is number of potential bins with sync detected.
+     i := -1000;
+     j := 0;
+     // Walk the passband -1000 ... +1000 Hertz in (2000/bin spacing) + 1 steps.
+     // bins[0...100] has been set for bins needing a decode
+     // Bin space = 100 steps = (2000/100)+1 = 21
+     // Bin space =  50 steps = (2000/50)+1  = 41
+     while i < 1001 do
+     begin
+          if bins[j] > 0 Then
+          Begin
+               // This bin needs a decode
+               dmlastraw[rawcount] := IntToStr(i) + ' bf ';
+               // Call decoder
+               for k := 0 to 62 do
+               begin
+                    lsym1[k] := 0;
+                    lsym2[k] := 0;
+                    lsym1p[k] := 0;
+                    lsym2p[k] := 0;
+               end;
+               lflag    := 0;
+               ljdf     := 0;
+               lnsync   := 0;
+               lnsnr    := 0;
+               lddtx    := 0.0;
+               mouseDF2 := i;
+               afc      := 1;
+               //cqz65(CTypes.pcfloat(@glf2buffer[2048]),CTypes.pcint(@jz2),CTypes.pcint(@bw),CTypes.pcint(@MouseDF2),CTypes.pcint(@afc),PChar(wif),CTypes.pcint(@lical),CTypes.pcint(@idf),CTypes.pcint(@lsym1[0]),CTypes.pcint(@lsym2[0]),CTypes.pcint(@lsym1p[0]),CTypes.pcint(@lsym2p[0]),CTypes.pcint(@lflag),CTypes.pcint(@ljdf),CTypes.pcint(@lnsync),CTypes.pcint(@lnsnr),CTypes.pcfloat(@lddtx));
+               // Shaka when the walls fell!
+               // There's an ambiguity to getting the timing loop in "perfect" sync due to timer resolution of main loop
+               // But - over long duration the average DT settles and the offset in glf2buffer passed to cqz65 offers a
+               // chance to zero that in.
+               // So... at 11025 samples/second I have 1/11025 seconds per sample or 0.09070294784580498866213151927438 milliseconds.
+               // If I recall correctly the decoder wants the data from t+1 not t0 which is where the offset comes from in the call
+               // to cqz65.
+               // In a perfect alignment this would imply starting at sample offset 11025 but 4096 is the default determined... likely
+               // because I'm not quite correct about when the decoder wants to see start, but, 4096 has worked for years!  :)
+               // So... I should be able to comepensate be sliding the offset from 0 to some sensible max to get, on average, perfect
+               // time sync on decoding in reference to average DT of all receptions pushing toward average = 0.
+               // This *IS NOT* necessary - just a for me fun geek exercise in what if realm.
+               cqz65(CTypes.pcfloat(@glf2buffer[2560]),CTypes.pcint(@jz2),CTypes.pcint(@bw),CTypes.pcint(@MouseDF2),CTypes.pcint(@afc),PChar(wif),CTypes.pcint(@lical),CTypes.pcint(@idf),CTypes.pcint(@lsym1[0]),CTypes.pcint(@lsym2[0]),CTypes.pcint(@lsym1p[0]),CTypes.pcint(@lsym2p[0]),CTypes.pcint(@lflag),CTypes.pcint(@ljdf),CTypes.pcint(@lnsync),CTypes.pcint(@lnsnr),CTypes.pcfloat(@lddtx));
+               //cqz65(CTypes.pcfloat(@glf2buffer[4096]),CTypes.pcint(@jz2),CTypes.pcint(@bw),CTypes.pcint(@MouseDF2),CTypes.pcint(@afc),PChar(wif),CTypes.pcint(@lical),CTypes.pcint(@idf),CTypes.pcint(@lsym1[0]),CTypes.pcint(@lsym2[0]),CTypes.pcint(@lsym1p[0]),CTypes.pcint(@lsym2p[0]),CTypes.pcint(@lflag),CTypes.pcint(@ljdf),CTypes.pcint(@lnsync),CTypes.pcint(@lnsnr),CTypes.pcfloat(@lddtx));
+               for k := 0 to 50 do rsera[k]  := 0;
+               for k:= 0 to 11 do decsyms[k] := 0;
+               foo := IntToStr(ljdf) + ' df ' + IntToStr(lnsnr) + ' db ' + FormatFloat('0.0',lddtx) + ' dt ' + IntToStr(lnsync) + ' sy';
+               dmlastraw[rawcount] := dmlastraw[rawcount] + foo;
+               rsecount := 0;
+               rscount  := 0;
+               if lflag > -1 Then
                Begin
-                    // This bin needs a decode
-                    //ListBox2.Items.Insert(0,'Decode at Center DF = ' + IntToStr(i) + ' for bin = ' + IntToStr(j));
-                    // Copy lpfM to f3Buffer
-                    for k := 0 to jz2 do glf3Buffer[k] := gllpfM[k];
-                    for k := jz2+1 to 661503 do glf3Buffer[k] := 0.0;
-                    // Call decoder
-                    for k := 0 to 62 do
-                    begin
-                         lsym1[k] := 0;
-                         lsym2[k] := 0;
-                         lsym1p[k] := 0;
-                         lsym2p[k] := 0;
-                    end;
-
-                    lflag    := 0;
-                    ljdf     := 0;
-                    lnsync   := 0;
-                    lnsnr    := 0;
-                    lddtx    := 0.0;
-                    mouseDF2 := i;
-                    afc      := 1;
-
-                    cqz65(CTypes.pcfloat(@glf3buffer[4096]),
-                          CTypes.pcint(@jz2),
-                          CTypes.pcint(@bw),
-                          CTypes.pcint(@MouseDF2),
-                          CTypes.pcint(@afc),
-                          PChar(wif),
-                          CTypes.pcint(@lical),
-                          CTypes.pcint(@idf),
-                          CTypes.pcint(@lsym1[0]),
-                          CTypes.pcint(@lsym2[0]),
-                          CTypes.pcint(@lsym1p[0]),
-                          CTypes.pcint(@lsym2p[0]),
-                          CTypes.pcint(@lflag),
-                          CTypes.pcint(@ljdf),
-                          CTypes.pcint(@lnsync),
-                          CTypes.pcint(@lnsnr),
-                          CTypes.pcfloat(@lddtx)
-                         );
-                    for k := 0 to 50 do rsera[k]  := 0;
-                    for k:= 0 to 11 do decsyms[k] := 0;
-
-                    rsecount := 0;
-                    rscount  := 0;
-                    if lflag > -1 Then
+                    rsdecode(CTypes.pcint(@lsym1[0]),CTypes.pcint(@rsera[0]),CTypes.pcint(@rsecount),CTypes.pcint(@decsyms[0]),CTypes.pcint(@rscount));
+                    foo := IntToStr(ljdf) + ',' + IntToStr(lnsnr) + ',' + FormatFloat('0.0',lddtx) + ',' + IntToStr(lnsync);
+                    if rscount > -1 Then
                     Begin
-                         rsdecode(CTypes.pcint(@lsym1[0]),CTypes.pcint(@rsera[0]),CTypes.pcint(@rsecount),CTypes.pcint(@decsyms[0]),CTypes.pcint(@rscount));
-                         foo := IntToStr(ljdf) + ',' + IntToStr(lnsnr) + ',' + FormatFloat('0.0',lddtx) + ',' + IntToStr(lnsync);
-                         if rscount > -1 Then
+                         foo1 := '';
+                         sf   := '';
+                         ver  := '';
+                         lnc1 := 0;
+                         lnc2 := 0;
+                         lng  := 0;
+                         If decode(decsyms,foo1,sf,ver,lnc1,lnc2,lng) Then
                          Begin
-                              foo1 := '';
-                              sf   := '';
-                              ver  := '';
-                              lnc1 := 0;
-                              lnc2 := 0;
-                              lng  := 0;
-                              If decode(decsyms,foo1,sf,ver,lnc1,lnc2,lng) Then
+                              inc(dmdecodecount);
+                              foo := foo + ',B,';
+                              foo := foo + foo1;
+                              dmlastraw[rawcount] := dmlastraw[rawcount] + ' ' + foo1 + ' +B';
+                              wc  := WordCount(foo,[',']);
+                              if wc = 6 Then
                               Begin
-                                   foo := foo + ',B,';
-                                   foo := foo + foo1;
-                                   wc  := WordCount(foo,[',']);
-                                   if wc = 6 Then
-                                   Begin
-                                        Try
-                                           clearList.Add(foo + ',' + sf + ',' + ver + ',' + IntToStr(lnc1) + ',' + IntToStr(lnc2) + ',' + IntToStr(lng)); // Unsorted to maintain proper order
-                                        except
-                                           // Nada (Any error in adding is ignored as it's likely a dupe reject or bad decode)
-                                        end;
+                                   Try
+                                      clearList.Add(foo + ',' + sf + ',' + ver + ',' + IntToStr(lnc1) + ',' + IntToStr(lnc2) + ',' + IntToStr(lng)); // Unsorted to maintain proper order
+                                   except
+                                      // Nada (Any error in adding is ignored as it's likely a dupe reject or bad decode)
                                    end;
                               end;
                          end
                          else
                          begin
-                              // This is where I would try KV
-                              // To attempt a KV decode I need to build the binary file, call KV, read the binary file back
-                              // and see if I have something to work with.
-
-                              // Build the data record
-                              kvdat.nsec1    := 1;
-                              kvdat.xlambda  := 12.0;
-                              kvdat.maxe     := 8;
-                              kvdat.naddsynd := 50;
-                              for k := 0 to 62 do kvdat.mrsym[k]  := lsym1[k];
-                              for k := 0 to 62 do kvdat.mrprob[k] := lsym1p[k];
-                              for k := 0 to 62 do kvdat.mr2sym[k]  := lsym2[k];
-                              for k := 0 to 62 do kvdat.mr2prob[k] := lsym2p[k];
-                              AssignFile(kvfile,'kvasd.dat');
-                              Rewrite(kvfile);
-                              write(kvfile,kvdat);
-                              CloseFile(kvfile);
-                              //ListBox2.Items.Insert(0,'Wrote kvasd.dat');
-                              // Now attempt the KV process.
-                              foo2 := '';
-                              sf   := '';
-                              ver  := '';
-                              lnc1 := 0;
-                              lnc2 := 0;
-                              lng  := 0;
-                              if evalKV('kvasd.dat',foo2,sf,ver,lnc1,lnc2,lng) Then
+                              dmlastraw[rawcount] := dmlastraw[rawcount] + ' Data Invalid ';
+                         end;
+                    end
+                    else
+                    begin
+                         // This is where I try KV
+                         // Build the data record
+                         dmlastraw[rawcount] := dmlastraw[rawcount] + ' -B';
+                         kvdat.nsec1    := 1;
+                         kvdat.xlambda  := 12.0;
+                         kvdat.maxe     := 8;
+                         kvdat.naddsynd := 50;
+                         for k := 0 to 62 do kvdat.mrsym[k]  := lsym1[k];
+                         for k := 0 to 62 do kvdat.mrprob[k] := lsym1p[k];
+                         for k := 0 to 62 do kvdat.mr2sym[k]  := lsym2[k];
+                         for k := 0 to 62 do kvdat.mr2prob[k] := lsym2p[k];
+                         AssignFile(kvfile,dmtmpdir+'kvasd.dat');
+                         Rewrite(kvfile);
+                         write(kvfile,kvdat);
+                         CloseFile(kvfile);
+                         // Now attempt the KV process.
+                         foo2 := '';
+                         sf   := '';
+                         ver  := '';
+                         lnc1 := 0;
+                         lnc2 := 0;
+                         lng  := 0;
+                         if evalKV('kvasd.dat',foo2,sf,ver,lnc1,lnc2,lng) Then
+                         Begin
+                              inc(dmdecodecount);
+                              //ListBox2.Items.Insert(0,'KV Says:  ' + foo2);
+                              foo := foo + ',K,';
+                              foo := foo + foo2;
+                              dmlastraw[rawcount] := dmlastraw[rawcount] + ' ' + foo2 + ' +K';
+                              wc  := WordCount(foo,[',']);
+                              if wc = 6 Then
                               Begin
-                                   //ListBox2.Items.Insert(0,'KV Says:  ' + foo2);
-                                   foo := foo + ',K,';
-                                   foo := foo + foo2;
-                                   wc  := WordCount(foo,[',']);
-                                   if wc = 6 Then
-                                   Begin
-                                        Try
-                                           clearList.Add(foo + ',' + sf + ',' + ver + ',' + IntToStr(lnc1) + ',' + IntToStr(lnc2) + ',' + IntToStr(lng)); // Unsorted to maintain proper order
-                                        except
-                                           // Nada (Any error in adding is ignored as it's likely a dupe reject or bad decode)
-                                        end;
+                                   Try
+                                      clearList.Add(foo + ',' + sf + ',' + ver + ',' + IntToStr(lnc1) + ',' + IntToStr(lnc2) + ',' + IntToStr(lng)); // Unsorted to maintain proper order
+                                   except
+                                      // Nada (Any error in adding is ignored as it's likely a dupe reject or bad decode)
                                    end;
                               end;
+                         end
+                         else
+                         begin
+                              dmlastraw[rawcount] := dmlastraw[rawcount] + ' -K';
                          end;
                     end;
-               end;
-               inc(j);
-               i := i + bw;
-          end;
-
-          if clearList.Count > 0 Then
-          Begin
-               dmhaveDecode := True;
-               for j := 0 to clearList.Count-1 do
+               end
+               else
                begin
-                    for k := 0 to 499 do
+                    dmlastraw[rawcount] := dmlastraw[rawcount] + ' -BK';
+               end;
+               inc(rawcount);
+          end;
+          inc(j);
+          i := i + bw;
+     end;
+     if clearList.Count > 0 Then
+     Begin
+          dmhaveDecode := True;
+          for j := 0 to clearList.Count-1 do
+          begin
+               for k := 0 to 499 do
+               Begin
+                    If dmdecodes[k].clr Then
                     Begin
-                         If dmdecodes[k].clr Then
-                         Begin
-                              dmdecodes[k].ts   := TrimLeft(TrimRight(dmtimestamp));
-                              dmdecodes[k].utc  := TrimLeft(TrimRight(dmthisutc));
-                              dmdecodes[k].sync := PadLeft(TrimLeft(TrimRight(ExtractWord(4,clearList.Strings[j],[',']))),2);
-                              dmdecodes[k].db   := PadLeft(TrimLeft(TrimRight(ExtractWord(2,clearList.Strings[j],[',']))),3);
-                              dmdecodes[k].dt   := PadLeft(TrimLeft(TrimRight(ExtractWord(3,clearList.Strings[j],[',']))),4);
-                              dmdecodes[k].df   := PadLeft(TrimLeft(TrimRight(ExtractWord(1,clearList.Strings[j],[',']))),5);
-                              dmdecodes[k].ec   := TrimLeft(TrimRight(ExtractWord(5,clearList.Strings[j],[','])));
-                              dmdecodes[k].dec  := TrimLeft(TrimRight(ExtractWord(6,clearList.Strings[j],[','])));
-                              dmdecodes[k].sf   := TrimLeft(TrimRight(ExtractWord(7,clearList.Strings[j],[','])));
-                              dmdecodes[k].ver  := TrimLeft(TrimRight(ExtractWord(8,clearList.Strings[j],[','])));
-                              dmdecodes[k].nc1  := StrToInt(TrimLeft(TrimRight(ExtractWord(9,clearList.Strings[j],[',']))));
-                              dmdecodes[k].nc2  := StrToInt(TrimLeft(TrimRight(ExtractWord(10,clearList.Strings[j],[',']))));
-                              dmdecodes[k].ng   := StrToInt(TrimLeft(TrimRight(ExtractWord(11,clearList.Strings[j],[',']))));
-                              dmdecodes[k].clr  := False;
-                              break;
-                         end;
+                         dmdecodes[k].ts   := TrimLeft(TrimRight(dmtimestamp));
+                         dmdecodes[k].utc  := TrimLeft(TrimRight(dmthisutc));
+                         dmdecodes[k].sync := PadLeft(TrimLeft(TrimRight(ExtractWord(4,clearList.Strings[j],[',']))),2);
+                         dmdecodes[k].db   := PadLeft(TrimLeft(TrimRight(ExtractWord(2,clearList.Strings[j],[',']))),3);
+                         dmdecodes[k].dt   := PadLeft(TrimLeft(TrimRight(ExtractWord(3,clearList.Strings[j],[',']))),4);
+                         dmdecodes[k].df   := PadLeft(TrimLeft(TrimRight(ExtractWord(1,clearList.Strings[j],[',']))),5);
+                         dmdecodes[k].ec   := TrimLeft(TrimRight(ExtractWord(5,clearList.Strings[j],[','])));
+                         dmdecodes[k].dec  := TrimLeft(TrimRight(ExtractWord(6,clearList.Strings[j],[','])));
+                         dmdecodes[k].sf   := TrimLeft(TrimRight(ExtractWord(7,clearList.Strings[j],[','])));
+                         dmdecodes[k].ver  := TrimLeft(TrimRight(ExtractWord(8,clearList.Strings[j],[','])));
+                         dmdecodes[k].nc1  := StrToInt(TrimLeft(TrimRight(ExtractWord(9,clearList.Strings[j],[',']))));
+                         dmdecodes[k].nc2  := StrToInt(TrimLeft(TrimRight(ExtractWord(10,clearList.Strings[j],[',']))));
+                         dmdecodes[k].ng   := StrToInt(TrimLeft(TrimRight(ExtractWord(11,clearList.Strings[j],[',']))));
+                         dmdecodes[k].clr  := False;
+                         break;
                     end;
                end;
-
           end;
-          clearList.Clear;
-          Result := True;
-     End
-     Else
-     Begin
-          Result := False;
-     End;
-
+     end;
+     clearList.Clear;
+     Result := True;
      //if decCount = 0 Then
      //Begin
      //     // This was a single decode pass with no decode.  Run the shorthand
@@ -1513,8 +1590,6 @@ begin
      //          ListBox1.Items.Add('No SH message found.');
      //     End;
      //End;
-     setLength(glInBuffer,0);
-     setLength(glf1Buffer,0);
      clearList.Destroy;
      dmexit      := Now;
      dmruntime   := MilliSecondSpan(dmenter,dmexit);
@@ -1522,6 +1597,5 @@ begin
      Inc(dmrcount);
      dmdemodBusy := False;
 End;
-
 end.
 

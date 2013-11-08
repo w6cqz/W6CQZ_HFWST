@@ -31,8 +31,7 @@ uses
                        inputDevice: Pointer): Integer; cdecl;
 
 Var
-   d65rxFBuffer    : Packed Array[0..661503] of CTypes.cfloat;   // Frame sample buffer (float)
-   d65rxIBuffer    : Packed Array[0..661503] of CTypes.cint16;   // Frame sample buffer (integer)
+   d65rxFBuffer    : Packed Array[0..661503] of CTypes.cfloat;   // Frame sample buffer
    adclast2k1      : Packed Array[0..2047] of CTypes.cint16;     // For computing audio levels
    adclast2k2      : Packed Array[0..2047] of CTypes.cint16;
    adclast4k1      : Packed Array[0..4095] of CTypes.cint16;     // For computing spectrum
@@ -141,7 +140,6 @@ Begin
              if specIDX >    4095 Then specIDX        := 0;
              // Save samples to mono buffer (1) or left if not running in mono samples mode
              d65rxFBuffer[localIdx] := tAr1[i]; // Left or mono
-             d65rxIBuffer[localIdx] := tAr1i[i]; // Left or mono
              if adcMono Then
              Begin
                   // Update both streams audio level and spectrum buffers - solves an oddity
@@ -162,11 +160,7 @@ Begin
              else
              begin
                   // Process for the right channel (buffer2)
-                  if adcChan = 2 Then
-                  Begin
-                       d65rxFBuffer[localIdx] := tAr2[i]; // Right (If it's left then that was handled above)
-                       d65rxIBuffer[localIdx] := tAr2i[i]; // Right
-                  end;
+                  if adcChan = 2 Then d65rxFBuffer[localIdx] := tAr2[i]; // Right (If it's left then that was handled above)
                   // Update both streams audio level and spectrum buffers - solves an oddity
                   // when switching for those 2 functions.
                   if not haveAU Then

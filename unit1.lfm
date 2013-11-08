@@ -216,8 +216,8 @@ object Form1: TForm1
     Left = 415
     Height = 23
     Top = 6
-    Width = 39
-    Caption = 'TX: '
+    Width = 185
+    Caption = 'TX: TRANSMITTING'
     Font.Height = -19
     Font.Name = 'Arial'
     Font.Style = [fsBold]
@@ -398,8 +398,8 @@ object Form1: TForm1
     Height = 216
     Top = 35
     Width = 747
-    ActivePage = TabSheet1
-    TabIndex = 0
+    ActivePage = TabSheet9
+    TabIndex = 3
     TabOrder = 5
     Visible = False
     object TabSheet1: TTabSheet
@@ -2439,7 +2439,7 @@ object Form1: TForm1
       TabOrder = 10
     end
     object rbTXEven: TRadioButton
-      Left = 245
+      Left = 175
       Height = 20
       Top = 136
       Width = 51
@@ -2455,7 +2455,7 @@ object Form1: TForm1
       TabStop = True
     end
     object rbTXOdd: TRadioButton
-      Left = 307
+      Left = 234
       Height = 20
       Top = 136
       Width = 46
@@ -2469,7 +2469,7 @@ object Form1: TForm1
       TabOrder = 11
     end
     object Label11: TLabel
-      Left = 175
+      Left = 293
       Height = 17
       Top = 138
       Width = 64

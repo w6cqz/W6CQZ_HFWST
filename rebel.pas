@@ -167,7 +167,7 @@ Begin
      // Calculate DDS tuning word from hz, offset and ref based upon formula for prDDSVer
      // Current prDDSVer is only AD9834 and it uses fWord as integer = fout * 2^28/fref
      // 14076000
-     // 14076000 + 718 * (2^28/49999750) = 14076718 * 5.3687359636798183990919954599773 = 75573804.30626816 = 75573804
+     // 14076000 + 718 * (2^28/49999750) = 14076718 * 5.3687359636798183990919954599773 = 75574182.177179045895229476147381 = 75574182
      result := Round((hz+offset) * (268435456/ref));
 end;
 
