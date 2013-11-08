@@ -616,7 +616,7 @@ Begin
      for i := 0 to 127 do qrgset[i] := '0';
      // Setup configuration and data directories
      homedir := getUserDir;
-     dmtmpdir := homedir+'hfwst\';
+     demodulate.dmtmpdir := homedir+'hfwst\';
      if not DirectoryExists(homedir+'hfwst') Then
      Begin
           if not createDir(homedir+'hfwst') Then
@@ -1413,7 +1413,7 @@ Begin
      If not clRebel.txStat then Waterfall1.repaint;
 
      If toggleTX.Checked then toggleTX.state := cbChecked else toggleTX.state := cbUnchecked;
-     If cbNoDecoderLPF.Checked Then demodulate.dmNoFilter := True else demodulate.dmNoFilter := False;
+     //If cbNoDecoderLPF.Checked Then demodulate.dmNoFilter := True else demodulate.dmNoFilter := False;
      if not demodulate.dmdemodBusy and demodulate.dmhaveDecode Then displayDecodes;
      if cbUseColor.Checked Then ListBox1.Style := lbOwnerDrawFixed else ListBox1.Style := lbStandard;
 
@@ -2170,7 +2170,7 @@ Var
    dcount   : Integer;
 Begin
      memo3.Clear;
-     for i := 0 to 499 do if length(demodulate.dmlastraw[i])>0 Then memo3.Append(demodulate.dmlastraw[i]);
+     //for i := 0 to 499 do if length(demodulate.dmlastraw[i])>0 Then memo3.Append(demodulate.dmlastraw[i]);
      dcount := 0;
      // Remove any duplicates and/or image decodes.
      j := 0;
@@ -5098,6 +5098,7 @@ end;
 procedure decodeThread.Execute;
 Var
    rxf : Packed Array of CTypes.cfloat;
+   rxi : Packed Array of CTypes.cint16;
    i   : Integer;
 begin
      while not Terminated and not Suspended and not decoderBusy do
@@ -5112,9 +5113,12 @@ begin
                     if i > 25 then break;
                     sleep(1);
                end;
-               setLength(rxf,length(adc.d65rxFBuffer));
-               for i := 0 to length(adc.d65rxFBuffer)-1 do rxf[i] := adc.d65rxFBuffer[i];
-               demodulate.fdemod(rxf);
+               //setLength(rxf,length(adc.d65rxFBuffer));
+               //for i := 0 to length(adc.d65rxFBuffer)-1 do rxf[i] := adc.d65rxFBuffer[i];
+               setLength(rxi,length(adc.d65rxIBuffer));
+               for i := 0 to length(adc.d65rxIBuffer)-1 do rxi[i] := adc.d65rxIBuffer[i];
+               //demodulate.fdemod(rxf);
+               demodulate.demod(rxi);
                inc(decodeping);
                setLength(rxf,0);
                doDecode := False;
