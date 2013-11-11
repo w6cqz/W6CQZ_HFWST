@@ -8,7 +8,7 @@ uses
   Classes, SysUtils, CTypes, cmaps, fftw_jl, graphics, Math;
 
 Const
-  JT_DLL = 'JT65v5.dll';
+  JT_DLL = 'JT65v31.dll';
   // 3rd Order Chebyshew 31 Tap LP @ 11025 SR - Cut = 2756.25 FIR
   FCoef : array[0..30] of CTypes.cfloat =
   (
@@ -45,153 +45,41 @@ Const
           -0.00011753584728398901
       );
 
-  ICoef : Array[0..32] of CTypes.cint16 =
+  FCoef1 : Array[0..30] of CTypes.cfloat =
   (
-       -693,
-       -721,
-       -750,
-       -858,
-       -901,
-       -814,
-       -949,
-      -1218,
-       -884,
-       -691,
-      -1757,
-      -1610,
-        706,
-      -2020,
-      -5280,
-       9375,
-      23234,
-       9375,
-      -5280,
-      -2020,
-        706,
-      -1610,
-      -1757,
-       -691,
-       -884,
-      -1218,
-       -949,
-       -814,
-       -901,
-       -858,
-       -750,
-       -721,
-       -693
+  0.01536248278974667800,
+  0.01504548307804194600,
+  0.02678377461996903800,
+  0.02575800517223565700,
+  -0.00195994931893663130,
+  -0.01742989405829114100,
+  0.00483002693521787740,
+  0.00863139280981576120,
+  -0.04757529241787824400,
+  -0.08191053631627852300,
+  -0.03546242576400832100,
+  -0.04180346043079211100,
+  -0.18418526925517473000,
+  -0.16993056647225216000,
+  0.22972778243679484000,
+  0.51864508913009499000,
+  0.22972778243679484000,
+  -0.16993056647225216000,
+  -0.18418526925517473000,
+  -0.04180346043079211100,
+  -0.03546242576400832100,
+  -0.08191053631627852300,
+  -0.04757529241787824400,
+  0.00863139280981576120,
+  0.00483002693521787740,
+  -0.01742989405829114100,
+  -0.00195994931893663130,
+  0.02575800517223565700,
+  0.02678377461996903800,
+  0.01504548307804194600,
+  0.01536248278974667800
   );
 
-  ICoef2 : Array[0..32] of CTypes.cint16 =
-  (
-       -357,
-       -1169,
-       -591,
-       105,
-       -865,
-       -2006,
-       -1121,
-       10,
-       -1384,
-       -3153,
-       -1592,
-       665,
-       -1773,
-       -5794,
-       -1870,
-       10042,
-       16857,
-       10042,
-       -1870,
-       -5794,
-       -1773,
-       665,
-       -1592,
-       -3153,
-       -1384,
-       10,
-       -1121,
-       -2006,
-       -865,
-       105,
-       -591,
-       -1169,
-       -357
-  );
-
-  ICoef3 : Array[0..32] of CTypes.cint16 =
-  (
-  426,
--1078,
- -212,
- 1023,
- -776,
--3145,
--1818,
-  170,
--2612,
--6347,
--3711,
-  527,
--4306,
--12428,
--4998,
-18375,
-31828,
-18375,
--4998,
--12428,
--4306,
-  527,
--3711,
--6347,
--2612,
-  170,
--1818,
--3145,
- -776,
- 1023,
- -212,
--1078,
-  426
-  );
-
-  ICoef4 : Array[0..32] of CTypes.cint16 =
-  (
-  901,
- -484,
- 1005,
- 2084,
- -370,
--2668,
- -936,
-  659,
--2782,
--6391,
--3507,
-  171,
--5152,
--12864,
--5323,
-16938,
-29573,
-16938,
--5323,
--12864,
--5152,
-  171,
--3507,
--6391,
--2782,
-  659,
- -936,
--2668,
- -370,
- 2084,
- 1005,
- -484,
-  901
-  );
 Type
     RGBPixel = Packed Record
              r : Byte;
@@ -231,7 +119,7 @@ function computeAudio(Const Buffer : Array of CTypes.cint16): Integer;
 procedure flat(ss,n,nsum : Pointer); cdecl;
 
 function chebyLP(const f : CTypes.cfloat) : CTypes.cfloat;
-function chebyBPF(const f : CTypes.cint16) : CTypes.cint;
+function chebyBPF(const f : CTypes.cfloat) : CTypes.cfloat;
 
 Var
    specDisplayData : Packed Array[0..179]    Of RGBArray;
@@ -266,15 +154,15 @@ Begin
      result := y;
 end;
 
-function chebyBPF(const f : CTypes.cint16) : CTypes.cint;
+function chebyBPF(const f : CTypes.cfloat) : CTypes.cfloat;
 Var
    n : Integer;
-   y : CTypes.cint;
+   y : CTypes.cfloat;
 Begin
-     for n := 32 downto 1 do chebyIBuff[n] := chebyIBuff[n-1];
-     chebyIBuff[0] := f;
-     for n := 0 to 32 do y := ICoef4[n] * chebyIBuff[n];
-     result := y div 65536;
+     for n := 30 downto 1 do chebyBuff[n] := chebyBuff[n-1];
+     chebyBuff[0] := f;
+     for n := 0 to 30 do y := FCoef1[n] * chebyBuff[n];
+     result := y;
 end;
 
 procedure flat(ss,n,nsum : Pointer); cdecl; external JT_DLL name 'flat2_';
@@ -441,6 +329,7 @@ procedure computeSpectrum(Const dBuffer : Array of CTypes.cfloat);
 Var
    i,x,y,z,intVar,nh,iadj       : CTypes.cint;
    gamma,offset,fi,fvar,pw1,pw2 : CTypes.cfloat;
+   fave                         : CTypes.cfloat;
    rgbSpectra                   : RGBArray;
    doSpec                       : Boolean;
    bmpH                         : BMP_Header;
@@ -454,7 +343,6 @@ Var
    ss65,ss65b                   : Array[0..2047] of CTypes.cfloat;
    floatSpectra                 : Array[0..749] of CTypes.cfloat;
    integerSpectra               : Array[0..749] of CTypes.cint32;
-   fsum,fave                    : CTypes.cfloat;
 
 Begin
      // Compute spectrum display.  Expects 4096 samples in dBuffer
@@ -495,8 +383,8 @@ Begin
              fave := 0.0;
              for i := 0 to length(dBuffer)-1 do fave := fave + dBuffer[i];
              fave := fave/(length(dBuffer));
-             //for i := 0 to length(dbuffer)-1 do fftIn65[i] := chebyBPF(Trunc(dbuffer[i])) * 0.1;
-             for i := 0 to length(dBuffer)-1 do fftIn65[i] := 5.0*chebyLP(dBuffer[i]-fave);  // 5.0 scaling is an experimentally derived (guessed) value.
+             for i := 0 to length(dbuffer)-1 do fftIn65[i] := 5.0*chebyBPF(dbuffer[i]-fave);
+             //for i := 0 to length(dBuffer)-1 do fftIn65[i] := 5.0*chebyLP(dBuffer[i]-fave);  // 5.0 scaling is an experimentally derived (guessed) value.
 
              // Apply lpf
              //function chebyLP(const f : CTypes.cfloat) : CTypes.cfloat;

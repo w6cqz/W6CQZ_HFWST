@@ -47,10 +47,10 @@ uses
   ExtCtrls, Math, StrUtils, CTypes, Windows, lconvencoding, ComCtrls, EditBtn,
   DbCtrls, TAGraph, TASeries, TAChartUtils, Types, portaudio, adc, spectrum,
   waterfall1, spot, demodulate, BufDataset, sqlite3conn, sqldb, valobject,
-  rebel;
+  rebel, d65;
 
 Const
-  JT_DLL = 'JT65v5.dll';
+  JT_DLL = 'JT65v31.dll';
   SYNC65 : array[0..125] of CTypes.cint =
         (1,0,0,1,1,0,0,0,1,1,1,1,1,1,0,1,0,1,0,0,0,1,0,1,1,0,0,1,0,0,
         0,1,1,1,0,0,1,1,1,1,0,1,1,0,1,1,1,1,0,0,0,1,1,0,1,0,1,0,1,1,
@@ -102,6 +102,7 @@ type
     Button1: TButton;
     buttonXferMacro: TButton;
     cbNoDecoderLPF: TCheckBox;
+    cbNZLPF: TCheckBox;
     comboTTYPorts: TComboBox;
     edRebTXOffset: TEdit;
     edRebRXOffset: TEdit;
@@ -119,6 +120,7 @@ type
     Label50: TLabel;
     Label51: TLabel;
     Label52: TLabel;
+    Label53: TLabel;
     Memo3: TMemo;
     ProgressBar1: TProgressBar;
     rbRebBaud9600: TRadioButton;
@@ -188,14 +190,6 @@ type
     Label107: TLabel;
     Label108: TLabel;
     Label109: TLabel;
-    Label110: TLabel;
-    Label111: TLabel;
-    Label112: TLabel;
-    Label113: TLabel;
-    Label114: TLabel;
-    Label115: TLabel;
-    Label116: TLabel;
-    Label117: TLabel;
     Label121: TLabel;
     Label122: TLabel;
     Label24: TLabel;
@@ -361,6 +355,7 @@ type
     procedure Button14Click(Sender: TObject);
     procedure Button1Click(Sender: TObject);
     procedure buttonXferMacroClick(Sender: TObject);
+    procedure cbNZLPFChange(Sender: TObject);
     procedure comboQRGListChange(Sender: TObject);
     procedure comboMacroListChange(Sender: TObject);
     procedure btnsetQRGClick(Sender: TObject);
@@ -420,6 +415,7 @@ type
                               var hisGrid       : String);
     procedure breakOutFields(const msg : String; var mvalid : Boolean);
     procedure displayDecodes;
+    procedure displayDecodes3;
 
     function  db(x : CTypes.cfloat) : CTypes.cfloat;
     procedure toggleTXClick(Sender: TObject);
@@ -514,8 +510,7 @@ var
   dChar,kChar    : Char;
   kvcount        : CTypes.cuint64;
   bmcount        : CTypes.cuint64;
-  v1c,v2c        : CTypes.cuint64;
-  msc,mfc        : CTypes.cuint64;
+  shcount        : CTypes.cuint64;
   pfails         : CTypes.cuint64;
   avgdt          : Double;
   inQSOWith      : String;
@@ -549,6 +544,8 @@ var
   thisTXdf       : Integer; // DF for current TX message
   transmitting   : String;  // Holds message currently being transmitted
   transmitted    : String;  // Last message transmitted (used to compare to above for same TX message count)
+  multion        : Boolean; // If multiple decode is on/off
+  rxdf,txdf      : CTypes.cint; // Keeps current tx/rx dfs
 
 implementation
 
@@ -615,8 +612,10 @@ Begin
      // Begin overly protective :)
      for i := 0 to 127 do qrgset[i] := '0';
      // Setup configuration and data directories
+     d65.glnd65firstrun := True;
      homedir := getUserDir;
-     dmtmpdir := homedir+'hfwst\';
+     demodulate.dmtmpdir := homedir+'hfwst\';
+     d65.dmtmpdir := homedir+'hfwst\';
      if not DirectoryExists(homedir+'hfwst') Then
      Begin
           if not createDir(homedir+'hfwst') Then
@@ -670,6 +669,8 @@ Begin
      // Housekeeping items here
      cfgdir := cfgPath;
      demodulate.dmwispath := TrimFilename(cfgDir+'wisdom2.dat');
+     d65.dmwispath := TrimFilename(cfgDir+'wisdom2.dat');
+
      SetExceptionMask([exInvalidOp, exDenormalized, exZeroDivide, exOverflow, exUnderflow, exPrecision]); // This is a big one - must be set or BAD BAD things happen.
 
      // Query db for configuration with instance id = 1 and if it exists
@@ -898,10 +899,7 @@ Begin
      qsyQRG   := 0;
      kvcount   := 0;
      bmcount   := 0;
-     v1c       := 0;
-     v2c       := 0;
-     msc       := 0;
-     mfc       := 0;
+     shcount   := 0;
      pfails    := 0;
      avgdt     := 0.0;
      sopQRG    := 0;
@@ -917,10 +915,15 @@ Begin
      demodulate.dmhaveDecode := False;
      demodulate.dmdemodBusy  := False;
      demodulate.dmruntime    := 0.0;
+     d65.dmruntime    := 0.0;
+     demodulate.dmbw := 100;
+     demodulate.dmbws := 100;
+     d65.glbinspace := 100;
      If tbMultiBin.Position = 1 then demodulate.dmbw := 20;
      If tbMultiBin.Position = 2 then demodulate.dmbw := 50;
      If tbMultiBin.Position = 3 then demodulate.dmbw := 100;
      If tbMultiBin.Position = 4 then demodulate.dmbw := 200;
+     d65.glbinspace := demodulate.dmbw;
      Label26.Caption := 'Multi ' + IntToStr(demodulate.dmbw) + ' Hz';
      If tbSingleBin.Position = 1 then demodulate.dmbws := 20;
      If tbSingleBin.Position = 2 then demodulate.dmbws := 50;
@@ -928,6 +931,7 @@ Begin
      If tbSingleBin.Position = 4 then demodulate.dmbws := 200;
      Label87.Caption := 'Single ' + IntToStr(demodulate.dmbws) + ' Hz';
      if inIcal >-1 then demodulate.dmical := inIcal else demodulate.dmical := 0;
+     if inIcal >-1 then d65.glfftFWisdom := inIcal else d65.glfftFWisdom := 0;
      paActive := False;
      thisTXCall := '';
      thisTXGrid := '';
@@ -1180,7 +1184,7 @@ Begin
                // Attempt to open selected devices, both must pass open/start to continue.
 
                // Initialize RX stream.
-               paResult := portaudio.Pa_OpenStream(PPaStream(paInStream),PPaStreamParameters(ppaInParams),PPaStreamParameters(Nil),CTypes.cdouble(11025.0),CTypes.culong(64),TPaStreamFlags(0),PPaStreamCallback(@adc.adcCallback),Pointer(Self));
+               paResult := portaudio.Pa_OpenStream(PPaStream(paInStream),PPaStreamParameters(ppaInParams),PPaStreamParameters(Nil),CTypes.cdouble(11025.0),CTypes.culong(512),TPaStreamFlags(0),PPaStreamCallback(@adc.adcCallback),Pointer(Self));
                if paResult <> 0 Then
                Begin
                     // Was unable to open RX.
@@ -1385,19 +1389,20 @@ Begin
                clRebel.poll;
           end;
      end;
-
+     d65.glnz := cbNZLPF.Checked;
      readQRG   := True;
      firstTick := False;
 end;
 
 procedure TForm1.OncePerTick;
 Var
-   i,fi      : Integer;
+   i,fi,dti  : Integer;
    fs, fsc   : String;
    s1,s2     : String;
-   ff        : Double;
+   ff,dta    : Double;
    valid     : Boolean;
    c1,c2,c3  : Array[0..125] of String;
+   adjtime   : Boolean;
 Begin
      // Runs on each timer tick
      thisUTC     := utcTime;
@@ -1409,14 +1414,13 @@ Begin
           txInProgress := false;
           if clRebel.txStat and (not clRebel.busy) then clRebel.pttOff;
      end;
-
      If not clRebel.txStat then Waterfall1.repaint;
-
      If toggleTX.Checked then toggleTX.state := cbChecked else toggleTX.state := cbUnchecked;
      If cbNoDecoderLPF.Checked Then demodulate.dmNoFilter := True else demodulate.dmNoFilter := False;
      if not demodulate.dmdemodBusy and demodulate.dmhaveDecode Then displayDecodes;
+     if not d65.glinprog and d65.gld65HaveDecodes Then DisplayDecodes3;
      if cbUseColor.Checked Then ListBox1.Style := lbOwnerDrawFixed else ListBox1.Style := lbStandard;
-
+     multion := cbMultiOn.Checked;
      fs  := '';
      ff  := 0.0;
      fi  := 0;
@@ -1425,7 +1429,8 @@ Begin
      mval.forceDecimalAmer := False;
      mval.forceDecimalEuro := False;
      if mval.evalQRG(fs,'STRICT',ff,fi,fsc) Then qrgValid := True else qrgValid := False;
-
+     if tryStrToInt(edRXDF.Text,i) Then rxdf := i else rxdf := 0;
+     if tryStrToInt(edTXDF.Text,i) Then txdf := i else txdf := 0;
      // Update spectrum header TX marker if needed
      if lastTXDF <> edTXDF.Text
      Then
@@ -1461,15 +1466,37 @@ Begin
                end;
           end;
      end;
-
      Label121.Caption := 'Decoder Resolution:  ' + IntToStr(demodulate.dmbw) + ' Hz';
      if kvcount > 0 Then Label95.Caption := PadLeft(IntToStr(kvcount),5) + '  ' + FormatFloat('0.0',(100.0*(kvcount/(kvcount+bmcount)))) + '%';
      if bmcount > 0 Then Label96.Caption := PadLeft(IntToStr(bmcount),5) + '  ' + FormatFloat('0.0',(100.0*(bmcount/(kvcount+bmcount)))) + '%';
-     if bmcount+kvcount > 0 Then Label98.Caption := PadLeft(FormatFloat('0.00',(avgdt/(kvcount+bmcount))),5);
-     if msc > 0 Then Label112.Caption := PadLeft(IntToStr(msc),5);
-     if mfc > 0 Then Label113.Caption := PadLeft(IntToStr(mfc),5);
-     if v1c > 0 Then Label116.Caption := PadLeft(IntToStr(v1c),5);
-     if v2c > 0 Then Label117.Caption := PadLeft(IntToStr(v2c),5);
+     Label53.Caption := 'DT Averaging Counter = ' + IntToStr(d65.glDecCount);
+     Label98.Caption := PadLeft(FormatFloat('0.00',(d65.glDTAvg)),5);
+     adjtime := False;
+     if (d65.glDecCount > 19) and ((d65.glDTAvg < -0.5) or (d65.glDTAvg > 0.5)) Then adjtime := True else adjtime := false;
+     //if not adjtime and (d65.glDecCount > 99) Then adjtime := True;
+     if not adjtime and (d65.glDecCount > 49) Then adjtime := True;
+     if adjtime Then
+     Begin
+          // Lets see about moving the average DT error every 100 receptions
+          // maybe a stupid idea, but, I wanna know.  :)
+          // Samples fed to the decoder go in with an offset to start of data
+          // with 4096 being default.  At 11025 samples per second this is
+          // 1/11025 second per sample.  If I do (glDTAvg/(1/11025)) I get
+          // an adjustment value needed to move it to zero DT average.
+          dta := d65.glDTAvg/(1.0/11025.0);
+          dti := round(dta);
+          if (dti > 1) or (dti < -1) Then
+          Begin
+               dti := dti div 2; // This smoothes the changes a bit so it doesn't oscillate.
+               d65.glSampOffset := d65.glSampOffset+dti;
+               if d65.glSampOffset < 0 Then d65.glSampOffset := 0;
+               if d65.glSampOffset > 8192 Then d65.glSampOffset := 8192;
+               ListBox2.Items.Add('Changing decoder sample offset to ' + IntToStr(d65.glSampOffset));
+          end;
+          d65.glDecCount := 0;
+          d65.glDTAvg := 0.0;
+          avgdt := 0.0;
+     end;
 
      if qrgValid and (length(edRBCall.Text)>2) Then
      Begin
@@ -1537,13 +1564,13 @@ Begin
 
      if not demodulate.dmdemodBusy Then
      Begin
-          if dmruntime > lrun then lrun := dmruntime;
-          if isZero(srun) Then srun := dmruntime;
-          if dmruntime < srun Then srun := dmruntime;
-          if not IsZero(demodulate.dmruntime) Then Label82.Caption := FormatFloat('0.000',(demodulate.dmruntime/1000.0));
+          if d65.dmruntime > lrun then lrun := d65.dmruntime;
+          if isZero(srun) Then srun := d65.dmruntime;
+          if d65.dmruntime < srun Then srun := d65.dmruntime;
+          if not IsZero(d65.dmruntime) Then Label82.Caption := FormatFloat('0.000',(d65.dmruntime/1000.0));
           if not IsZero(lrun) Then Label83.Caption := FormatFloat('0.000',(lrun/1000.0));
           if not IsZero(srun) Then Label84.Caption := FormatFloat('0.000',(srun/1000.0));
-          if not isZero(demodulate.dmarun) Then Label86.Caption := FormatFloat('0.000',((demodulate.dmarun/demodulate.dmrcount)/1000.0));
+          if not isZero(d65.dmarun) Then Label86.Caption := FormatFloat('0.000',((d65.dmarun/d65.dmrcount)/1000.0));
      end;
 
      // Compute actual full callsign to use from prefix+callsign+suffix
@@ -1728,7 +1755,7 @@ Begin
      end;
 
      if rbOn.Checked then rbOn.Caption := 'Spots sent:  ' + IntToStr(rb.rbCount) else rbOn.Caption := 'RB Enable';
-     if length(edRBCall.Text) < 3 Then rbOn.Caption := 'Disabled - Setup Data.';
+     if length(edRBCall.Text) < 3 Then rbOn.Caption := 'Disabled';
 
      if rbOn.Checked and (not rb.rbOn) Then
      Begin
@@ -2237,10 +2264,10 @@ Begin
                     avgdt := StrToFloat(afoo) + avgdt;
                     if demodulate.dmdecodes[i].ec = 'K' then inc(kvcount);
                     if demodulate.dmdecodes[i].ec = 'B' then inc(bmcount);
-                    if demodulate.dmdecodes[i].ver = '1' Then inc(v1c);
-                    if demodulate.dmdecodes[i].ver = '2' Then inc(v2c);
-                    if demodulate.dmdecodes[i].sf = 'S' Then inc(msc);
-                    if demodulate.dmdecodes[i].sf = 'F' Then inc(mfc);
+                    //if demodulate.dmdecodes[i].ver = '1' Then inc(v1c);
+                    //if demodulate.dmdecodes[i].ver = '2' Then inc(v2c);
+                    //if demodulate.dmdecodes[i].sf = 'S' Then inc(msc);
+                    //if demodulate.dmdecodes[i].sf = 'F' Then inc(mfc);
                     if not ((demodulate.dmdecodes[i].nc1 = 0) And (demodulate.dmdecodes[i].nc2 = 0) And (demodulate.dmdecodes[i].ng = 0)) Then
                     Begin
                          if demodulate.dmdecodes[i].sf = 'S' Then
@@ -2313,6 +2340,110 @@ Begin
      k := 0;
      for i := 0 to 499 do if not demodulate.dmdecodes[i].clr Then inc(k);
      If k>0 Then Memo1.Append('Items not cleared at end of display pass - this is wrong.');
+end;
+
+procedure TForm1.displayDecodes3;
+Var
+   i,j,k    : Integer;
+   afoo     : String;
+   bfoo     : String;
+   cfoo     : String;
+   srec     : Spot.spotRecord;
+   nodteval : Boolean;
+Begin
+     //ListBox2.Items.Add('Entering display decodes');
+     k := 0;
+     for i := 0 to 49 do if not d65.gld65decodes[i].dtProcessed Then inc(k);
+     If k>0 Then
+     Begin
+          if cbDivideDecodes.Checked Then ListBox1.Items.Insert(0,'------------------------------------------------------------');
+          for i := 0 to 49 do
+          begin
+               if not d65.gld65decodes[i].dtProcessed Then
+               Begin
+                    // Adjust the decimal point to what it "should" be for user's display.
+                    afoo := d65.gld65decodes[i].dtDeltaTime;
+                    if length(afoo)> 2 Then
+                    Begin
+                         bfoo := ExtractWord(1,afoo,[',','.']);
+                         cfoo := ExtractWord(2,afoo,[',','.']);
+                         afoo := bfoo + dChar + cfoo;
+                         // I don't want stations hugely out of time compared to our local timebase
+                         // skewing this.
+                         nodteval := True;
+                         If (StrToFloat(afoo) > 1.5) or (StrToFloat(afoo) < -1.5) Then
+                         Begin
+                              nodteval := True;
+                         End
+                         Else
+                         Begin
+                              nodteval := False;
+                              avgdt := StrToFloat(afoo) + avgdt;
+                         end;
+                    end;
+                    if d65.gld65decodes[i].dtType = 'K' then inc(kvcount);
+                    if d65.gld65decodes[i].dtType = 'B' then inc(bmcount);
+                    if d65.gld65decodes[i].dtType = 'S' then inc(shcount);
+                    if length(d65.gld65decodes[i].dtDecoded)>1 Then
+                    Begin
+                         if not nodteval Then inc(d65.glDecCount);
+                         d65.glDTAvg := (d65.glDTAvg+avgdt)/d65.glDecCount;
+                         // 12:34  -##  -1000  MESSAGE
+                         // 12:34  -##   1000  MESSAGE
+                         if not AnsiContainsText(d65.gld65decodes[i].dtDeltaFreq,'-') Then d65.gld65decodes[i].dtDeltaFreq := ' ' + d65.gld65decodes[i].dtDeltaFreq;
+                         if length(d65.gld65decodes[i].dtSigLevel)=2 Then d65.gld65decodes[i].dtSigLevel := d65.gld65decodes[i].dtSigLevel[1] + '0' + d65.gld65decodes[i].dtSigLevel[2];
+                         ListBox1.Items.Insert(0, d65.gld65decodes[i].dtTimeStamp + '  ' + PadRight(d65.gld65decodes[i].dtSigLevel,3) + '  ' + PadRight(d65.gld65decodes[i].dtDeltaFreq,5) + '   ' + d65.gld65decodes[i].dtDecoded);
+                         { TODO : Add call to grab signal report for logging in this general area }
+                         if (rbOn.Checked) And (sopQRG = eopQRG) And (StrToInt(edDialQRG.Text) > 0) Then
+                         Begin
+                              //Post to RB
+                              //Adjust the decimal point to what it "should" be. And here is should be .
+                              afoo := bfoo + '.' + cfoo;
+                              srec.qrg      := StrToInt(edDialQRG.Text);
+                              srec.date     := TrimLeft(TrimRight(d65.dmTimeStamp));
+                              srec.time     := '';
+                              srec.sync     := StrToInt(TrimLeft(TrimRight(d65.gld65decodes[i].dtNumSync)));
+                              srec.db       := StrToInt(TrimLeft(TrimRight(d65.gld65decodes[i].dtSigLevel)));
+                              srec.dt       := TrimLeft(TrimRight(afoo));
+                              srec.df       := StrToInt(TrimLeft(TrimRight(d65.gld65decodes[i].dtDeltaFreq)));
+                              srec.decoder  := TrimLeft(TrimRight(d65.gld65decodes[i].dtType));
+                              srec.decoder  := srec.decoder[1];
+                              srec.exchange := TrimLeft(TrimRight(d65.gld65decodes[i].dtDecoded));
+                              srec.mode     := '65A';
+                              srec.rbsent   := False;
+                              srec.dbfsent  := False;
+                              rb.addSpot(srec);
+                              inc(rbposted);
+                         End;
+                    end;
+                    // Free record for demodulator's use next round.
+                    d65.gld65decodes[i].dtProcessed := True;
+               end;
+          end;
+          d65.gld65HaveDecodes := False;
+          if cbCompactDivides.Checked and cbDivideDecodes.Checked Then
+          Begin
+               // Remove extra --- divider lines
+               j := 0;
+               for i := 0 to ListBox1.Items.Count-1 do if ListBox1.Items.Strings[i] = '------------------------------------------------------------' Then inc(j);
+               if j>1 then
+               Begin
+                    for i := ListBox1.Items.Count-1 downto 0 do
+                    begin
+                         if ListBox1.Items.Strings[i] = '------------------------------------------------------------' Then
+                         Begin
+                              ListBox1.Items.Delete(i);
+                              dec(j);
+                              if j < 2 Then break;
+                         end;
+                    end;
+               end;
+          end;
+     end;
+     for i := 0 to 49 do
+     begin
+          d65.gld65decodes[i].dtProcessed := True;
+     end;
 end;
 
 function  TForm1.db(x : CTypes.cfloat) : CTypes.cfloat;
@@ -3509,6 +3640,10 @@ Begin
      foo := msg;
      foo := DelSpace1(foo);
      foo := StringReplace(foo,' ',',',[rfReplaceAll,rfIgnoreCase]);
+     // Updating for less.... verbose :) decoder display.
+     // It has
+     // UTC dB  DF  Message  enough of the endless bitching about inconsequential DT levels.
+     // Word Count must be 3 for UTC, dB and DF + 2, 3 or 4 for exchange for 5, 6 or 7.
      // Now with a structured message I'll have...
      // UTC, Sync, dB, DT, DF, EC, NC1, Call FROM, MSG
      // Where NC1 is one of [CQ, CQ ###, QRZ, DE, CALLSIGN]
@@ -3518,53 +3653,45 @@ Begin
      // If not wc = 9 or 10 then it's not something to parse here.
      i := 0;
      wc := wordcount(foo,[',']);
-     if (wc=8) or (wc=9) or (wc=10) Then
+     if (wc=5) or (wc=6) or (wc=7) Then
      Begin
-          if wc=8 Then
+          if wc=5 Then
           Begin
-               // Parse string into parts (8 word exchange)
+               // Parse string into parts (5 word exchange)
                exchange.utc  := TrimLeft(TrimRight(UpCase(ExtractWord(1,foo,[',']))));
-               exchange.sync := TrimLeft(TrimRight(UpCase(ExtractWord(2,foo,[',']))));
-               exchange.db   := TrimLeft(TrimRight(UpCase(ExtractWord(3,foo,[',']))));
-               exchange.dt   := TrimLeft(TrimRight(UpCase(ExtractWord(4,foo,[',']))));
-               exchange.df   := TrimLeft(TrimRight(UpCase(ExtractWord(5,foo,[',']))));
-               exchange.ec   := TrimLeft(TrimRight(UpCase(ExtractWord(6,foo,[',']))));
-               exchange.nc1  := TrimLeft(TrimRight(UpCase(ExtractWord(7,foo,[',']))));
+               exchange.db   := TrimLeft(TrimRight(UpCase(ExtractWord(2,foo,[',']))));
+               exchange.df   := TrimLeft(TrimRight(UpCase(ExtractWord(3,foo,[',']))));
+               exchange.nc1  := TrimLeft(TrimRight(UpCase(ExtractWord(4,foo,[',']))));
                exchange.nc1s := '';
-               exchange.nc2  := TrimLeft(TrimRight(UpCase(ExtractWord(8,foo,[',']))));
+               exchange.nc2  := TrimLeft(TrimRight(UpCase(ExtractWord(5,foo,[',']))));
                exchange.ng   := '';
           end;
-          if wc=9 Then
+          if wc=6 Then
           Begin
                // Parse string into parts (9 word exchange)
                exchange.utc  := TrimLeft(TrimRight(UpCase(ExtractWord(1,foo,[',']))));
-               exchange.sync := TrimLeft(TrimRight(UpCase(ExtractWord(2,foo,[',']))));
-               exchange.db   := TrimLeft(TrimRight(UpCase(ExtractWord(3,foo,[',']))));
-               exchange.dt   := TrimLeft(TrimRight(UpCase(ExtractWord(4,foo,[',']))));
-               exchange.df   := TrimLeft(TrimRight(UpCase(ExtractWord(5,foo,[',']))));
-               exchange.ec   := TrimLeft(TrimRight(UpCase(ExtractWord(6,foo,[',']))));
-               exchange.nc1  := TrimLeft(TrimRight(UpCase(ExtractWord(7,foo,[',']))));
+               exchange.db   := TrimLeft(TrimRight(UpCase(ExtractWord(2,foo,[',']))));
+               exchange.df   := TrimLeft(TrimRight(UpCase(ExtractWord(3,foo,[',']))));
+               exchange.nc1  := TrimLeft(TrimRight(UpCase(ExtractWord(4,foo,[',']))));
                exchange.nc1s := '';
-               exchange.nc2  := TrimLeft(TrimRight(UpCase(ExtractWord(8,foo,[',']))));
-               exchange.ng   := TrimLeft(TrimRight(UpCase(ExtractWord(9,foo,[',']))));
+               exchange.nc2  := TrimLeft(TrimRight(UpCase(ExtractWord(5,foo,[',']))));
+               exchange.ng   := TrimLeft(TrimRight(UpCase(ExtractWord(6,foo,[',']))));
           End;
-          if wc=10 Then
+          if wc=7 Then
           Begin
                // Parse string into parts (10 word exchange)
                exchange.utc  := TrimLeft(TrimRight(UpCase(ExtractWord(1,foo,[',']))));
-               exchange.sync := TrimLeft(TrimRight(UpCase(ExtractWord(2,foo,[',']))));
-               exchange.db   := TrimLeft(TrimRight(UpCase(ExtractWord(3,foo,[',']))));
-               exchange.dt   := TrimLeft(TrimRight(UpCase(ExtractWord(4,foo,[',']))));
-               exchange.df   := TrimLeft(TrimRight(UpCase(ExtractWord(5,foo,[',']))));
-               exchange.ec   := TrimLeft(TrimRight(UpCase(ExtractWord(6,foo,[',']))));
-               exchange.nc1  := TrimLeft(TrimRight(UpCase(ExtractWord(7,foo,[',']))));
-               exchange.nc1s := TrimLeft(TrimRight(UpCase(ExtractWord(8,foo,[',']))));
-               exchange.nc2  := TrimLeft(TrimRight(UpCase(ExtractWord(9,foo,[',']))));
-               exchange.ng   := TrimLeft(TrimRight(UpCase(ExtractWord(10,foo,[',']))));
+               exchange.db   := TrimLeft(TrimRight(UpCase(ExtractWord(2,foo,[',']))));
+               exchange.df   := TrimLeft(TrimRight(UpCase(ExtractWord(3,foo,[',']))));
+               exchange.nc1  := TrimLeft(TrimRight(UpCase(ExtractWord(4,foo,[',']))));
+               exchange.nc1s := TrimLeft(TrimRight(UpCase(ExtractWord(5,foo,[',']))));
+               exchange.nc2  := TrimLeft(TrimRight(UpCase(ExtractWord(6,foo,[',']))));
+               exchange.ng   := TrimLeft(TrimRight(UpCase(ExtractWord(7,foo,[',']))));
           End;
 
           i := 0;
-          if TryStrToInt(exchange.utc[1..2],i) Then gonogo := True else gonogo := False;
+          if Length(exchange.utc)=5 Then gonogo := True else gonogo := False;
+          if gonogo and TryStrToInt(exchange.utc[1..2],i) and TryStrToInt(exchange.utc[4..5],i) and (exchange.utc[3]=':') Then gonogo := True else gonogo := False;
           if gonogo Then
           Begin
                isiglevel := -30;
@@ -3614,9 +3741,9 @@ Begin
                // Have signal report and DF
                // Now can Call the message parser
                toParse := '';
-               if wc = 8 Then toParse  := exchange.nc1  + ' ' + exchange.nc2;
-               if wc = 9 Then toParse  := exchange.nc1  + ' ' + exchange.nc2 + ' ' + exchange.ng;
-               if wc = 10 Then toParse := exchange.nc1  + ' ' + exchange.nc1s + ' ' + exchange.nc2 + ' ' + exchange.ng;
+               if wc = 5 Then toParse := exchange.nc1  + ' ' + exchange.nc2;
+               if wc = 6 Then toParse := exchange.nc1  + ' ' + exchange.nc2 + ' ' + exchange.ng;
+               if wc = 7 Then toParse := exchange.nc1  + ' ' + exchange.nc1s + ' ' + exchange.nc2 + ' ' + exchange.ng;
                decomposeDecode(toParse,inQSOWith,isValid,isBreakIn,level,response,connectTo,fullCall,hisGrid);
                //sdb := exchange.db;
                sdf := exchange.df;
@@ -3727,11 +3854,6 @@ begin
                     { TODO : Changing this so my DF stays at TXDF unless I tell it to move }
                     edTXDF.Text := sdf;
                     edRXDF.Text := sdf;
-               end
-               else
-               begin
-                    sdf := edTXDF.Text;
-                    edRXDF.text := '0';
                end;
 
                if isFText(response) or isSText(response) Then
@@ -4806,7 +4928,7 @@ begin
           adc.adcRDgain := 0;
           // Attempt to open selected devices, both must pass open/start to continue.
           // Initialize RX stream.
-          paResult := portaudio.Pa_OpenStream(PPaStream(paInStream),PPaStreamParameters(ppaInParams),PPaStreamParameters(Nil),CTypes.cdouble(11025.0),CTypes.culong(64),TPaStreamFlags(0),PPaStreamCallback(@adc.adcCallback),Pointer(Self));
+          paResult := portaudio.Pa_OpenStream(PPaStream(paInStream),PPaStreamParameters(ppaInParams),PPaStreamParameters(Nil),CTypes.cdouble(11025.0),CTypes.culong(512),TPaStreamFlags(0),PPaStreamCallback(@adc.adcCallback),Pointer(Self));
           if paResult <> 0 Then
           Begin
                // Was unable to open RX.
@@ -4914,6 +5036,11 @@ begin
           thisTXMsg := comboMacroList.Text;
           genTX(edTXMsg.Text,StrToInt(edTXDF.Text)+clRebel.txOffset);
      end;
+end;
+
+procedure TForm1.cbNZLPFChange(Sender: TObject);
+begin
+     d65.glnz := cbNZLPF.Checked;
 end;
 
 procedure TForm1.btnsetQRGClick(Sender: TObject);
@@ -5045,6 +5172,7 @@ begin
      lrun       := 0.0;
      demodulate.dmrcount := 0;
      demodulate.dmarun := 0.0;
+     d65.dmarun := 0.0;
      mval        := valobject.TValidator.create();
      Label1.Caption := 'TX Level:  100%';
      firstPass   := True;
@@ -5097,7 +5225,7 @@ end;
 
 procedure decodeThread.Execute;
 Var
-   rxf : Packed Array of CTypes.cfloat;
+   //rxf : Packed Array of CTypes.cfloat;
    i   : Integer;
 begin
      while not Terminated and not Suspended and not decoderBusy do
@@ -5112,11 +5240,36 @@ begin
                     if i > 25 then break;
                     sleep(1);
                end;
-               setLength(rxf,length(adc.d65rxFBuffer));
-               for i := 0 to length(adc.d65rxFBuffer)-1 do rxf[i] := adc.d65rxFBuffer[i];
-               demodulate.fdemod(rxf);
+               // V5 Decoder
+               //setLength(rxf,length(adc.d65rxFBuffer));
+               //for i := 0 to length(adc.d65rxFBuffer)-1 do rxf[i] := adc.d65rxFBuffer[i];
+               //demodulate.fdemod(rxf);
+               //setLength(rxf,0);
+               // V3 Decoder
+               for i := 0 to length(adc.d65rxIBuffer)-1 do d65.glinBuffer[i] := adc.d65rxIBuffer[i];
+               d65.dmtimestamp := '';
+               d65.dmtimestamp := d65.dmtimestamp + IntToStr(thisUTC.Year);
+               if thisUTC.Month < 10 Then d65.dmtimestamp := d65.dmtimestamp + '0' + IntToStr(thisUTC.Month) else d65.dmtimestamp := d65.dmtimestamp + IntToStr(thisUTC.Month);
+               if thisUTC.Day < 10 Then d65.dmtimestamp := d65.dmtimestamp + '0' + IntToStr(thisUTC.Day) else d65.dmtimestamp := d65.dmtimestamp + IntToStr(thisUTC.Day);
+               if thisUTC.Hour < 10 Then d65.dmtimestamp := d65.dmtimestamp + '0' + IntToStr(thisUTC.Hour) else d65.dmtimestamp := d65.dmtimestamp + IntToStr(thisUTC.Hour);
+               if thisUTC.Minute < 10 Then d65.dmtimestamp := d65.dmtimestamp + '0' + IntToStr(thisUTC.Minute) else d65.dmtimestamp := d65.dmtimestamp + IntToStr(thisUTC.Minute);
+               d65.dmtimestamp := d65.dmtimestamp + '00';
+               if thisUTC.Hour < 10 then d65.gld65timestamp := '0' + IntToStr(thisUTC.Hour) else d65.gld65timestamp := IntToStr(thisUTC.Hour);
+               if thisUTC.Minute < 10 then d65.gld65timestamp := d65.gld65timestamp + ':0' + IntToStr(thisUTC.Minute) else d65.gld65timestamp := d65.gld65timestamp + ':' + IntToStr(thisUTC.Minute);
+               if multion then
+               Begin
+                    d65.glbinspace := demodulate.dmbw;
+                    glSteps := 1;
+               end
+               else
+               begin
+                    d65.glMouseDF := rxdf;
+                    d65.glDFTolerance := demodulate.dmbws;
+                    glSteps := 0;
+               end;
+               d65.doDecode(0,524287);
+               //d65.doDecode(0,533504);
                inc(decodeping);
-               setLength(rxf,0);
                doDecode := False;
                decoderBusy := False;
           end;

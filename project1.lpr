@@ -6,7 +6,7 @@ program project1;
 uses
   Interfaces, Forms, tachartlazaruspkg, lazcontrols, Unit1, portaudio, adc,
   spectrum, cmaps, fftw_jl, spot, demodulate, waterfall1, valobject,
-  rebel;
+  rebel, d65;
 
 {$R *.res}
 
