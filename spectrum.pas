@@ -109,8 +109,7 @@ Type
 
     RGBArray = Array[0..749] of RGBPixel;
 
-//procedure computeSpectrum(Const dBuffer : Array of CTypes.cint16);
-procedure computeSpectrum(Const dBuffer : Array of CTypes.cfloat);
+procedure computeSpectrum(Const dBuffer : Array of CTypes.cint16);
 
 function colorMap(Const integerArray : Array of LongInt; Var rgbArray : RGBArray): Boolean;
 
@@ -325,7 +324,7 @@ Begin
      audioComputing := False;
 End;
 
-procedure computeSpectrum(Const dBuffer : Array of CTypes.cfloat);
+procedure computeSpectrum(Const dBuffer : Array of CTypes.cint16);
 Var
    i,x,y,z,intVar,nh,iadj       : CTypes.cint;
    gamma,offset,fi,fvar,pw1,pw2 : CTypes.cfloat;

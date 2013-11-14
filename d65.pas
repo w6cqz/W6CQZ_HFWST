@@ -73,6 +73,7 @@ Var
    glNshift, glDFTolerance       : CTypes.cint;
    glNzap, glmode65              : CTypes.cint;
    glstepBW, glsteps, glbinspace : CTypes.cint;
+   glsbinspace                   : CTypes.cint;
    glfftFWisdom                  : CTypes.cint;
    glinBuffer                    : Array[0..661503] of CTypes.cint16;
    glf1Buffer, glf2Buffer        : Array[0..661503] of CTypes.cfloat;
@@ -85,8 +86,10 @@ Var
    dmrcount                      : Integer;
    glDTAvg                       : Double;
    glDecCount                    : CTypes.cuint32;
+   glDemodCount                  : CTypes.cuint32;
    glSampOffset                  : Integer;
    glnz                          : Boolean;
+   glRunCount                    : CTypes.cuint32;
 
 procedure doDecode(bStart, bEnd : Integer);
 
@@ -155,15 +158,6 @@ procedure  lpf1(dat,
                 ical,
                 wisfile : Pointer
                ); cdecl; external JT_DLL name 'lpf1_';
-
-procedure  lpf1nz(dat,
-                  jz,
-                  nz,
-                  mousedf,
-                  mousedf2,
-                  ical,
-                  wisfile : Pointer
-                 ); cdecl; external JT_DLL name 'lpf1nz_';
 
 function     db(x : CTypes.cfloat) : CTypes.cfloat;
 Begin
@@ -323,10 +317,8 @@ begin
      dmenter      := Now;
      glinprog := True;
      gld65HaveDecodes := False;
-     // Hard coding a couple of things that used to be variable in JT65-HF
+     // Hard coding this... it used to be variable in JT65-HF
      glNBlank := 0;
-     //glSteps := 1; { TODO : This sets multi ALWAYS ON FIX }
-     //glBinSpace := 20;
 
      if glfftFWisdom > -1 Then
      Begin
@@ -342,8 +334,9 @@ begin
 
      if glnd65FirstRun Then
      Begin
+         glRunCount := 1;
          glDTAvg    := 0.0;
-         glDecCount := 0;
+         glDemodCount := 0;
          glSampOffset := 2048;
          //
          // ical =  0 = FFTW_ESTIMATE set, no load/no save wisdom.  Use ical = 0 when all else fails.
@@ -355,7 +348,6 @@ begin
          glmcall := StrAlloc(12);
          glmyline := StrAlloc(43);
          glkvs := StrAlloc(22);
-
          glwisfile := StrAlloc(256);
          StrPCopy(glwisfile,PadRight(dmwisPath,255));
          glkvfname := StrAlloc(256);
@@ -389,6 +381,8 @@ begin
     Else
     Begin
          // Clear internal buffers
+         glDemodCount := 0;
+         Inc(glRunCount);
          for i := 0 to 661503 do
          Begin
               glf1Buffer[i] := 0.0;
@@ -402,8 +396,6 @@ begin
          end;
     End;
     // General housekeeping for a start of decoder cycle
-    //StrPCopy(glkvfname,PadRight(dmtmpdir+'KVASD.DAT',255));
-    //StrPCopy(glwisfile,PadRight(dmwisPath,255));
     glmline := '                                                                        ';
     glmcall := '            ';
     glmyline := '                                           ';
@@ -477,8 +469,6 @@ begin
     avesq := sq/jz;
     basevb := db(avesq) - 44;
     //diagout.Form3.ListBox1.Items.Add('avesq = ' + floatToStr(avesq) + ' basevb = ' + floatToStr(basevb));
-    {TODO : REMOVE FOLLOWING ONCE BUG IS FOUND }
-    lical := 0;
     if (avesq <> 0.0) And (basevb > -16.0) And (basevb < 21.0) Then
     Begin
          ndec := 0;
@@ -494,9 +484,7 @@ begin
          //jz := 524287;  // This truncates the last symbol to get a POT transform - otherwise I have to move up to 1048575 - can't see a problem with that so far this is 0..524287 so it's 524288 samples
          if glnz then
          Begin
-              //lpf1nz(@gllpfM[0], @jz, @jz2, @lmousedf, @mousedf2, @lical, glwisfile);
-              // Since I'm not doing the lpf at all when I call lpf1nz I'll try the simple
-              // 2x decimate here again.
+              // Since I'm not doing the lpf I'll do the simple 2x decimate here again.
               j := 0;
               for i := 0 to jz do
               begin
@@ -1124,6 +1112,8 @@ begin
          // very strong signal as a very weak one due to decoding a harmonic
          // and the 'real' signal.  First I need to remove any actual dupe
          // strings.  But.  Only need to go through all this if ndec > 1 :)
+         ndec := 0;
+         for i := 0 to 99 do if not (decArray[i] = '') then inc(ndec);
          if ndec > 1 Then
          Begin
               glsort1.Clear;
@@ -1291,19 +1281,16 @@ begin
          // WARNING LOOK AT THIS IF THINGS START TO GO WRONG IN DISPLAY!
          for j := 0 to 49 do
          begin
-              if gld65decodes[j].dtProcessed Then
-              Begin
-                   gld65decodes[j].dtTimeStamp := '';
-                   gld65decodes[j].dtSigLevel := '';
-                   gld65decodes[j].dtNumSync := '';
-                   gld65decodes[j].dtDeltaTime := '';
-                   gld65decodes[j].dtDeltaFreq := '';
-                   gld65decodes[j].dtSigW := ' ';
-                   gld65decodes[j].dtCharSync := '';
-                   gld65decodes[j].dtDecoded := '';
-                   gld65decodes[j].dtProcessed := True;
-                   gld65decodes[j].dtType := '';
-              end;
+              gld65decodes[j].dtTimeStamp := '';
+              gld65decodes[j].dtSigLevel := '';
+              gld65decodes[j].dtNumSync := '';
+              gld65decodes[j].dtDeltaTime := '';
+              gld65decodes[j].dtDeltaFreq := '';
+              gld65decodes[j].dtSigW := ' ';
+              gld65decodes[j].dtCharSync := '';
+              gld65decodes[j].dtDecoded := '';
+              gld65decodes[j].dtProcessed := True;
+              gld65decodes[j].dtType := '';
          end;
          // END OF WARNING
          for i := 0 to gldecOut.count-1 do
@@ -1351,63 +1338,72 @@ begin
                    end;
               end;
          End;
-         gld65HaveDecodes := True;
     end
     else
     begin
          //diagout.Form3.ListBox1.Items.Add('No decodes.');
     end;
-    if (gldecOut.Count = 0) And (glSteps = 0) Then
-    Begin
-         // This was a single decode pass with no decode.  Run the shorthand
-         // decoder just in case.  Remember.. shdec wants the float samples
-         // BEFORE LPF application!  This data just happens to be still sitting
-         // in glf1Buffer[x]
-         nspecial := 0;
-         nstest := 0;
-         dfsh := 0;
-         iderrsh := 0;
-         idriftsh := 0;
-         snrsh := 0;
-         nwsh := 0;
-         idfsh := 0;
-         //diagout.Form3.ListBox1.Items.Add('Attempting SH Decode.');
-         shdec(@glf1Buffer[0],@bEnd,@glMouseDF,@glDFTolerance,@nspecial,@nstest,@dfsh,@iderrsh,@idriftsh,@snrsh,@nwsh,@idfsh,@lical,glwisfile);
-         if nspecial > 0 Then
+    { TODO : Fix SH decoder - it's core dumping.  Seems I had this before in JT65-HF }
+    //if (gldecOut.Count = 0) And (glSteps = 0) Then
+    //Begin
+    //     // This was a single decode pass with no decode.  Run the shorthand
+    //     // decoder just in case.  Remember.. shdec wants the float samples
+    //     // BEFORE LPF application!  This data just happens to be still sitting
+    //     // in glf1Buffer[x]
+    //     nspecial := 0;
+    //     nstest := 0;
+    //     dfsh := 0;
+    //     iderrsh := 0;
+    //     idriftsh := 0;
+    //     snrsh := 0;
+    //     nwsh := 0;
+    //     idfsh := 0;
+    //     //diagout.Form3.ListBox1.Items.Add('Attempting SH Decode.');
+    //     shdec(@glf1Buffer[0],@bEnd,@glMouseDF,@glDFTolerance,@nspecial,@nstest,@dfsh,@iderrsh,@idriftsh,@snrsh,@nwsh,@idfsh,@lical,glwisfile);
+    //     if nspecial > 0 Then
+    //     Begin
+    //          foo := '';
+    //          if nspecial = 1 Then foo := 'ATT';
+    //          if nspecial = 2 Then foo := 'RO';
+    //          if nspecial = 3 Then foo := 'RRR';
+    //          if nspecial = 4 Then foo := '73';
+    //          //diagout.Form3.ListBox1.Items.Add('nspecial = ' + IntToStr(nspecial) + ' which is:  ' + foo);
+    //          //diagout.Form3.ListBox1.Items.Add('nstest: ' + IntToStr(nstest) + ' dfsh: ' + FloatToStr(dfsh) + ' iderrsh: ' + IntToStr(iderrsh));
+    //          //diagout.Form3.ListBox1.Items.Add('idriftsh: ' + IntToStr(idriftsh) + ' snrsh: ' + FloatToStr(snrsh) + ' nwsh: ' + IntToStr(nwsh));
+    //          //diagout.Form3.ListBox1.Items.Add('idfsh: ' + IntToStr(idfsh));
+    //          for j := 0 to 49 do
+    //          begin
+    //               if gld65decodes[j].dtProcessed Then
+    //               begin
+    //                    gld65decodes[j].dtTimeStamp := gld65timestamp;
+    //                    gld65decodes[j].dtSigLevel := IntToStr(Round(snrsh));
+    //                    gld65decodes[j].dtNumSync := '0';
+    //                    gld65decodes[j].dtDeltaTime := '0.0';
+    //                    gld65decodes[j].dtDeltaFreq := IntToStr(idfsh);
+    //                    gld65decodes[j].dtSigW := ' ';
+    //                    gld65decodes[j].dtCharSync := ' ';
+    //                    gld65decodes[j].dtDecoded := foo;
+    //                    gld65decodes[j].dtProcessed := False;
+    //                    gld65decodes[j].dtType := 'S';
+    //                    break;
+    //               end;
+    //          end;
+    //          gld65HaveDecodes := True;
+    //     End
+    //     Else
+    //     Begin
+    //          //diagout.Form3.ListBox1.Items.Add('No SH message found.');
+    //     End;
+    //End;
+    gld65HaveDecodes := False;
+    for i := 0 to length(gld65decodes)-1 do
+    begin
+         if not gld65decodes[i].dtProcessed Then
          Begin
-              foo := '';
-              if nspecial = 1 Then foo := 'ATT';
-              if nspecial = 2 Then foo := 'RO';
-              if nspecial = 3 Then foo := 'RRR';
-              if nspecial = 4 Then foo := '73';
-              //diagout.Form3.ListBox1.Items.Add('nspecial = ' + IntToStr(nspecial) + ' which is:  ' + foo);
-              //diagout.Form3.ListBox1.Items.Add('nstest: ' + IntToStr(nstest) + ' dfsh: ' + FloatToStr(dfsh) + ' iderrsh: ' + IntToStr(iderrsh));
-              //diagout.Form3.ListBox1.Items.Add('idriftsh: ' + IntToStr(idriftsh) + ' snrsh: ' + FloatToStr(snrsh) + ' nwsh: ' + IntToStr(nwsh));
-              //diagout.Form3.ListBox1.Items.Add('idfsh: ' + IntToStr(idfsh));
-              for j := 0 to 49 do
-              begin
-                   if gld65decodes[j].dtProcessed Then
-                   begin
-                        gld65decodes[j].dtTimeStamp := gld65timestamp;
-                        gld65decodes[j].dtSigLevel := IntToStr(Round(snrsh));
-                        gld65decodes[j].dtNumSync := '0';
-                        gld65decodes[j].dtDeltaTime := '0.0';
-                        gld65decodes[j].dtDeltaFreq := IntToStr(idfsh);
-                        gld65decodes[j].dtSigW := ' ';
-                        gld65decodes[j].dtCharSync := ' ';
-                        gld65decodes[j].dtDecoded := foo;
-                        gld65decodes[j].dtProcessed := False;
-                        gld65decodes[j].dtType := 'S';
-                        break;
-                   end;
-              end;
-              gld65HaveDecodes := True;
-         End
-         Else
-         Begin
-              //diagout.Form3.ListBox1.Items.Add('No SH message found.');
-         End;
-    End;
+              gld65HaveDecodes := true;
+              inc(glDemodCount);
+         end;
+    end;
     gldecOut.Clear;
     glrawOut.Clear;
     glsort1.Clear;

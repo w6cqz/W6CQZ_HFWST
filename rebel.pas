@@ -134,7 +134,7 @@ Begin
      prBand      := 0;
      prRXOffset  := 0;
      prTXOffset  := 0;
-     prDDSRef    := 0;
+     prDDSRef    := 50000000;
      prRebVer    := '';
      prDDSVer    := '';
      prLocked    := False;
@@ -173,7 +173,7 @@ end;
 
 function TRebel.ltx : Boolean;
 var
-   foo,f2: String;
+   foo   : String;
    i,j   : Integer;
 Begin
      prBusy := True;
@@ -210,19 +210,16 @@ Begin
                               If prResponse = foo Then
                               Begin
                                    // This indicates the block was accepted and matches what I expect it to be.
-                                   f2 := prResponse;
                                    j := j+4;
                               end
                               else
                               begin
                                    // Bad news :(
-                                   f2 := prResponse;
                                    break;
                               end;
                          end
                          else
                          begin
-                              f2 := prResponse;
                               prError := 'Upload block fails ack';
                               result := false;
                               break;
@@ -324,7 +321,6 @@ end;
 function TRebel.dumptx: String;
 Var
    foo : String;
-   i   : Integer;
 begin
      prBusy := True;
      // Reading back FSK Values from the actual stored in array values
@@ -345,9 +341,6 @@ begin
 end;
 
 function TRebel.pttOn : Boolean;
-Var
-   foo : String;
-   i   : Integer;
 Begin
      prBusy := True;
      // Need to turn it ON
@@ -356,7 +349,6 @@ Begin
      prResponse := '';
      if ask Then
      Begin
-          foo := prResponse;
           if prResponse='1,10;' Then
           Begin
                prTXState := True;
@@ -379,9 +371,6 @@ Begin
 end;
 
 function TRebel.pttOff : Boolean;
-Var
-   foo : String;
-   i   : Integer;
 Begin
      prBusy := True;
      // Need to turn it OFF
@@ -501,7 +490,6 @@ end;
 
 function TRebel.poll : Boolean;
 Var
-   foo : String;
    ff  : Double;
    i,j : Integer;
 Begin

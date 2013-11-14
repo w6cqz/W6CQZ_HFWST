@@ -17,9 +17,9 @@ object Form1: TForm1
   OnCreate = FormCreate
   LCLVersion = '1.0.12.0'
   object Label108: TLabel
-    Left = 78
+    Left = 88
     Height = 23
-    Top = 64
+    Top = 37
     Width = 29
     Caption = '-20'
     Font.Height = -19
@@ -31,8 +31,8 @@ object Form1: TForm1
   object comboQRGList: TComboBox
     Left = 8
     Height = 30
-    Top = 256
-    Width = 104
+    Top = 149
+    Width = 133
     Font.Height = -19
     Font.Name = 'Arial'
     ItemHeight = 22
@@ -216,8 +216,8 @@ object Form1: TForm1
     Left = 415
     Height = 23
     Top = 6
-    Width = 185
-    Caption = 'TX: TRANSMITTING'
+    Width = 83
+    Caption = 'TX: IDLE'
     Font.Height = -19
     Font.Name = 'Arial'
     Font.Style = [fsBold]
@@ -284,8 +284,8 @@ object Form1: TForm1
     Left = 8
     Height = 25
     Top = 35
-    Width = 133
-    Caption = 'Audio Levels'
+    Width = 60
+    Caption = 'Audio'
     Font.Height = -21
     Font.Name = 'Arial'
     Font.Style = [fsBold]
@@ -321,9 +321,9 @@ object Form1: TForm1
     ParentFont = False
   end
   object Button2: TButton
-    Left = 128
-    Height = 26
-    Top = 266
+    Left = 8
+    Height = 32
+    Top = 260
     Width = 106
     Caption = 'Clear Decodes'
     Font.Height = -13
@@ -334,9 +334,9 @@ object Form1: TForm1
     TabOrder = 3
   end
   object Label27: TLabel
-    Left = 8
+    Left = 10
     Height = 25
-    Top = 128
+    Top = 88
     Width = 67
     Caption = 'QRG:  '
     Font.Height = -21
@@ -346,10 +346,10 @@ object Form1: TForm1
     ParentFont = False
   end
   object buttonConfig: TButton
-    Left = 248
-    Height = 26
-    Top = 266
-    Width = 56
+    Left = 144
+    Height = 32
+    Top = 260
+    Width = 80
     Caption = 'Setup'
     Font.Height = -13
     Font.Name = 'Arial'
@@ -359,7 +359,7 @@ object Form1: TForm1
     TabOrder = 4
   end
   object rbOn: TCheckBox
-    Left = 320
+    Left = 256
     Height = 26
     Top = 266
     Width = 133
@@ -375,8 +375,8 @@ object Form1: TForm1
     Left = 8
     Height = 30
     Hint = 'Enter as Hertz, KHz or MHz'
-    Top = 152
-    Width = 104
+    Top = 181
+    Width = 133
     Font.Height = -19
     Font.Name = 'Arial'
     ParentFont = False
@@ -386,11 +386,15 @@ object Form1: TForm1
   end
   object btnsetQRG: TButton
     Left = 8
-    Height = 24
-    Top = 192
-    Width = 75
+    Height = 32
+    Top = 216
+    Width = 133
     Caption = 'Set QRG'
+    Font.Height = -13
+    Font.Name = 'Arial'
+    Font.Style = [fsBold]
     OnClick = btnsetQRGClick
+    ParentFont = False
     TabOrder = 8
   end
   object PageControl: TPageControl
@@ -1078,14 +1082,6 @@ object Form1: TForm1
         Caption = 'current qrg'
         ParentColor = False
       end
-      object cbNoDecoderLPF: TCheckBox
-        Left = 228
-        Height = 20
-        Top = 138
-        Width = 114
-        Caption = 'No decoder LPF'
-        TabOrder = 4
-      end
     end
     object TabSheet2: TTabSheet
       Caption = 'Spectrum Display/GUI Options'
@@ -1743,7 +1739,7 @@ object Form1: TForm1
   object Label91: TLabel
     Left = 8
     Height = 20
-    Top = 232
+    Top = 125
     Width = 69
     Caption = 'QRG List'
     Font.Height = -16
@@ -1783,42 +1779,6 @@ object Form1: TForm1
     ParentFont = False
     Style = lbOwnerDrawFixed
     TabOrder = 0
-  end
-  object Label78: TLabel
-    Left = 21
-    Height = 23
-    Top = 64
-    Width = 43
-    Caption = 'Left:'
-    Font.Height = -19
-    Font.Name = 'Arial'
-    Font.Style = [fsBold]
-    ParentColor = False
-    ParentFont = False
-  end
-  object Label107: TLabel
-    Left = 8
-    Height = 23
-    Top = 90
-    Width = 56
-    Caption = 'Right:'
-    Font.Height = -19
-    Font.Name = 'Arial'
-    Font.Style = [fsBold]
-    ParentColor = False
-    ParentFont = False
-  end
-  object Label109: TLabel
-    Left = 78
-    Height = 23
-    Top = 90
-    Width = 29
-    Caption = '-20'
-    Font.Height = -19
-    Font.Name = 'Arial'
-    Font.Style = [fsBold]
-    ParentColor = False
-    ParentFont = False
   end
   object GroupBox16: TGroupBox
     AnchorSideTop.Control = Panel1
@@ -2366,14 +2326,14 @@ object Form1: TForm1
       TabOrder = 10
     end
     object rbTXEven: TRadioButton
-      Left = 254
-      Height = 20
-      Top = 135
-      Width = 51
+      Left = 264
+      Height = 23
+      Top = 134
+      Width = 59
       Anchors = [akLeft]
       Caption = 'Even'
       Checked = True
-      Font.Height = -13
+      Font.Height = -16
       Font.Name = 'Arial'
       Font.Style = [fsBold]
       OnChange = rbTXEvenChange
@@ -2382,13 +2342,13 @@ object Form1: TForm1
       TabStop = True
     end
     object rbTXOdd: TRadioButton
-      Left = 312
-      Height = 20
-      Top = 135
-      Width = 46
+      Left = 328
+      Height = 23
+      Top = 134
+      Width = 52
       Anchors = [akLeft]
       Caption = 'Odd'
-      Font.Height = -13
+      Font.Height = -16
       Font.Name = 'Arial'
       Font.Style = [fsBold]
       OnChange = rbTXEvenChange
@@ -2396,13 +2356,13 @@ object Form1: TForm1
       TabOrder = 11
     end
     object Label11: TLabel
-      Left = 176
-      Height = 17
-      Top = 137
-      Width = 64
+      Left = 181
+      Height = 20
+      Top = 136
+      Width = 76
       Anchors = [akLeft]
       Caption = 'TX Period'
-      Font.Height = -13
+      Font.Height = -16
       Font.Name = 'Arial'
       Font.Style = [fsBold]
       ParentColor = False
@@ -2412,22 +2372,23 @@ object Form1: TForm1
       Left = 9
       Height = 20
       Top = 211
-      Width = 146
+      Width = 153
       Anchors = [akLeft]
       Caption = 'Match TX QRG To DF'
       Checked = True
       Font.Height = -13
       Font.Name = 'Arial'
+      Font.Style = [fsBold]
       ParentFont = False
       State = cbChecked
       TabOrder = 13
     end
     object cbMultiOn: TCheckBox
-      Left = 280
+      AnchorSideTop.Control = cbTXEqRXDF
+      Left = 176
       Height = 20
-      Top = 263
+      Top = 211
       Width = 73
-      Anchors = [akLeft, akBottom]
       Caption = 'Multi On'
       Checked = True
       Font.Height = -13
@@ -2695,7 +2656,7 @@ object Form1: TForm1
   end
   object ProgressBar1: TProgressBar
     Left = 904
-    Height = 212
+    Height = 216
     Top = 35
     Width = 20
     Max = 47
@@ -2708,8 +2669,8 @@ object Form1: TForm1
     Left = 536
     Height = 17
     Top = 768
-    Width = 46
-    Caption = 'Label53'
+    Width = 95
+    Caption = 'DT Samples = 0'
     ParentColor = False
   end
   object cbNZLPF: TCheckBox
@@ -2720,6 +2681,55 @@ object Form1: TForm1
     Caption = 'NZ LPF'
     OnChange = cbNZLPFChange
     TabOrder = 20
+  end
+  object cbWFTX: TCheckBox
+    Left = 608
+    Height = 20
+    Top = 792
+    Width = 163
+    Caption = 'Show Waterfal During TX'
+    TabOrder = 21
+  end
+  object Image1: TImage
+    Left = 928
+    Height = 216
+    Top = 35
+    Width = 25
+    Picture.Data = {
+      1754506F727461626C654E6574776F726B47726170686963E502000089504E47
+      0D0A1A0A0000000D4948445200000019000000D808060000001E5D4872000000
+      06624B474400FF00FF00FFA0BDA793000000097048597300000B1300000B1301
+      009A9C180000000774494D4507DD0B0B05300D65999BE40000001D6954587443
+      6F6D6D656E7400000000004372656174656420776974682047494D50642E6507
+      000002494944415478DAED9A3D6B145114869F5D12450B53048DF1032DB5B592
+      548A62619FC2428C4834FE007F86AD166A632112C4365A582AF1135162A351D0
+      46C1C26822891FACC5BE83C3B024BB73EF5922BE0F2C7339F772DF9D39F79CE5
+      9C5930C618638C31C618D37F5A95CF22300B9C8814297F4EE616291805AECBF6
+      3C4A0460AB6CCBDD6CD04CFC028B5122DB818B1ADF8D76FC03605BA4C837E078
+      C41106D8A8F8580656800391A7EB826CB340234A64107825FBB9281180A3B27F
+      5180868800DCD2DC6DA77863D268F41090B5F769F6E34E0682EEBCFF77D2B4E3
+      ED789FAEF571BA8C3179B3F5296006F808FC50E5FB12B80C1C4C1518051EAED1
+      9968A5080C024FB4C90755557B65DF0CEC072681FB292293127897B39CAE728F
+      CC8D9A4E7C96C848A4C84F890CA46CB2D6EFC982AEC391222F743D16F9B8CEEA
+      71BDA5DDE30A6103F04C42EF25BA4771B209D897234E007696023224E2CB917F
+      9A7613ED934E5D91BB2EE5C85DC6B823E1C2D435A31DEF8E844F9731A68FF45C
+      2A380B5BC42216F917458C31E9144DCEF155D68C6BCDD3BA22E7B5C1CC2A6BEE
+      68CD545D91216009F80DECEA30BF5B734BC096BAB96B0198D6BA890EF3139A9B
+      06BEA6F8654C8FE34DA56C6B00F39A1BCB7100E6B4D9A192EDB06C73B952FD15
+      5DCF946CC5F86AAEA33C4CFBBF8FDFE5E0218D57487CED51E5067FFF9238A5F1
+      CDDC8159F8E011F058E323118D85D7A5D261BEDB66432FBFF1AD8A93AF91E995
+      469511DAAF647F013B9CDA8DC99B2ABA8DF6DAFBB8C3BDFE44EC78D7F13E5DC6
+      18638C31C618638C31FF2D7F000663A9E1F33225550000000049454E44AE4260
+      82
+    }
+  end
+  object Label54: TLabel
+    Left = 656
+    Height = 17
+    Top = 768
+    Width = 150
+    Caption = 'Rejected DT Samples = 0'
+    ParentColor = False
   end
   object Timer1: TTimer
     Enabled = False
