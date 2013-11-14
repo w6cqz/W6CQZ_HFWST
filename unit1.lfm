@@ -16,6 +16,12 @@ object Form1: TForm1
   OnClose = FormClose
   OnCreate = FormCreate
   LCLVersion = '1.0.12.0'
+  object PaintBox1: TPaintBox
+    Left = 152
+    Height = 29
+    Top = 35
+    Width = 747
+  end
   object Label108: TLabel
     Left = 88
     Height = 23
@@ -42,22 +48,26 @@ object Form1: TForm1
     TabOrder = 9
   end
   object groupLogQSO: TGroupBox
-    Left = 152
-    Height = 212
-    Top = 35
-    Width = 296
+    Left = 145
+    Height = 194
+    Top = 20
+    Width = 755
     Caption = 'Log QSO'
-    ClientHeight = 194
-    ClientWidth = 292
-    TabOrder = 11
+    ClientHeight = 176
+    ClientWidth = 751
+    TabOrder = 10
     Visible = False
     object LogQSO: TButton
-      Left = 235
-      Height = 25
-      Top = 168
-      Width = 51
-      Caption = 'Log'
+      Left = 474
+      Height = 28
+      Top = 138
+      Width = 116
+      Caption = 'Add To Log'
+      Font.Height = -16
+      Font.Name = 'Arial'
+      Font.Style = [fsBold]
       OnClick = LogQSOClick
+      ParentFont = False
       TabOrder = 0
     end
     object logCallsign: TEdit
@@ -95,7 +105,7 @@ object Form1: TForm1
       Left = 6
       Height = 24
       Top = 60
-      Width = 96
+      Width = 120
       TabOrder = 5
     end
     object Label99: TLabel
@@ -139,14 +149,14 @@ object Form1: TForm1
       ParentColor = False
     end
     object logTimeOff: TEdit
-      Left = 118
+      Left = 142
       Height = 24
       Top = 60
-      Width = 96
+      Width = 122
       TabOrder = 6
     end
     object Label104: TLabel
-      Left = 119
+      Left = 142
       Height = 17
       Top = 44
       Width = 80
@@ -157,7 +167,7 @@ object Form1: TForm1
       Left = 6
       Height = 24
       Top = 140
-      Width = 280
+      Width = 456
       TabOrder = 7
     end
     object Label105: TLabel
@@ -185,11 +195,12 @@ object Form1: TForm1
     end
   end
   object Label15: TLabel
-    Left = 8
+    Left = 819
     Height = 23
-    Top = 6
-    Width = 76
-    Caption = '               '
+    Top = 229
+    Width = 81
+    Alignment = taRightJustify
+    Caption = '12:34:56'
     Font.Height = -19
     Font.Name = 'Arial'
     Font.Style = [fsBold]
@@ -213,9 +224,9 @@ object Form1: TForm1
     TabOrder = 1
   end
   object Label16: TLabel
-    Left = 415
+    Left = 536
     Height = 23
-    Top = 6
+    Top = 228
     Width = 83
     Caption = 'TX: IDLE'
     Font.Height = -19
@@ -225,12 +236,12 @@ object Form1: TForm1
     ParentFont = False
   end
   object Label20: TLabel
-    Left = 748
-    Height = 23
-    Top = 6
-    Width = 205
-    Caption = 'HFWST [Phoenix v0.6]'
-    Font.Height = -19
+    Left = 686
+    Height = 20
+    Top = 0
+    Width = 267
+    Caption = 'HFWST by W6CQZ [Phoenix v0.7]'
+    Font.Height = -17
     Font.Name = 'Arial'
     Font.Style = [fsBold]
     ParentColor = False
@@ -244,41 +255,6 @@ object Form1: TForm1
     Caption = 'Label1'
     ParentColor = False
     Visible = False
-  end
-  object Chart1: TChart
-    Left = 152
-    Height = 32
-    Top = 35
-    Width = 747
-    AllowZoom = False
-    AxisList = <    
-      item
-        Visible = False
-        Inverted = True
-        Minors = <>
-        Title.LabelFont.Orientation = 900
-      end    
-      item
-        Grid.Style = psSolid
-        TickLength = 1
-        Alignment = calTop
-        Minors = <>
-      end>
-    Extent.UseXMax = True
-    Extent.UseXMin = True
-    Extent.UseYMax = True
-    Extent.UseYMin = True
-    Extent.XMax = 10
-    Extent.XMin = -10
-    Extent.YMax = 1
-    Foot.Brush.Color = clBtnFace
-    Foot.Font.Color = clBlue
-    Title.Brush.Color = clBtnFace
-    Title.Font.Color = clBlue
-    Title.Text.Strings = (
-      'TAChart'
-    )
-    ParentColor = False
   end
   object Label3: TLabel
     Left = 8
@@ -309,12 +285,12 @@ object Form1: TForm1
     TabOrder = 2
   end
   object Label8: TLabel
-    Left = 176
-    Height = 23
-    Top = 6
-    Width = 35
+    Left = 8
+    Height = 20
+    Top = 0
+    Width = 30
     Caption = 'DE:'
-    Font.Height = -19
+    Font.Height = -17
     Font.Name = 'Arial'
     Font.Style = [fsBold]
     ParentColor = False
@@ -334,12 +310,12 @@ object Form1: TForm1
     TabOrder = 3
   end
   object Label27: TLabel
-    Left = 10
-    Height = 25
-    Top = 88
-    Width = 67
+    Left = 8
+    Height = 35
+    Top = 72
+    Width = 93
     Caption = 'QRG:  '
-    Font.Height = -21
+    Font.Height = -29
     Font.Name = 'Arial'
     Font.Style = [fsBold]
     ParentColor = False
@@ -375,7 +351,7 @@ object Form1: TForm1
     Left = 8
     Height = 30
     Hint = 'Enter as Hertz, KHz or MHz'
-    Top = 181
+    Top = 184
     Width = 133
     Font.Height = -19
     Font.Name = 'Arial'
@@ -387,7 +363,7 @@ object Form1: TForm1
   object btnsetQRG: TButton
     Left = 8
     Height = 32
-    Top = 216
+    Top = 219
     Width = 133
     Caption = 'Set QRG'
     Font.Height = -13
@@ -398,18 +374,18 @@ object Form1: TForm1
     TabOrder = 8
   end
   object PageControl: TPageControl
-    Left = 152
-    Height = 216
-    Top = 35
-    Width = 747
+    Left = 145
+    Height = 230
+    Top = 21
+    Width = 755
     ActivePage = TabSheet1
     TabIndex = 0
     TabOrder = 5
     Visible = False
     object TabSheet1: TTabSheet
       Caption = 'Basic'
-      ClientHeight = 187
-      ClientWidth = 739
+      ClientHeight = 201
+      ClientWidth = 747
       object Button4: TButton
         Left = 204
         Height = 40
@@ -715,13 +691,15 @@ object Form1: TForm1
         Top = 118
         Width = 169
         Caption = 'Use Mono Audio Streams'
+        Enabled = False
         OnChange = rigControlSet
         TabOrder = 8
+        Visible = False
       end
     end
     object TabSheet6: TTabSheet
       Caption = 'PTT/Rig Control'
-      ClientHeight = 187
+      ClientHeight = 202
       ClientWidth = 739
       object GroupBox3: TGroupBox
         Left = 4
@@ -1797,7 +1775,7 @@ object Form1: TForm1
     Font.Height = -13
     Font.Name = 'Arial'
     ParentFont = False
-    TabOrder = 12
+    TabOrder = 11
     object Label24: TLabel
       Left = 35
       Height = 17
@@ -1990,7 +1968,7 @@ object Form1: TForm1
     Constraints.MinWidth = 248
     OnDblClick = Memo1DblClick
     ScrollBars = ssAutoBoth
-    TabOrder = 13
+    TabOrder = 12
   end
   object RadioGroup2: TRadioGroup
     Left = 832
@@ -2013,7 +1991,7 @@ object Form1: TForm1
     Font.Height = -9
     Font.Name = 'Arial'
     ParentFont = False
-    TabOrder = 14
+    TabOrder = 13
     object RadioButton1: TRadioButton
       Left = 6
       Height = 23
@@ -2093,7 +2071,7 @@ object Form1: TForm1
     Font.Height = -11
     Font.Name = 'Arial'
     ParentFont = False
-    TabOrder = 15
+    TabOrder = 14
     object RadioButton6: TRadioButton
       Left = 6
       Height = 17
@@ -2132,7 +2110,7 @@ object Form1: TForm1
     Constraints.MaxHeight = 350
     Constraints.MinHeight = 230
     ParentColor = False
-    TabOrder = 16
+    TabOrder = 15
     object bCQ: TButton
       Left = 6
       Height = 25
@@ -2635,7 +2613,7 @@ object Form1: TForm1
     Constraints.MinHeight = 130
     OnDblClick = Memo2DblClick
     ScrollBars = ssAutoBoth
-    TabOrder = 17
+    TabOrder = 16
   end
   object Memo3: TMemo
     AnchorSideRight.Control = Owner
@@ -2652,18 +2630,18 @@ object Form1: TForm1
     Font.Name = 'Arial'
     OnDblClick = Memo3DblClick
     ParentFont = False
-    TabOrder = 18
+    TabOrder = 17
   end
   object ProgressBar1: TProgressBar
     Left = 904
-    Height = 216
-    Top = 35
+    Height = 227
+    Top = 24
     Width = 20
     Max = 47
     Orientation = pbVertical
     Smooth = True
     Step = 1
-    TabOrder = 19
+    TabOrder = 18
   end
   object Label53: TLabel
     Left = 536
@@ -2674,26 +2652,28 @@ object Form1: TForm1
     ParentColor = False
   end
   object cbNZLPF: TCheckBox
-    Left = 536
+    Left = 152
     Height = 20
-    Top = 792
+    Top = 231
     Width = 64
     Caption = 'NZ LPF'
+    Checked = True
     OnChange = cbNZLPFChange
-    TabOrder = 20
+    State = cbChecked
+    TabOrder = 19
   end
   object cbWFTX: TCheckBox
-    Left = 608
+    Left = 224
     Height = 20
-    Top = 792
-    Width = 163
-    Caption = 'Show Waterfal During TX'
-    TabOrder = 21
+    Top = 231
+    Width = 100
+    Caption = 'WF During TX'
+    TabOrder = 20
   end
   object Image1: TImage
     Left = 928
-    Height = 216
-    Top = 35
+    Height = 227
+    Top = 24
     Width = 25
     Picture.Data = {
       1754506F727461626C654E6574776F726B47726170686963E502000089504E47
@@ -2729,6 +2709,102 @@ object Form1: TForm1
     Top = 768
     Width = 150
     Caption = 'Rejected DT Samples = 0'
+    ParentColor = False
+  end
+  object cbSpecWindow: TCheckBox
+    Left = 336
+    Height = 20
+    Top = 232
+    Width = 157
+    Caption = 'Window Spectrum Data'
+    TabOrder = 21
+  end
+  object Label55: TLabel
+    Left = 152
+    Height = 17
+    Top = 20
+    Width = 33
+    Caption = '-1000'
+    ParentColor = False
+  end
+  object Label56: TLabel
+    Left = 871
+    Height = 17
+    Top = 20
+    Width = 29
+    Caption = '1000'
+    ParentColor = False
+  end
+  object Label57: TLabel
+    Left = 525
+    Height = 17
+    Top = 20
+    Width = 8
+    Caption = '0'
+    ParentColor = False
+  end
+  object Label58: TLabel
+    Left = 592
+    Height = 17
+    Top = 20
+    Width = 22
+    Caption = '200'
+    ParentColor = False
+  end
+  object Label59: TLabel
+    Left = 664
+    Height = 17
+    Top = 20
+    Width = 22
+    Caption = '400'
+    ParentColor = False
+  end
+  object Label60: TLabel
+    Left = 736
+    Height = 17
+    Top = 20
+    Width = 22
+    Caption = '600'
+    ParentColor = False
+  end
+  object Label61: TLabel
+    Left = 808
+    Height = 17
+    Top = 20
+    Width = 22
+    Caption = '800'
+    ParentColor = False
+  end
+  object Label62: TLabel
+    Left = 440
+    Height = 17
+    Top = 20
+    Width = 26
+    Caption = '-200'
+    ParentColor = False
+  end
+  object Label63: TLabel
+    Left = 368
+    Height = 17
+    Top = 20
+    Width = 26
+    Caption = '-400'
+    ParentColor = False
+  end
+  object Label64: TLabel
+    Left = 296
+    Height = 17
+    Top = 20
+    Width = 26
+    Caption = '-600'
+    ParentColor = False
+  end
+  object Label65: TLabel
+    Left = 216
+    Height = 17
+    Top = 20
+    Width = 26
+    Caption = '-800'
     ParentColor = False
   end
   object Timer1: TTimer

@@ -9,76 +9,6 @@ uses
 
 Const
   JT_DLL = 'JT65v31.dll';
-  // 3rd Order Chebyshew 31 Tap LP @ 11025 SR - Cut = 2756.25 FIR
-  FCoef : array[0..30] of CTypes.cfloat =
-  (
-          -0.00011753584728398901,
-          0.00057932254918358799,
-          -0.00024168184072524018,
-          -0.00110149892718046090,
-          0.00146276806264856200,
-          0.00136918684703630170,
-          -0.00471945229590514400,
-          0.00101649838647534460,
-          0.01029207847227662000,
-          -0.01160052019356516300,
-          -0.01549293997818550900,
-          0.04687373238409223800,
-          -0.01216210647818348800,
-          -0.11244796622913100000,
-          0.27087501413827342000,
-          0.65083020190034790000,
-          0.27087501413827342000,
-          -0.11244796622913100000,
-          -0.01216210647818348800,
-          0.04687373238409223800,
-          -0.01549293997818550900,
-          -0.01160052019356516300,
-          0.01029207847227662000,
-          0.00101649838647534460,
-          -0.00471945229590514400,
-          0.00136918684703630170,
-          0.00146276806264856200,
-          -0.00110149892718046090,
-          -0.00024168184072524018,
-          0.00057932254918358799,
-          -0.00011753584728398901
-      );
-
-  FCoef1 : Array[0..30] of CTypes.cfloat =
-  (
-  0.01536248278974667800,
-  0.01504548307804194600,
-  0.02678377461996903800,
-  0.02575800517223565700,
-  -0.00195994931893663130,
-  -0.01742989405829114100,
-  0.00483002693521787740,
-  0.00863139280981576120,
-  -0.04757529241787824400,
-  -0.08191053631627852300,
-  -0.03546242576400832100,
-  -0.04180346043079211100,
-  -0.18418526925517473000,
-  -0.16993056647225216000,
-  0.22972778243679484000,
-  0.51864508913009499000,
-  0.22972778243679484000,
-  -0.16993056647225216000,
-  -0.18418526925517473000,
-  -0.04180346043079211100,
-  -0.03546242576400832100,
-  -0.08191053631627852300,
-  -0.04757529241787824400,
-  0.00863139280981576120,
-  0.00483002693521787740,
-  -0.01742989405829114100,
-  -0.00195994931893663130,
-  0.02575800517223565700,
-  0.02678377461996903800,
-  0.01504548307804194600,
-  0.01536248278974667800
-  );
 
 Type
     RGBPixel = Packed Record
@@ -117,9 +47,6 @@ function computeAudio(Const Buffer : Array of CTypes.cint16): Integer;
 
 procedure flat(ss,n,nsum : Pointer); cdecl;
 
-function chebyLP(const f : CTypes.cfloat) : CTypes.cfloat;
-function chebyBPF(const f : CTypes.cfloat) : CTypes.cfloat;
-
 Var
    specDisplayData : Packed Array[0..179]    Of RGBArray;
    specTempSpec1   : Packed Array[0..179]    Of RGBArray;
@@ -134,35 +61,15 @@ Var
    specContrast    : Integer;
    specfftCount    : Integer;
    specSmooth      : Boolean;
+   specWindow      : Boolean;
    specagc         : CTypes.cuint64;
    specuseagc      : Boolean;
    audiocomputing  : Boolean;
    spectrumComputing65 : Boolean;
    specNewSpec65   : Boolean;
    specMs65        : TMemoryStream;
+
 implementation
-
-function chebyLP(const f : CTypes.cfloat) : CTypes.cfloat;
-Var
-   n : Integer;
-   y : CTypes.cfloat;
-Begin
-     for n := 30 downto 1 do chebyBuff[n] := chebyBuff[n-1];
-     chebyBuff[0] := f;
-     for n := 0 to 30 do y := FCoef[n] * chebyBuff[n];
-     result := y;
-end;
-
-function chebyBPF(const f : CTypes.cfloat) : CTypes.cfloat;
-Var
-   n : Integer;
-   y : CTypes.cfloat;
-Begin
-     for n := 30 downto 1 do chebyBuff[n] := chebyBuff[n-1];
-     chebyBuff[0] := f;
-     for n := 0 to 30 do y := FCoef1[n] * chebyBuff[n];
-     result := y;
-end;
 
 procedure flat(ss,n,nsum : Pointer); cdecl; external JT_DLL name 'flat2_';
 
@@ -342,7 +249,6 @@ Var
    ss65,ss65b                   : Array[0..2047] of CTypes.cfloat;
    floatSpectra                 : Array[0..749] of CTypes.cfloat;
    integerSpectra               : Array[0..749] of CTypes.cint32;
-
 Begin
      // Compute spectrum display.  Expects 4096 samples in dBuffer
      spectrumComputing65 := True;
@@ -362,14 +268,6 @@ Begin
                rgbSpectra[i].g := 0;
                rgbSpectra[i].b := 0;
           End;
-          // clear lpf accumulators
-          //for i := 0 to 19 do
-          //begin
-               //lxa[i] := 0.0;
-               //lya[i] := 0.0;
-               //hxa[i] := 0.0;
-               //hya[i] := 0.0;
-          //end;
           cmaps.buildCMaps();
      End;
      Try
@@ -382,30 +280,14 @@ Begin
              fave := 0.0;
              for i := 0 to length(dBuffer)-1 do fave := fave + dBuffer[i];
              fave := fave/(length(dBuffer));
-             for i := 0 to length(dbuffer)-1 do fftIn65[i] := 5.0*chebyBPF(dbuffer[i]-fave);
-             //for i := 0 to length(dBuffer)-1 do fftIn65[i] := 5.0*chebyLP(dBuffer[i]-fave);  // 5.0 scaling is an experimentally derived (guessed) value.
-
-             // Apply lpf
-             //function chebyLP(const f : CTypes.cfloat) : CTypes.cfloat;
-             //for i := 0 to length(dBuffer)-1 do fftIn65[i] := chebyLP(dBuffer[i]);
-
-             //for i := 0 to length(dBuffer)-1 do fftIn65[i] := dBuffer[i];
-
-             //fsum := 0.0;
-             //fave := 0;
-             //for i := 0 to length(fftIn65)-1 do fsum := fsum + fftIn65[i];
-             //fave := fsum/length(fftIn65);
-             //for i := 0 to length(fftIn65)-1 do fftIn65[i] := fftIn65[i]-fave;
-             //fsum := 0.0;
-             //fave := 0.0;
-             //for i := 0 to length(fftIn65)-1 do
-             //Begin
-             //     fftIn65[i] := 0.1 * fftIn65[i];
-             //     fsum := fsum + fftIn65[i];
-             //End;
-             //fave := fsum/length(fftIn65);
-             //for i := 0 to length(fftIn65)-1 do fftIn65[i] := fftIn65[i]-fave;
-
+             for i := 0 to length(dbuffer)-1 do fftIn65[i] := 0.001*(dbuffer[i]-fave);
+             if specWindow Then
+             Begin
+                  // Gaussian 3/5
+                  // This might not be so bad with the change above scaling by .001 :)
+                  fave := -2*3.5*3.5;
+                  for i := 0 to 4095 do fftIn65[i] := fftIn65[i] * exp(fave*(0.25 + ((i/4096)*(i/4096)) - (i/4096)));
+             end;
              // Clear FFT output array
              for i := 0 to 2047 do
              begin
@@ -417,10 +299,6 @@ Begin
              pfftOut65 := @fftOut65;
              p := fftw_plan_dft_1d(4096,pfftIn65,pfftOut65,[fftw_estimate]);
              fftw_execute(p);
-
-             // I want to start thinking about scaling this such that the over strong
-             // don't swamp the weak.
-
              // Accumulate power spectrum
              for i := 0 to 2047 do ss65[i] := ss65[i] + (power(fftOut65[i].re,2) + power(fftOut65[i].im,2));
              fftw_destroy_plan(p);
@@ -433,7 +311,6 @@ Begin
              iadj := 97; // Adjust bins to match graphic display - this is for a 2K range centered on 1270.5 Hz
              if specfftCount >= (10-specSpeed2) Then
              Begin
-                  // Removed smoothing being optional.
                   inc(specfftCount);
                   try
                      for i := 0 to length(ss65)-1 do ss65b[i] := ss65[i];

@@ -2,10 +2,9 @@
 URGENT
 
 Work out method to be sure a change to TXDF regnerates message.  More complex than first glance indicates with new way of doing things :(
-Single decode request not being honored - fix.
 
 Less urgent
-
+Shorthand decoder core dumped
 Waterfall TX Marker isn't quite right - it's maybe 10 Hz high looking
 Extract received signal report for logging // Partially completed - need to move parser such that it gets for qso by button
 Add logging code
@@ -45,16 +44,15 @@ adjustments and font size testing]
 // (c) 2013 CQZ Electronics
 unit Unit1;
 
-{$mode objfpc}{$H+}
+{$mode delphi}{$H+}
 
 interface
 
 uses
   Classes, SysUtils, FileUtil, Forms, Controls, Graphics, Dialogs, StdCtrls,
   ExtCtrls, Math, StrUtils, CTypes, Windows, lconvencoding, ComCtrls, EditBtn,
-  DbCtrls, TAGraph, TASeries, TAChartUtils, Types, portaudio, adc, spectrum,
-  waterfall1, spot, BufDataset, sqlite3conn, sqldb, valobject, rebel, d65,
-  LResources;
+  DbCtrls, Types, portaudio, adc, spectrum, waterfall1, spot, BufDataset,
+  sqlite3conn, sqldb, valobject, rebel, d65, LResources;
 
 Const
   JT_DLL = 'JT65v31.dll';
@@ -110,6 +108,7 @@ type
     buttonXferMacro: TButton;
     cbNZLPF: TCheckBox;
     cbWFTX: TCheckBox;
+    cbSpecWindow: TCheckBox;
     comboTTYPorts: TComboBox;
     edRebTXOffset: TEdit;
     edRebRXOffset: TEdit;
@@ -130,7 +129,19 @@ type
     Label52: TLabel;
     Label53: TLabel;
     Label54: TLabel;
+    Label55: TLabel;
+    Label56: TLabel;
+    Label57: TLabel;
+    Label58: TLabel;
+    Label59: TLabel;
+    Label60: TLabel;
+    Label61: TLabel;
+    Label62: TLabel;
+    Label63: TLabel;
+    Label64: TLabel;
+    Label65: TLabel;
     Memo3: TMemo;
+    PaintBox1: TPaintBox;
     ProgressBar1: TProgressBar;
     rbRebBaud9600: TRadioButton;
     rbRebBaud115200: TRadioButton;
@@ -241,7 +252,7 @@ type
     Button7: TButton;
     Button8: TButton;
     updateConfig: TButton;
-    Chart1: TChart;
+//    Chart1: TChart;
     edDialQRG: TEdit;
     edGrid: TEdit;
     edADIFMode: TEdit;
@@ -350,7 +361,7 @@ type
     TabSheet7: TTabSheet;
     TabSheet8: TTabSheet;
     Timer1: TTimer;
-    FBar1: TBarSeries;
+//    FBar1: TBarSeries;
     tbWFSpeed: TTrackBar;
     tbWFContrast: TTrackBar;
     tbWFBright: TTrackBar;
@@ -391,6 +402,7 @@ type
     procedure Timer1Timer(Sender: TObject);
     procedure tbMultiBinChange(Sender: TObject);
     procedure tbSingleBinChange(Sender: TObject);
+    procedure WaterFallMouseDown(Sender: TObject; Button: TMouseButton; Shift: TShiftState; X, Y: Integer);
 
     function  gCall(const Call : String) : LongWord;
     function  gPrefix(const form : String; const pfx : String) : LongWord;
@@ -421,17 +433,18 @@ type
                               var hisGrid       : String);
     procedure breakOutFields(const msg : String; var mvalid : Boolean);
     procedure displayDecodes3;
+    procedure specHeader;
 
     function  db(x : CTypes.cfloat) : CTypes.cfloat;
     procedure toggleTXClick(Sender: TObject);
     function  txControl : Boolean;
     function  utcTime: TSystemTime;
-    procedure InitBar;
+//    procedure InitBar;
 
     procedure genTX(const msg : String; const txdf : Integer);
     function  rebelTuning(const f : Double) : CTypes.cuint;
 
-    procedure removeDupes(var list : TStringList; var removes : Array of Integer);
+    //procedure removeDupes(var list : TStringList; var removes : Array of Integer);
 
     procedure OncePerRuntime;
     procedure OncePerTick;
@@ -485,7 +498,6 @@ var
   thisUTC        : TSystemTime;
   thisSecond     : WORD;
   lastSecond     : WORD;
-  thisTS         : String;
   thisADCTick    : CTypes.cuint;
   lastADCTick    : CTypes.cuint;
   paInParams     : TPaStreamParameters;
@@ -500,7 +512,7 @@ var
   auLevel2       : Integer;
   rbping         : Boolean;
   rbposted       : CTypes.cuint64;
-  doDecode       : Boolean;
+  runDecode      : Boolean;
   decodeping     : CTypes.cuint64;
   decoderBusy    : Boolean;
   rbThread       : rbcThread;
@@ -550,6 +562,8 @@ var
   multion        : Boolean; // If multiple decode is on/off
   rxdf,txdf      : CTypes.cint; // Keeps current tx/rx dfs
   dtrejects      : Integer;
+  mycall,myscall : String;  // Keeps this stations call and slashed call in order (Same if not a slashed call)
+  kvdatdel       : Integer; // Tracing how many calls it takes to delete a stuck KV
 
 implementation
 
@@ -706,6 +720,7 @@ Begin
      ]);
      dtrejects := 0;
      d65.glDecCount := 0;
+     kvdatdel := 0;
      // Mark TX content as clean so any changes will lead to update
      txDirty := False;
      txValid := False;
@@ -1019,16 +1034,17 @@ Begin
 //     demodulate.dmbw := 100;
 //     demodulate.dmbws := 100;
      d65.glbinspace := 100;
+     d65.glDFTolerance := 100;
      If tbMultiBin.Position = 1 then d65.glbinspace := 20;
      If tbMultiBin.Position = 2 then d65.glbinspace := 50;
      If tbMultiBin.Position = 3 then d65.glbinspace := 100;
      If tbMultiBin.Position = 4 then d65.glbinspace := 200;
      Label26.Caption := 'Multi ' + IntToStr(d65.glbinspace) + ' Hz';
-     If tbSingleBin.Position = 1 then d65.glsbinspace := 20;
-     If tbSingleBin.Position = 2 then d65.glsbinspace := 50;
-     If tbSingleBin.Position = 3 then d65.glsbinspace := 100;
-     If tbSingleBin.Position = 4 then d65.glsbinspace := 200;
-     Label87.Caption := 'Single ' + IntToStr(d65.glsbinspace) + ' Hz';
+     If tbSingleBin.Position = 1 then d65.glDFTolerance := 20;
+     If tbSingleBin.Position = 2 then d65.glDFTolerance := 50;
+     If tbSingleBin.Position = 3 then d65.glDFTolerance := 100;
+     If tbSingleBin.Position = 4 then d65.glDFTolerance := 200;
+     Label87.Caption := 'Single ' + IntToStr(d65.glDFTolerance) + ' Hz';
      //if inIcal >-1 then demodulate.dmical := inIcal else demodulate.dmical := 0;
      if inIcal >-1 then d65.glfftFWisdom := inIcal else d65.glfftFWisdom := 0;
      paActive := False;
@@ -1053,17 +1069,6 @@ Begin
      adc.specIDX := 0;
      adc.haveAU  := False;
      adc.haveSpec := False;
-     // Setup spectrum display legend - likely replace this with a simple graphic eventually
-     fbar1 := Nil;
-     if FBar1 = nil then InitBar;
-     FBar1.Clear;
-     FBar1.Marks.Style := TSeriesMarksStyle(smsNone);
-     ff := 0.0;
-     for i := 0 to 80 do
-     Begin
-          if i=0 then FBar1.AddXY(ff/100.0, 5.0, '', clRed) else FBar1.AddXY((ff+(i*2.5))/100.0, 5.0, '', clRed);
-     end;
-
      txOn := False;
      ListBox1.Clear;
      ListBox2.Clear;
@@ -1073,12 +1078,18 @@ Begin
      Waterfall1.init;
      Waterfall1.Height := 180;
      Waterfall1.Width  := 747;
-     Waterfall1.Top    := 68;
+     Waterfall1.Top    := 47;
      Waterfall1.Left   := 152;
      Waterfall1.Parent := Self;
-     //Waterfall1.OnMouseDown := waterfallMouseDown;  This needs to be hooked up again
+     Waterfall1.OnMouseDown := waterfallMouseDown;
      Waterfall1.DoubleBuffered := True;
-     If mustcfg Then Waterfall1.Visible := False;
+
+     If mustcfg Then
+     Begin
+          Waterfall1.Visible := False;
+          PaintBox1.Visible  := False;
+     end;
+
      // Setup RB (thread)
      rb := spot.TSpot.create(); // Used even if spotting is disabled
      // Set RB Version - note - wrong value here will lead to rb.php saying newp.
@@ -1137,7 +1148,7 @@ Begin
           end;
      end;
      // Setup Decoder (thread)
-     doDecode      := False;
+     runDecode      := False;
      decoderThread := decodeThread.Create(False);
      if not paActive Then
      Begin
@@ -1523,8 +1534,6 @@ Begin
      end;
 
      If toggleTX.Checked then toggleTX.state := cbChecked else toggleTX.state := cbUnchecked;
-     //If cbNoDecoderLPF.Checked Then demodulate.dmNoFilter := True else demodulate.dmNoFilter := False;
-     //if not demodulate.dmdemodBusy and demodulate.dmhaveDecode Then displayDecodes;
      if not d65.glinprog and d65.gld65HaveDecodes Then DisplayDecodes3;
      if cbUseColor.Checked Then ListBox1.Style := lbOwnerDrawFixed else ListBox1.Style := lbStandard;
      multion := cbMultiOn.Checked;
@@ -1538,41 +1547,7 @@ Begin
      if mval.evalQRG(fs,'STRICT',ff,fi,fsc) Then qrgValid := True else qrgValid := False;
      if tryStrToInt(edRXDF.Text,i) Then rxdf := i else rxdf := 0;
      if tryStrToInt(edTXDF.Text,i) Then txdf := i else txdf := 0;
-     // Update spectrum header TX marker if needed
-     if lastTXDF <> edTXDF.Text
-     Then
-     Begin
-          lastTXDF := edTXDF.Text;
-          FBar1.Clear;
-          if TryStrToInt(lastTXDF,fi) Then
-          Begin
-               if fi < -1050 Then
-               Begin
-                    fi := -1050;
-                    edTXDF.text := '-1050';
-                    lastTXDF := '-1050';
-               end;
-               if fi > 1050 Then
-               Begin
-                    fi := 1050;
-                    edTXDF.text := '1050';
-                    lastTXDF := '1050';
-               end;
-               ff := fi;
-               for i := 0 to 80 do
-               Begin
-                    if i=0 then FBar1.AddXY(ff/100.0, 5.0, '', clRed) else FBar1.AddXY((ff+(i*2.5))/100.0, 5.0, '', clRed);
-               end;
-          end
-          else
-          begin
-               ff := 0.0;
-               for i := 0 to 80 do
-               Begin
-                    if i=0 then FBar1.AddXY(ff/100.0, 5.0, '', clRed) else FBar1.AddXY((ff+(i*2.5))/100.0, 5.0, '', clRed);
-               end;
-          end;
-     end;
+
      Label121.Caption := 'Decoder Resolution:  ' + IntToStr(d65.glbinspace) + ' Hz';
      if d65.glRunCount < 2 Then
      Begin
@@ -1664,7 +1639,7 @@ Begin
                End;
           end;
           if s2[Length(s2)] = dChar then s2 := s2[1..Length(s2)-1];
-          Label27.Caption := s2 + ' KHz';
+          Label27.Caption := s2;
      end
      else
      begin
@@ -1678,10 +1653,10 @@ Begin
      If tbMultiBin.Position = 3 then d65.glbinspace := 100;
      If tbMultiBin.Position = 4 then d65.glbinspace := 200;
 
-     If tbSingleBin.Position = 1 then d65.glsbinspace := 20;
-     If tbSingleBin.Position = 2 then d65.glsbinspace := 50;
-     If tbSingleBin.Position = 3 then d65.glsbinspace := 100;
-     If tbSingleBin.Position = 4 then d65.glsbinspace := 200;
+     If tbSingleBin.Position = 1 then d65.glDFTolerance := 20;
+     If tbSingleBin.Position = 2 then d65.glDFTolerance := 50;
+     If tbSingleBin.Position = 3 then d65.glDFTolerance := 100;
+     If tbSingleBin.Position = 4 then d65.glDFTolerance := 200;
 
      spectrum.specSpeed2 := tbWFSpeed.Position;
      if cbSpecSmooth.Checked Then spectrum.specSmooth := True else spectrum.specSmooth := False;
@@ -1848,10 +1823,6 @@ Begin
           end;
      end;
 
-     { TODO : This is where I need to be for adding Rebel TX control
-     I need to NOT start TX until second = 1.
-     }
-
      if (not clRebel.txStat) And (not clRebel.busy) And txControl And txInProgress Then
      Begin
           transmitting := thisTXmsg; // Moving this up so it displays TX message with no delay.
@@ -1916,6 +1887,35 @@ Begin
      end;
      if d65.glinprog Then Image1.Picture.LoadFromLazarusResource('decode');
      if not clRebel.txStat And not d65.glinprog Then Image1.Picture.LoadFromLazarusResource('receive');
+
+     If (Length(TrimLeft(TrimRight(edPrefix.Text))) < 1) And (Length(TrimLeft(TrimRight(edSuffix.Text))) <1) Then
+     Begin
+          myscall := TrimLeft(TrimRight(UpCase(edCall.Text)));
+          mycall  := myscall;
+     end
+     else
+     begin
+          // Since prefix outranks suffix this will insure prefix wins if both set.
+          If (Length(TrimLeft(TrimRight(edSuffix.Text))) > 0) Then myscall := TrimLeft(TrimRight(UpCase(edCall.Text)))+'/'+TrimLeft(TrimRight(UpCase(edSuffix.Text)));
+          If (Length(TrimLeft(TrimRight(edPrefix.Text))) > 0) Then myscall := TrimLeft(TrimRight(UpCase(edPrefix.Text)))+'/'+TrimLeft(TrimRight(UpCase(edCall.Text)));
+          mycall := TrimLeft(TrimRight(UpCase(edCall.Text)));
+     end;
+     // Brute force remove kvasd.dat if it gets left over
+     If not d65.glinprog Then
+     Begin
+          if FileExists(homedir+'KVASD.DAT') Then
+          Begin
+               if kvdatdel = 0 Then ListBox2.Items.Add('Had to delete kvasd.dat in main loop');
+               // kill kill kill kill and kill it again
+               try
+                  if not FileUtil.DeleteFileUTF8(homedir+'KVASD.DAT') Then inc(kvdatdel) else kvdatdel :=0;
+               except
+                  ShowMessage('Debug - could not remove orphaned kvasd.dat' + sLineBreak + 'Please notify W6CQZ');
+               end;
+          end;
+     end;
+     if kvdatdel > 9 Then ListBox2.Items.Add('Can not kill kvasd.dat after' + IntToStr(kvdatdel) + ' attempts.');
+     if kvdatdel > 99 Then showmessage('Fatal - kvasd.dat will not delete after 100 attempts');
 end;
 
 procedure TForm1.OncePerSecond;
@@ -1927,10 +1927,36 @@ Begin
      //if (thisSecond = 47) And (lastSecond = 46) And InSync And paActive And not decoderBusy And not didTX Then
      if (thisSecond = 48) And (lastSecond = 47) And paActive And not decoderBusy And not didTX Then
      Begin
-          // Attempt a decode
-          if thisUTC.Hour < 10 Then thisTS := '0' + IntToStr(thisUTC.Hour) + ':' else thisTS := IntToStr(thisUTC.Hour) + ':';
-          if thisUTC.Minute < 10 Then thisTS := thisTS + '0' + IntToStr(thisUTC.Minute) else thisTS := thisTS + IntToStr(thisUTC.Minute);
-          doDecode := True;
+          // Attempt a decode with V3 Decoder
+          for i := 0 to length(adc.d65rxIBuffer)-1 do d65.glinBuffer[i] := adc.d65rxIBuffer[i];
+          d65.dmtimestamp := '';
+          d65.dmtimestamp := d65.dmtimestamp + IntToStr(thisUTC.Year);
+          if thisUTC.Month < 10 Then d65.dmtimestamp := d65.dmtimestamp + '0' + IntToStr(thisUTC.Month) else d65.dmtimestamp := d65.dmtimestamp + IntToStr(thisUTC.Month);
+          if thisUTC.Day < 10 Then d65.dmtimestamp := d65.dmtimestamp + '0' + IntToStr(thisUTC.Day) else d65.dmtimestamp := d65.dmtimestamp + IntToStr(thisUTC.Day);
+          if thisUTC.Hour < 10 Then d65.dmtimestamp := d65.dmtimestamp + '0' + IntToStr(thisUTC.Hour) else d65.dmtimestamp := d65.dmtimestamp + IntToStr(thisUTC.Hour);
+          if thisUTC.Minute < 10 Then d65.dmtimestamp := d65.dmtimestamp + '0' + IntToStr(thisUTC.Minute) else d65.dmtimestamp := d65.dmtimestamp + IntToStr(thisUTC.Minute);
+          d65.dmtimestamp := d65.dmtimestamp + '00';
+          if thisUTC.Hour < 10 then d65.gld65timestamp := '0' + IntToStr(thisUTC.Hour) else d65.gld65timestamp := IntToStr(thisUTC.Hour);
+          if thisUTC.Minute < 10 then d65.gld65timestamp := d65.gld65timestamp + ':0' + IntToStr(thisUTC.Minute) else d65.gld65timestamp := d65.gld65timestamp + ':' + IntToStr(thisUTC.Minute);
+          if multion then
+          Begin
+               glSteps := 1;
+               d65.glMouseDF := 0;
+               If tbMultiBin.Position = 1 then d65.glbinspace := 20;
+               If tbMultiBin.Position = 2 then d65.glbinspace := 50;
+               If tbMultiBin.Position = 3 then d65.glbinspace := 100;
+               If tbMultiBin.Position = 4 then d65.glbinspace := 200;
+          end
+          else
+          begin
+               glSteps := 0;
+               d65.glMouseDF := rxdf;
+               If tbSingleBin.Position = 1 then d65.glDFTolerance := 20;
+               If tbSingleBin.Position = 2 then d65.glDFTolerance := 50;
+               If tbSingleBin.Position = 3 then d65.glDFTolerance := 100;
+               If tbSingleBin.Position = 4 then d65.glDFTolerance := 200;
+          end;
+          runDecode := True;
      end;
      i := 0;
      if tryStrToInt(edRebTXOffset.Text,i) and (clRebel.txOffset <> i) Then
@@ -1966,9 +1992,9 @@ Begin
      if (thisSecond = 47) And (lastSecond = 46) And InSync And paActive Then eopQRG := StrToInt(edDialQRG.Text); // Track start/end frame QRG values
      // Update clock display
      foo := '';
-     if thisUTC.Month < 10 Then foo := '0' + IntToStr(thisUTC.Month) + '-' else foo := IntToStr(thisUTC.Month) + '-';
-     if thisUTC.Day   < 10 Then foo := foo + '0' + IntToStr(thisUTC.Day) else foo := foo + IntToStr(thisUTC.Day);
-     foo := foo + '  ';
+     //if thisUTC.Month < 10 Then foo := '0' + IntToStr(thisUTC.Month) + '-' else foo := IntToStr(thisUTC.Month) + '-';
+     //if thisUTC.Day   < 10 Then foo := foo + '0' + IntToStr(thisUTC.Day) else foo := foo + IntToStr(thisUTC.Day);
+     //foo := foo + '  ';
      if thisUTC.Hour  < 10 Then foo := foo + '0' + IntToStr(thisUTC.Hour) + ':' else foo := foo + IntToStr(thisUTC.Hour) + ':';
      if thisUTC.Minute < 10 Then foo := foo + '0' + IntToStr(thisUTC.Minute) + ':' else foo := foo + IntToStr(thisUTC.Minute) + ':';
      if thisUTC.Second < 10 Then foo := foo + '0' + IntToStr(thisUTC.Second) else foo := foo + IntToStr(thisUTC.Second);
@@ -2119,7 +2145,7 @@ Begin
      if haveRebel and clRebel.connected Then
      Begin
           Label45.Caption := 'Rebel Firmware:  ' + clRebel.rebVer;
-          Label46.Caption := 'Rebel Firmware:  ' + clRebel.ddsVer;
+          Label46.Caption := 'DDS Type:  ' + clRebel.ddsVer;
           Label48.Caption := 'DDS Reference:  ' + IntToStr(clRebel.ddsRef);
           Label49.Caption := 'Loop Speed:  ' + clRebel.loops;
           Label47.Caption := 'Band Select:  ' + IntToStr(clRebel.band);
@@ -2132,8 +2158,8 @@ Begin
      begin
           TabSheet10.Visible := False;
      end;
-     // Paint a line for second = 49
-     if (thisSecond = 50) and (lastSecond = 51) Then
+     // Paint a line for second = 51
+     if (thisSecond = 51) and (lastSecond = 50) Then
      Begin
           Try
              for i := 0 to 749 do
@@ -2144,12 +2170,12 @@ Begin
              end;
              // Probably will eventually remove the following line... here for PageControl for now.
           except
-             ListBox2.Items.Insert(0,'Exception in paint line (2)');
+             //ListBox2.Items.Insert(0,'Exception in paint line (2)');
           end;
      end;
 
      // Paint a line for second = 0
-     if (thisSecond = 0) and (lastSecond = 59) Then
+     if (thisSecond = 1) and (lastSecond = 0) Then
      Begin
           sopQRG := StrToInt(edDialQRG.Text);
           Try
@@ -2161,7 +2187,7 @@ Begin
              end;
              // Probably will eventually remove the following line... here for PageControl for now.
           except
-             ListBox2.Items.Insert(0,'Exception in paint line (2)');
+             //ListBox2.Items.Insert(0,'Exception in paint line (2)');
           end;
      end;
 end;
@@ -2240,11 +2266,13 @@ procedure TForm1.adcdacTick;
 Begin
      // Events triggered from ADC/DAC callback counter change
      // Compute spectrum and audio levels.
+     if adc.haveSpec Then specHeader;  // Update spectrum display header
      { TODO : Be sure following change to look at Rebel Busy txStat not cause problems) }
      if cbWFTX.Checked Then
      Begin
           If adc.haveSpec And (not d65.glinprog) Then
           Begin
+               spectrum.specWindow := cbSpecWindow.Checked;
                spectrum.computeSpectrum(adc.adclast4k1);
                adc.haveSpec := False;
           end
@@ -2257,6 +2285,7 @@ Begin
      begin
           If adc.haveSpec And (not d65.glinprog) And (not clRebel.txStat) Then
           Begin
+               spectrum.specWindow := cbSpecWindow.Checked;
                spectrum.computeSpectrum(adc.adclast4k1);
                adc.haveSpec := False;
           end
@@ -2289,6 +2318,231 @@ Begin
      end;
 end;
 
+procedure TForm1.specHeader;
+Var
+   i, ii, txHpix     : Integer;
+   cfPix, lPix, hPix : Integer;
+   floatVar          : Single;
+   loBound, hiBound  : Double;
+   lowF, hiF         : Double;
+Begin
+     // Create header for spectrum display
+     PaintBox1.Canvas.Brush.Color := clWhite;
+     PaintBox1.Canvas.Brush.Style := bsSolid;
+     PaintBox1.Canvas.FillRect(0,0,749,11);
+     PaintBox1.Canvas.Pen.Color := clBlack;
+     PaintBox1.Canvas.Pen.Width := 1;
+     PaintBox1.Canvas.MoveTo(0,0);
+     PaintBox1.Canvas.Line(0,0,749,0);
+     PaintBox1.Canvas.Line(0,11,749,11);
+     PaintBox1.Canvas.Line(0,0,0,11);
+     PaintBox1.Canvas.Line(749,0,749,11);
+     // Paint 100hz tick marks.  This scales 0 to be at pixel 376, -1000 at 6
+     // and +1000 at 746.
+     PaintBox1.Canvas.Pen.Color := clBlack;
+     PaintBox1.Canvas.Pen.Width := 3;
+     ii := 6;
+     For i := 1 To 21 do
+     Begin
+          PaintBox1.Canvas.Line(ii,1,ii,6);
+          ii := ii+37;
+     End;
+     // I now need to paint the RX and TX passbands.
+     // Have to change this to reflect that I can now have a different TX postion from RX position.
+     If cbMultiOn.Checked Then
+     Begin
+          // Multi-decode is checked so I need to compute the markers for multi
+          loBound := -1000;
+          hiBound := 1000;
+          // Now that I have a center, low and high points I can convert those to
+          // relative pixel position for the spectrum display.  0 df = 376 and 1
+          // pixel ~ 2.7027 hz.
+          lowF := loBound/2.7027;
+          hiF := hiBound/2.7027;
+          lowF := 376+lowF;
+          hiF := 376+hiF;
+          cfPix := 376;
+          hPix := Round(hiF);
+          lPix := Round(lowF);
+          if lPix < 1 Then lPix := 1;
+          if hPix > 751 Then hPix := 751;
+          PaintBox1.Canvas.Pen.Width := 3;
+          PaintBox1.Canvas.Pen.Color := clLime;
+          // Paint the RX passband, horizontal lime green line.
+          //PaintBox1.Canvas.Line(lPix,9,hPix,9);
+          //PaintBox1.Canvas.Line(lPix,1,lPix,9);
+          //PaintBox1.Canvas.Line(hPix,1,hPix,9);
+          // Paint 'bins'
+          // Bins define segments decoder will evaluate for a decode using a
+          // bandwidth of 20, 40, 80 or 160 Hz (+/- 10, +/- 20 etc) from a
+          // center point starting at -1000 Hz.  Spacing is defined in d65.glbinspace
+          PaintBox1.Canvas.Pen.Width := 3;
+          PaintBox1.Canvas.Pen.Color := clTeal;
+          lobound := -1000 - (d65.glbinspace div 2);
+          hibound := -1000 + (d65.glbinspace div 2);
+          hiF := 0;
+          lowF := 0;
+          while hiBound < 1001 do
+          Begin
+               // Compute markers
+               lowF := loBound/2.7027;
+               hiF := (loBound+d65.glbinspace)/2.7027;
+               lowF := 376+lowF;
+               hiF := 376+hiF;
+               lPix := Round(lowF);
+               hPix := Round(hiF);
+               if (lPix > 0) And (hPix < 752) Then
+               Begin
+                    PaintBox1.Canvas.Line(lPix,8,lPix,10);
+                    PaintBox1.Canvas.Line(hPix,8,hPix,10);
+               End;
+               loBound := loBound + d65.glbinspace;
+               hiBound := hiBound + d65.glbinspace;
+          End;
+
+          If cbTXeqRXDF.Checked Then
+          Begin
+               // Paint the TX passband, vertical red lines.
+               If TryStrToInt(edRXDF.Text,i) Then
+               Begin
+                    floatVar := i / 2.7027;
+                    floatVar := 376+floatVar;
+                    cfPix := Round(floatVar);
+                    txHpix := Round(floatVar+66.7);
+                    PaintBox1.Canvas.Pen.Color := clRed;
+                    PaintBox1.Canvas.Pen.Width := 3;
+                    PaintBox1.Canvas.Line(cfPix,1,cfPix,7);
+                    PaintBox1.Canvas.Line(txHpix,1,txHpix,7);
+                    PaintBox1.Canvas.Line(cfPix,1,txHpix,1);
+               End
+               Else
+               Begin
+                    // CF = 0hz so CF marker is at pixel 376
+                    cfPix := 376;
+                    txHpix := 376+67;
+                    PaintBox1.Canvas.Pen.Color := clRed;
+                    PaintBox1.Canvas.Pen.Width := 3;
+                    PaintBox1.Canvas.Line(cfPix,1,cfPix,7);
+                    PaintBox1.Canvas.Line(txHpix,1,txHpix,7);
+                    PaintBox1.Canvas.Line(cfPix,1,txHpix,1);
+               End;
+          End
+          Else
+          Begin
+               // Paint the TX passband, vertical red lines.
+               If TryStrToInt(edTXDF.Text,i) Then
+               Begin
+                    floatVar := i / 2.7027;
+                    floatVar := 376+floatVar;
+                    cfPix := Round(floatVar);
+                    txHpix := Round(floatVar+66.7);
+                    PaintBox1.Canvas.Pen.Color := clRed;
+                    PaintBox1.Canvas.Pen.Width := 3;
+                    PaintBox1.Canvas.Line(cfPix,1,cfPix,7);
+                    PaintBox1.Canvas.Line(txHpix,1,txHpix,7);
+                    PaintBox1.Canvas.Line(cfPix,1,txHpix,1);
+               End
+               Else
+               Begin
+                    // TXCF = 0hz so CF marker is at pixel 376
+                    cfPix := 376;
+                    txHpix := 376+67;
+                    PaintBox1.Canvas.Pen.Color := clRed;
+                    PaintBox1.Canvas.Pen.Width := 3;
+                    PaintBox1.Canvas.Line(cfPix,1,cfPix,7);
+                    PaintBox1.Canvas.Line(txHpix,1,txHpix,7);
+                    PaintBox1.Canvas.Line(cfPix,1,txHpix,1);
+               End;
+          End;
+     End
+     Else
+     Begin
+          // Single decode set.  The passband for single is centered on
+          // Form1.spinDecoderCF.Value going Form1.spinDecoderBW.Value
+          // above and below CF.
+          // At 37 pixels per 100 hz 1 pixel = 2.7027 hz...
+          // Display is 2000 hz wide, -1000 at pixel 1, 0 at pixel 376 and
+          // +1000 at pixel 746
+          If TryStrToInt(edRXDF.Text,i) Then
+          Begin
+               loBound := i - d65.glDFTolerance;
+               hiBound := i + d65.glDFTolerance;
+               // Now that I have a center, low and high points I can convert those to
+               // relative pixel position for the spectrum display.  0 df = 376 and 1
+               // pixel ~ 2.7027 hz.
+               lowF := loBound/2.7027;
+               hiF := hiBound/2.7027;
+               lowF := 376+lowF;
+               hiF := 376+hiF;
+               cfPix := 376;
+               hPix := Round(hiF);
+               lPix := Round(lowF);
+               if lPix < 1 Then lPix := 1;
+               if hPix > 751 Then hPix := 751;
+               // Paint the RX passband, horizontal lime green line.
+               PaintBox1.Canvas.Pen.Width := 3;
+               PaintBox1.Canvas.Pen.Color := clLime;
+               PaintBox1.Canvas.Line(lPix,9,hPix,9);
+               PaintBox1.Canvas.Line(lPix,1,lPix,9);
+               PaintBox1.Canvas.Line(hPix,1,hPix,9);
+               If cbTXeqRXDF.Checked Then
+               Begin
+                    If TryStrToInt(edRXDF.Text,i) and (i <> 0) Then
+                    Begin
+                           floatVar := i / 2.7027;
+                           floatVar := 376+floatVar;
+                           cfPix := Round(floatVar);
+                           txHpix := Round(floatVar+66.7);
+                           PaintBox1.Canvas.Pen.Color := clRed;
+                           PaintBox1.Canvas.Pen.Width := 3;
+                           PaintBox1.Canvas.Line(cfPix,1,cfPix,9);
+                           PaintBox1.Canvas.Line(txHpix,1,txHpix,9);
+                           PaintBox1.Canvas.Line(cfPix,1,txHpix,1);
+                    End
+                    Else
+                    Begin
+                           // CF = 0hz so CF marker is at pixel 376
+                           cfPix := 376;
+                           txHpix := 376+67;
+                           PaintBox1.Canvas.Pen.Color := clRed;
+                           PaintBox1.Canvas.Pen.Width := 3;
+                           PaintBox1.Canvas.Line(cfPix,1,cfPix,9);
+                           PaintBox1.Canvas.Line(txHpix,1,txHpix,9);
+                           PaintBox1.Canvas.Line(cfPix,1,txHpix,1);
+                    End;
+               End
+               Else
+               Begin
+                    // Paint the TX passband, vertical red lines.
+                    If TryStrToInt(edTXDF.Text,i) and (i <> 0) Then
+                    Begin
+                           floatVar := i / 2.7027;
+                           floatVar := 376+floatVar;
+                           cfPix := Round(floatVar);
+                           txHpix := Round(floatVar+66.7);
+                           PaintBox1.Canvas.Pen.Color := clRed;
+                           PaintBox1.Canvas.Pen.Width := 3;
+                           PaintBox1.Canvas.Line(cfPix,1,cfPix,7);
+                           PaintBox1.Canvas.Line(txHpix,1,txHpix,7);
+                           PaintBox1.Canvas.Line(cfPix,1,txHpix,1);
+                    End
+                    Else
+                    Begin
+                           // TXCF = 0hz so CF marker is at pixel 376
+                           cfPix := 376;
+                           txHpix := 376+67;
+                           PaintBox1.Canvas.Pen.Color := clRed;
+                           PaintBox1.Canvas.Pen.Width := 3;
+                           PaintBox1.Canvas.Line(cfPix,1,cfPix,7);
+                           PaintBox1.Canvas.Line(txHpix,1,txHpix,7);
+                           PaintBox1.Canvas.Line(cfPix,1,txHpix,1);
+                    End;
+               End;
+          end;
+     End;
+End;
+
+
 function TForm1.asBand(const qrg : Integer) : Integer;
 Begin
      // QRG is in hertz.
@@ -2309,10 +2563,11 @@ end;
 
 procedure TForm1.displayDecodes3;
 Var
-   i,j,k    : Integer;
+   i,j,k,wc : Integer;
    afoo     : String;
    bfoo     : String;
    cfoo     : String;
+   n1,n2,ng : String;
    srec     : Spot.spotRecord;
    nodteval : Boolean;
 Begin
@@ -2360,6 +2615,30 @@ Begin
                          if length(d65.gld65decodes[i].dtSigLevel)=2 Then d65.gld65decodes[i].dtSigLevel := d65.gld65decodes[i].dtSigLevel[1] + '0' + d65.gld65decodes[i].dtSigLevel[2];
                          ListBox1.Items.Insert(0, d65.gld65decodes[i].dtTimeStamp + '  ' + PadRight(d65.gld65decodes[i].dtSigLevel,3) + '  ' + PadRight(d65.gld65decodes[i].dtDeltaFreq,5) + '   ' + d65.gld65decodes[i].dtDecoded);
                          { TODO : Add call to grab signal report for logging in this general area }
+                         // Look at exchange - it should be their_call my_call -## or their_call my_call R-##
+                         // if seen that should be the signal report value
+                         wc := WordCount(d65.gld65decodes[i].dtDecoded,[' ']);
+                         if wc = 3 Then
+                         Begin
+                              n1 := '';
+                              n2 := '';
+                              ng  := '';
+                              n1 := ExtractWord(1,d65.gld65decodes[i].dtDecoded,[' ']);
+                              n2 := ExtractWord(2,d65.gld65decodes[i].dtDecoded,[' ']);
+                              ng  := ExtractWord(3,d65.gld65decodes[i].dtDecoded,[' ']);
+                              if(n1=myscall) or (n1=mycall) then
+                              Begin
+                                   // Need to see if ng is a R-## or #--
+                                   if length(ng)=3 Then
+                                   Begin
+                                        if ng[1]='-' Then logMySig.Text:=ng;
+                                   end;
+                                   if length(ng)=4 Then
+                                   Begin
+                                        if ng[1..2]='R-' Then logMySig.Text:=ng;
+                                   end;
+                              end;
+                         end;
                          if (rbOn.Checked) And (sopQRG = eopQRG) And (StrToInt(edDialQRG.Text) > 0) Then
                          Begin
                               //Post to RB
@@ -2434,11 +2713,11 @@ end;
 
 procedure TForm1.tbSingleBinChange(Sender: TObject);
 begin
-     If tbSingleBin.Position = 1 then d65.glsbinspace := 20;
-     If tbSingleBin.Position = 2 then d65.glsbinspace := 50;
-     If tbSingleBin.Position = 3 then d65.glsbinspace := 100;
-     If tbSingleBin.Position = 4 then d65.glsbinspace := 200;
-     Label87.Caption := 'Single ' + IntToStr(d65.glsbinspace) + ' Hz';
+     If tbSingleBin.Position = 1 then d65.glDFTolerance := 20;
+     If tbSingleBin.Position = 2 then d65.glDFTolerance := 50;
+     If tbSingleBin.Position = 3 then d65.glDFTolerance := 100;
+     If tbSingleBin.Position = 4 then d65.glDFTolerance := 200;
+     Label87.Caption := 'Single ' + IntToStr(d65.glDFTolerance) + ' Hz';
 end;
 
 function  TForm1.gText(const msg : String; var nc1 : LongWord; var nc2 : LongWord; var ng : LongWord) : Boolean;
@@ -3243,8 +3522,7 @@ Var
    wc,i         : Integer;
    isSlashed    : Boolean;
    nc1,nc2,ng   : String;
-   s1,s2,mycall : String;
-   myscall      : String;
+   s1,s2        : String;
    myGrid4      : String;
    siglevel     : String;
 Begin
@@ -3267,26 +3545,12 @@ Begin
      fullcall := '';
      hisGrid := '';
 
-     If Length(TrimLeft(TrimRight(edSuffix.Text))) > 0 Then myCall := TrimLeft(TrimRight(UpCase(edCall.Text))) + '/' + TrimLeft(TrimRight(UpCase(edSuffix.Text)));
-     If Length(TrimLeft(TrimRight(edPrefix.Text))) > 0 Then myCall := TrimLeft(TrimRight(UpCase(edPrefix.Text))) + '/' + TrimLeft(TrimRight(UpCase(edCall.Text)));
-     If (Length(TrimLeft(TrimRight(edSuffix.Text))) > 0) And (Length(TrimLeft(TrimRight(edPrefix.Text))) > 0) Then myCall := TrimLeft(TrimRight(UpCase(edCall.Text)));
      // TX Callsign is evaluated as (in order of precedence)
      // edPrefix.Text/edCall.Text
      // edCall.Text/edSuffix.Text
      // edCall.Text
      // myscall is this stations, as in my callsign, with prefix/suffix
      // mycall is just my base callsign
-     If (Length(TrimLeft(TrimRight(edPrefix.Text))) < 1) And (Length(TrimLeft(TrimRight(edSuffix.Text))) <1) Then
-     Begin
-          myscall := TrimLeft(TrimRight(UpCase(edCall.Text)));
-     end
-     else
-     begin
-          // Since prefix outranks suffix this will insure prefix wins if both set.
-          If (Length(TrimLeft(TrimRight(edSuffix.Text))) > 0) Then myscall := TrimLeft(TrimRight(UpCase(edCall.Text)))+'/'+TrimLeft(TrimRight(UpCase(edSuffix.Text)));
-          If (Length(TrimLeft(TrimRight(edPrefix.Text))) > 0) Then myscall := TrimLeft(TrimRight(UpCase(edPrefix.Text)))+'/'+TrimLeft(TrimRight(UpCase(edCall.Text)));
-     end;
-     mycall := TrimLeft(TrimRight(UpCase(edCall.Text)));
      siglevel := TrimLeft(TrimRight(edTXReport.Text));
      if tryStrToInt(siglevel,i) Then
      Begin
@@ -3328,8 +3592,8 @@ Begin
                isValid := True;
                connectTo := TrimLeft(TrimRight(UpCase(nc2)));
                fullCall := connectTo;
-               if isSlashed Then response := connectTo + ' ' + myscall;
-               if not isSlashed Then response := connectTo + ' ' + myCall;
+               if isSlashed Then response := connectTo + ' ' + mycall;
+               if not isSlashed Then response := connectTo + ' ' + mySCall;
                // Response is like PFX/Call MYCALL
                //                  Call/SFX MYCALL
                //                  Call PFX/MYCALL
@@ -3953,7 +4217,6 @@ begin
                rigNone.Checked := True;
           end;
      end;
-
 
      If Sender = rigCommander Then
      Begin
@@ -4798,7 +5061,7 @@ procedure TForm1.LogQSOClick(Sender: TObject);
 begin
      { TODO : Actually log things :) }
      Waterfall1.Visible   := True;
-     Chart1.Visible       := True;
+     PaintBox1.Visible    := True;
      buttonConfig.Visible := True;
      groupLogQSO.Visible  := False;
      // Do logging
@@ -5001,7 +5264,7 @@ end;
 procedure TForm1.Button1Click(Sender: TObject);
 begin
      Waterfall1.Visible   := False;
-     Chart1.Visible       := False;
+     PaintBox1.Visible    := False;
      buttonConfig.Visible := False;
      PageControl.Visible  := False;
      groupLogQSO.visible  := True;
@@ -5055,10 +5318,10 @@ end;
 procedure TForm1.buttonConfigClick(Sender: TObject);
 begin
      Waterfall1.Visible   := False;
-     Chart1.Visible       := False;
+     PaintBox1.Visible    := False;
      buttonConfig.Visible := False;
      Button4.Visible      := True;
-     PageControl.Visible := True;
+     PageControl.Visible  := True;
 end;
 
 procedure TForm1.Button4Click(Sender: TObject);
@@ -5105,10 +5368,10 @@ begin
      if canTX Then ListBox2.Items.Insert(0,'After config save CAN transmit') else ListBox2.Items.Insert(0,'After config save CAN NOT transmit.');
 
      Waterfall1.Visible   := True;
-     Chart1.Visible       := True;
+     PaintBox1.Visible    := True;
      buttonConfig.Visible := True;
      Button4.Visible      := False;
-     PageControl.Visible := False;
+     PageControl.Visible  := False;
      updateDB;
 end;
 
@@ -5135,10 +5398,6 @@ begin
           portAudio.Pa_AbortStream(paInStream);
           //portAudio.Pa_AbortStream(paOutStream);
           portaudio.Pa_Terminate();
-          //rb.useRB   := False;
-          //rb.useDBF  := False;
-          //rb.logoutRB;
-          sleep(250);
           rbThread.Terminate;
           if not rbThread.FreeOnTerminate Then rbThread.Free;
           decoderThread.Terminate;
@@ -5152,8 +5411,6 @@ procedure TForm1.FormCreate(Sender: TObject);
 begin
      srun       := 0.0;
      lrun       := 0.0;
-//     demodulate.dmrcount := 0;
-//     demodulate.dmarun := 0.0;
      d65.dmarun := 0.0;
      mval        := valobject.TValidator.create();
      Label1.Caption := 'TX Level:  100%';
@@ -5168,7 +5425,7 @@ begin
      newSecond   := False;
      rbping      := False;
      rbposted    := 0;
-     doDecode    := False;
+     runDecode   := False;
      decodeping  := 0;
      decoderBusy := False;
      qrgValid    := False;
@@ -5212,7 +5469,7 @@ Var
 begin
      while not Terminated and not Suspended and not decoderBusy do
      begin
-          if doDecode then
+          if runDecode then
           Begin
                decoderBusy := True;
                i := 0;
@@ -5227,30 +5484,10 @@ begin
                //for i := 0 to length(adc.d65rxFBuffer)-1 do rxf[i] := adc.d65rxFBuffer[i];
                //demodulate.fdemod(rxf);
                //setLength(rxf,0);
-               // V3 Decoder
-               for i := 0 to length(adc.d65rxIBuffer)-1 do d65.glinBuffer[i] := adc.d65rxIBuffer[i];
-               d65.dmtimestamp := '';
-               d65.dmtimestamp := d65.dmtimestamp + IntToStr(thisUTC.Year);
-               if thisUTC.Month < 10 Then d65.dmtimestamp := d65.dmtimestamp + '0' + IntToStr(thisUTC.Month) else d65.dmtimestamp := d65.dmtimestamp + IntToStr(thisUTC.Month);
-               if thisUTC.Day < 10 Then d65.dmtimestamp := d65.dmtimestamp + '0' + IntToStr(thisUTC.Day) else d65.dmtimestamp := d65.dmtimestamp + IntToStr(thisUTC.Day);
-               if thisUTC.Hour < 10 Then d65.dmtimestamp := d65.dmtimestamp + '0' + IntToStr(thisUTC.Hour) else d65.dmtimestamp := d65.dmtimestamp + IntToStr(thisUTC.Hour);
-               if thisUTC.Minute < 10 Then d65.dmtimestamp := d65.dmtimestamp + '0' + IntToStr(thisUTC.Minute) else d65.dmtimestamp := d65.dmtimestamp + IntToStr(thisUTC.Minute);
-               d65.dmtimestamp := d65.dmtimestamp + '00';
-               if thisUTC.Hour < 10 then d65.gld65timestamp := '0' + IntToStr(thisUTC.Hour) else d65.gld65timestamp := IntToStr(thisUTC.Hour);
-               if thisUTC.Minute < 10 then d65.gld65timestamp := d65.gld65timestamp + ':0' + IntToStr(thisUTC.Minute) else d65.gld65timestamp := d65.gld65timestamp + ':' + IntToStr(thisUTC.Minute);
-               if multion then
-               Begin
-                    glSteps := 1;
-               end
-               else
-               begin
-                    d65.glMouseDF := rxdf;
-                    d65.glDFTolerance := d65.glsbinspace
-               end;
                d65.doDecode(0,524287);
                //d65.doDecode(0,533504);
                inc(decodeping);
-               doDecode := False;
+               runDecode := False;
                decoderBusy := False;
           end;
           Sleep(100);
@@ -5266,12 +5503,26 @@ Begin
      if isGrid(foo) Then result := TrimLeft(TrimRight(UpCase(foo))) Else Result := '';
 end;
 
-procedure TForm1.InitBar;
+procedure TForm1.WaterFallMouseDown(Sender: TObject; Button: TMouseButton; Shift: TShiftState; X, Y: Integer);
+Var
+   df : Single;
 begin
-     FBar1 := TBarSeries.Create(Chart1);
-     FBar1.Title := '';
-     FBar1.SeriesColor := clBLue;
-     Chart1.AddSeries(FBar1);
+     if x = 0 then df := -1019;
+     if x > 0 Then df := X*2.7027;
+     df := -1018.9189 + df;
+
+     if Button = mbLeft Then
+     Begin
+          edTXDF.Text := IntToStr(round(df));
+          if cbTXeqRXDF.Checked Then edRXDF.Text := edTXDF.Text;
+     End;
+
+     if Button = mbRight Then
+     Begin
+          edRXDF.Text := IntToStr(round(df));
+          if cbTXeqRXDF.Checked Then edTXDF.Text := edRXDF.Text;
+     End;
+
 end;
 
 function TForm1.utcTime: TSystemTime;
@@ -5280,145 +5531,145 @@ Begin
      GetSystemTime(result);
 end;
 
-procedure TForm1.removeDupes(var list : TStringList; var removes : Array of Integer);
-Var
-  dupelist  : TStringList;
-  i,j,c1,c2 : Integer;
-  c4        : Integer;
-  dcount    : Integer;
-  s1        : String;
-  havedupe  : Boolean;
-  ostrong   : Boolean;
-Begin
-     // What I have here is a string list that may or may not have duplicates.
-     // The easy cases of a true duplicate has already been handled, but...
-     // The harder case may still be present where the excahnge is a dupe but
-     // the signal strength/df/dt may differ.  This is the case when a very
-     // strong signal leads to alias decodes.  What I need to do is look for
-     // duplicate exchange text but differing "other" fields where the winner
-     // is the decode with the strongest dB figure.
-     //
-
-     // The input stringist contains db,exchange,index of array member
-
-     havedupe := True;
-     dupeList := TStringList.Create;
-     dupeList.Clear;
-     dupeList.CaseSensitive := False;
-     dupeList.Sorted := True;
-     dupeList.Duplicates := Types.dupError;
-
-     for i := 0 to length(removes)-1 do removes[i] := -9999;
-
-     if list.Count < 2 Then havedupe := False;  // No need to bother here if it can't have a dupe!
-
-     while havedupe do
-     begin
-          // See if any dupes exist.
-          dupelist.clear;
-          // Attempt to add all members (exchange portion only) to dupelist set
-          // to disallow duplicates.  If an entry attempt of dupe is made an
-          // exception will be thrown.  This repeats until all dupes have been
-          // removed.
-          havedupe := False;
-          for i := 0 to list.Count - 1 do
-          begin
-               s1 := '';
-               c1 := 9999;
-               c2 := 9999;
-               c4 := 9999;
-               Try
-                  if not (ExtractWord(2,list.strings[i],[',']) = 'REMOVE ME') Then
-                  Begin
-                       dupeList.Add(ExtractWord(2,list.strings[i],[',']));
-                  end;
-               except
-                  havedupe := True;
-                  s1 := ExtractWord(2,List.Strings[i],[',']) ; // Get exchange portion of the dupe.
-                  c1 := StrToInt(ExtractWord(1,list.Strings[i],[','])); // Signal strength
-                  c4 := i;                                              // Index of this entry in list.Strings[]
-                  break;
-               end;
-          end;
-
-          if havedupe then
-          begin
-               // I know I have duplicate(s) member(s) if I make it here.  Lets do it like so...
-               // Comapre all other items in list.strings[] substring exchange to s1 (excluding
-               // index c4 which is the original) to find if s1/c1 idx c4 is the strongest dupe.  If
-               // s1/c1 idx c4 is strongest remove all other duplicate entries leaving only
-               // list.strings[c4] or if not leaving only strongest dupe that is otherwise dupe of
-               // s1/c1 idx c4.
-               //
-               // DO NOT DELTE ANY ENTRIES IN list.strings[] until done -- just set the exchange
-               // substring to REMOVE ME
-
-               // First pass - find dupe count.
-               dcount := 0;
-               ostrong := True;
-               havedupe := True;
-
-               For i := 0 to list.Count - 1 do
-               begin
-                    If ExtractWord(2,list.Strings[i],[',']) = s1 Then
-                    Begin
-                         if i <> c4 then
-                         Begin
-                              inc(dcount);
-                              c2 := StrToInt(ExtractWord(1,list.Strings[i],[',']));
-                              if c2 > c1 then ostrong := false;
-                         End;
-                    End;
-               end;
-
-               if dcount>0 Then
-               // At this point I have a duplicate count (1...x) and will know if s1/c1 idx c4
-               // is strongest.  If not strongest I go one way - If strongest I go another.
-
-               if (dcount > 0) and ostrong Then
-               Begin
-                    //Memo1.Append('Removing dupes ['+ IntToStr(dcount) + ']');
-                    // Have at least 1 dupe and s1/c1 idx c4 is strongest.
-                    // Walk the list again and set all dupes that are not s1/c1 idx c4 to
-                    // sig,REMOVE ME,idx instead of sig,EXCHANGE,idx
-                    for i := 0 to list.Count-1 do
-                    Begin
-                         If ExtractWord(2,list.Strings[i],[',']) = s1 Then
-                         Begin
-                              if i <> c4 then
-                              Begin
-                                   // Update this string to remove status.
-                                   list.Strings[i] := ExtractWord(1,list.strings[i],[',']) + ',REMOVE ME,' + ExtractWord(3,list.strings[i],[',']);
-                                   //Memo1.Append(list.Strings[i]);
-                              End;
-                         End;
-                    end;
-               end;
-
-               if (dcount > 0) and (not ostrong) Then
-               Begin
-                    // Have at least 1 dupe and s1/c1 idx c4 is NOT strongest so - flag s1/c1 idx c4 as removed.
-                    list.Strings[c4] := ExtractWord(1,list.strings[c4],[',']) + ',REMOVE ME,' + ExtractWord(3,list.strings[c4],[',']);
-                    //Memo1.Append(list.Strings[i]);
-               end;
-               // Keep repeating until havedupe false
-          end;
-          dupelist.Clear;
-     end;
-     j := 0; // j holds index to removes[] incremented after each add to removes[]
-     // Now -- walk the list and add any entry in list.strings[] where exchange = REMOVE ME
-     // to removes[] as its original index held in third word of list.strings[]
-     for i := 0 to list.Count - 1 do
-     begin
-          if ExtractWord(2,list.strings[i],[',']) = 'REMOVE ME' then
-          begin
-               removes[j] := StrToInt(ExtractWord(3,list.Strings[i],[','])); // Index of this entry in calling code's data
-               inc(j);
-          end;
-     end;
-     dupeList.clear;
-     dupeList.Destroy;
-end;
+//procedure TForm1.removeDupes(var list : TStringList; var removes : Array of Integer);
+//Var
+//  dupelist  : TStringList;
+//  i,j,c1,c2 : Integer;
+//  c4        : Integer;
+//  dcount    : Integer;
+//  s1        : String;
+//  havedupe  : Boolean;
+//  ostrong   : Boolean;
+//Begin
+//     // What I have here is a string list that may or may not have duplicates.
+//     // The easy cases of a true duplicate has already been handled, but...
+//     // The harder case may still be present where the excahnge is a dupe but
+//     // the signal strength/df/dt may differ.  This is the case when a very
+//     // strong signal leads to alias decodes.  What I need to do is look for
+//     // duplicate exchange text but differing "other" fields where the winner
+//     // is the decode with the strongest dB figure.
+//     //
+//
+//     // The input stringist contains db,exchange,index of array member
+//
+//     havedupe := True;
+//     dupeList := TStringList.Create;
+//     dupeList.Clear;
+//     dupeList.CaseSensitive := False;
+//     dupeList.Sorted := True;
+//     dupeList.Duplicates := Types.dupError;
+//
+//     for i := 0 to length(removes)-1 do removes[i] := -9999;
+//
+//     if list.Count < 2 Then havedupe := False;  // No need to bother here if it can't have a dupe!
+//
+//     while havedupe do
+//     begin
+//          // See if any dupes exist.
+//          dupelist.clear;
+//          // Attempt to add all members (exchange portion only) to dupelist set
+//          // to disallow duplicates.  If an entry attempt of dupe is made an
+//          // exception will be thrown.  This repeats until all dupes have been
+//          // removed.
+//          havedupe := False;
+//          for i := 0 to list.Count - 1 do
+//          begin
+//               s1 := '';
+//               c1 := 9999;
+//               c2 := 9999;
+//               c4 := 9999;
+//               Try
+//                  if not (ExtractWord(2,list.strings[i],[',']) = 'REMOVE ME') Then
+//                  Begin
+//                       dupeList.Add(ExtractWord(2,list.strings[i],[',']));
+//                  end;
+//               except
+//                  havedupe := True;
+//                  s1 := ExtractWord(2,List.Strings[i],[',']) ; // Get exchange portion of the dupe.
+//                  c1 := StrToInt(ExtractWord(1,list.Strings[i],[','])); // Signal strength
+//                  c4 := i;                                              // Index of this entry in list.Strings[]
+//                  break;
+//               end;
+//          end;
+//
+//          if havedupe then
+//          begin
+//               // I know I have duplicate(s) member(s) if I make it here.  Lets do it like so...
+//               // Comapre all other items in list.strings[] substring exchange to s1 (excluding
+//               // index c4 which is the original) to find if s1/c1 idx c4 is the strongest dupe.  If
+//               // s1/c1 idx c4 is strongest remove all other duplicate entries leaving only
+//               // list.strings[c4] or if not leaving only strongest dupe that is otherwise dupe of
+//               // s1/c1 idx c4.
+//               //
+//               // DO NOT DELTE ANY ENTRIES IN list.strings[] until done -- just set the exchange
+//               // substring to REMOVE ME
+//
+//               // First pass - find dupe count.
+//               dcount := 0;
+//               ostrong := True;
+//               havedupe := True;
+//
+//               For i := 0 to list.Count - 1 do
+//               begin
+//                    If ExtractWord(2,list.Strings[i],[',']) = s1 Then
+//                    Begin
+//                         if i <> c4 then
+//                         Begin
+//                              inc(dcount);
+//                              c2 := StrToInt(ExtractWord(1,list.Strings[i],[',']));
+//                              if c2 > c1 then ostrong := false;
+//                         End;
+//                    End;
+//               end;
+//
+//               if dcount>0 Then
+//               // At this point I have a duplicate count (1...x) and will know if s1/c1 idx c4
+//               // is strongest.  If not strongest I go one way - If strongest I go another.
+//
+//               if (dcount > 0) and ostrong Then
+//               Begin
+//                    //Memo1.Append('Removing dupes ['+ IntToStr(dcount) + ']');
+//                    // Have at least 1 dupe and s1/c1 idx c4 is strongest.
+//                    // Walk the list again and set all dupes that are not s1/c1 idx c4 to
+//                    // sig,REMOVE ME,idx instead of sig,EXCHANGE,idx
+//                    for i := 0 to list.Count-1 do
+//                    Begin
+//                         If ExtractWord(2,list.Strings[i],[',']) = s1 Then
+//                         Begin
+//                              if i <> c4 then
+//                              Begin
+//                                   // Update this string to remove status.
+//                                   list.Strings[i] := ExtractWord(1,list.strings[i],[',']) + ',REMOVE ME,' + ExtractWord(3,list.strings[i],[',']);
+//                                   //Memo1.Append(list.Strings[i]);
+//                              End;
+//                         End;
+//                    end;
+//               end;
+//
+//               if (dcount > 0) and (not ostrong) Then
+//               Begin
+//                    // Have at least 1 dupe and s1/c1 idx c4 is NOT strongest so - flag s1/c1 idx c4 as removed.
+//                    list.Strings[c4] := ExtractWord(1,list.strings[c4],[',']) + ',REMOVE ME,' + ExtractWord(3,list.strings[c4],[',']);
+//                    //Memo1.Append(list.Strings[i]);
+//               end;
+//               // Keep repeating until havedupe false
+//          end;
+//          dupelist.Clear;
+//     end;
+//     j := 0; // j holds index to removes[] incremented after each add to removes[]
+//     // Now -- walk the list and add any entry in list.strings[] where exchange = REMOVE ME
+//     // to removes[] as its original index held in third word of list.strings[]
+//     for i := 0 to list.Count - 1 do
+//     begin
+//          if ExtractWord(2,list.strings[i],[',']) = 'REMOVE ME' then
+//          begin
+//               removes[j] := StrToInt(ExtractWord(3,list.Strings[i],[','])); // Index of this entry in calling code's data
+//               inc(j);
+//          end;
+//     end;
+//     dupeList.clear;
+//     dupeList.Destroy;
+//end;
 
 constructor rbcThread.Create(CreateSuspended : boolean);
 begin

@@ -22,8 +22,7 @@ unit d65;
 //
 {$mode objfpc}{$H+}
 
-{ TODO : Figure out why it's not pushing results for first decode cycle }
-
+{ TODO : KVASD.DAT is being left behing AGAIN - kill it, nuke it, obliterate it. }
 interface
 
 uses
@@ -190,7 +189,7 @@ Var
    kvProc                  : TProcess;
    kvDat                   : Array[0..11] of CTypes.cint;
    kvFile                  : File Of CTypes.cint;
-   kvfullname              : String;
+   kvfullname, foo         : String;
 Begin
      // Looking for a KV decode
      Result := false;
@@ -202,7 +201,7 @@ Begin
      End;
      ierr := 0;
      kvfullname := dmtmpdir+'KVASD.DAT';
-     if FileExists(kvfullname) Then
+     if SysUtils.FileExists(kvfullname) Then
      Begin
           kvProc := TProcess.Create(nil);
           kvProc.Executable := dmtmpdir + 'kvasd.exe';
@@ -282,6 +281,18 @@ Begin
         FileUtil.DeleteFileUTF8(kvfullname);
      except
         // No action required
+     end;
+     j := 0;
+     if FileExists(dmtmpdir+'KVASD.DAT') Then
+     Begin
+          repeat
+                try
+                   FileUtil.DeleteFileUTF8(dmtmpdir+'KVASD.DAT');
+                except
+                   // No action required
+                end;
+                inc(j);
+          until (j>9) or not FileExists(dmtmpdir+'KVASD.DAT');
      end;
 end;
 
@@ -481,7 +492,6 @@ begin
          Begin
               gllpfM[i] := glf1Buffer[i];
          end;
-         //jz := 524287;  // This truncates the last symbol to get a POT transform - otherwise I have to move up to 1048575 - can't see a problem with that so far this is 0..524287 so it's 524288 samples
          if glnz then
          Begin
               // Since I'm not doing the lpf I'll do the simple 2x decimate here again.
@@ -532,7 +542,7 @@ begin
               // Get bin spacing
               if glsteps = 1 Then
               Begin
-                   binspace := glbinspace;
+                   binspace := glbinspace;  // Multiple decode resolution
                    // Now... take the syncount list and place a 'tick' in each
                    // 'bin' where a sync detect has been found.
                    // 2000 Hz / 20 Hz = 100 bins. (101 actually)
@@ -753,7 +763,6 @@ begin
                         if bins[i] > 0 then inc(passcount);
                    end;
                    //diagout.Form3.ListBox1.Items.Add('Merged ' + IntToStr(syncount) + ' points to ' + IntToStr(passcount) + ' bins.');
-                   { TODO : Figure out why following is borked }
                    if (syncount > (2000 div binspace) + 5) And (passcount > 20) Then
                    Begin
                         //diagout.Form3.ListBox3.Items.Add('Probable dirty signal detected');
@@ -769,8 +778,9 @@ begin
                    // Single decode cycle @ glMouseDF, glDFTolerance
                    // find bin where glMouseDF might live.
                    passtest := glMouseDF;
-                   binspace := glDFTolerance;
-                   If glDFTolerance = 20 Then
+                   binspace := glDFTolerance;  // Single decode resolution
+                   // This sets binspace to single decode tolerance.
+                   If binspace = 20 Then
                    Begin
                         // 20 Hz Bins
                         Case passtest of
@@ -877,7 +887,7 @@ begin
                              991..1010           : inc(bins[100]); // 1000
                         End;
                    End;
-                   if glDFTolerance = 50 Then
+                   if binspace = 50 Then
                    Begin
                         // 50 Hz Bins
                         Case passtest of
@@ -924,7 +934,7 @@ begin
                              976..1025           : inc(bins[40]); // 1000
                         End;
                    End;
-                   if glDFTolerance = 100 Then
+                   if binspace = 100 Then
                    Begin
                         // 100 Hz Bins
                         Case passtest of
@@ -951,7 +961,7 @@ begin
                              951..1050           : inc(bins[20]); // 1000
                         End;
                    End;
-                   if glDFTolerance = 200 Then
+                   if binspace = 200 Then
                    Begin
                         // 200 Hz Bins
                         Case passtest of
@@ -968,8 +978,6 @@ begin
                              901..1100           : inc(bins[10]); // 1000
                         End;
                    End;
-                   // This sets binspace to single decode tolerance.
-                   binspace := glDFTolerance;
                    // At this point I should have exactly 1 bin populated.
                    passcount := 0;
                    for i := 0 to 100 do
@@ -1021,8 +1029,33 @@ begin
                              Begin
                                   glf3Buffer[j] := 0.0;
                              end;
+                             // Attempting to insure KVASD.DAT does not exist.
+                             j := 0;
+                             if FileExists(dmtmpdir+'KVASD.DAT') Then
+                             Begin
+                                  repeat
+                                        try
+                                           FileUtil.DeleteFileUTF8(dmtmpdir+'KVASD.DAT');
+                                        except
+                                           // No action required
+                                        end;
+                                        inc(j);
+                                  until (j>9) or not FileExists(dmtmpdir+'KVASD.DAT');
+                             end;
+                             if FileExists(dmtmpdir+'KVASD.DAT') Then
+                             Begin
+                                  try
+                                     FileUtil.DeleteFileUTF8(dmtmpdir+'KVASD.DAT');
+                                  except
+                                     // No action required
+                                  end;
+                                  try
+                                     FileUtil.DeleteFileUTF8(dmtmpdir+'KVASD.DAT');
+                                  except
+                                     // No action required
+                                  end;
+                             end;
                              // Call decoder
-                             //cqz65(@glf3Buffer[4096],@jz2,@bw,@afc,@MouseDF2,@idf,glmline,@lical,glwisfile,glkvfname);
                              cqz65(@glf3Buffer[glSampOffset],@jz2,@bw,@afc,@MouseDF2,@idf,glmline,@lical,glwisfile,glkvfname);
                              ifoo := 0;
                              foo := '';
@@ -1080,6 +1113,31 @@ begin
                                   end;
                              end;
                         End;
+                   end;
+              end;
+              j := 0;
+              if FileExists(dmtmpdir+'KVASD.DAT') Then
+              Begin
+                   repeat
+                         try
+                            FileUtil.DeleteFileUTF8(dmtmpdir+'KVASD.DAT');
+                         except
+                            // No action required
+                         end;
+                         inc(j);
+                   until (j>9) or not FileExists(dmtmpdir+'KVASD.DAT');
+              end;
+              if FileExists(dmtmpdir+'KVASD.DAT') Then
+              Begin
+                   try
+                      FileUtil.DeleteFileUTF8(dmtmpdir+'KVASD.DAT');
+                   except
+                      // No action required
+                   end;
+                   try
+                      FileUtil.DeleteFileUTF8(dmtmpdir+'KVASD.DAT');
+                   except
+                      // No action required
                    end;
               end;
               if glrawOut.Count > 0 Then
