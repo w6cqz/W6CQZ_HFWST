@@ -1,22 +1,4 @@
 // (c) 2013 CQZ Electronics
-{
-   Added BPF filtering here
-   Removed integer buffers for samples - all FP now other than audio level/spectrum
-   Cleaned up buffering - now using one FP buffer and only running BPF for stream
-   actually being used.  Still computing audio level for both channels (unless it's
-   running mono) and saving spectrum samples for both.  This is *necessary* for
-   spectrum - otherwise it doesn't gracefully switch audio channels on the fly.
-}
-
-{ TODO : Try Chebyshev LP FIR filter }
-
-{ OK - while doing the filtering here and avoiding the LPF1 issues seen using
-  stock K1JT methods fixes some things it breaks others.  I need to find a happy
-  medium between the two.  I can have speed, fewer artifact decodes (false hits)
-  and less than stellar decode reliability or the opposite.  There has to be a
-  mid point - but, for now, I'm going back toward the way it's always been done.
-}
-
 unit adc;
 {$mode objfpc}{$H+}
 

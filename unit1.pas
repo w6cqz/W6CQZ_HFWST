@@ -432,7 +432,6 @@ type
                               var connectTo     : String;
                               var fullCall      : String;
                               var hisGrid       : String);
-    procedure breakOutFields(const msg : String; var mvalid : Boolean);
     procedure displayDecodes3;
     procedure specHeader;
 
@@ -1767,7 +1766,6 @@ Begin
           // Load it into the class data buffer
           if (not clRebel.txStat) and (not clRebel.busy) Then
           Begin
-               { TODO : Be sure I can't load new data while busy or tx in progress! }
                for i := 0 to 127 do clRebel.setData(i,StrToInt(qrgset[i]));
                if clRebel.ltx then txDirty := False else txDirty := True;
                //if not txDirty then Memo1.Append(clRebel.debug) else Memo1.Append('0: Failed to upload FSK array');
@@ -2215,7 +2213,6 @@ Begin
      if not canTX and not clRebel.txStat then toggleTX.Checked := False;
 
      // Enable TX if necessary
-     { TODO : More TX code here }
      if not txInProgress and inSync and txControl Then
      Begin
           txInProgress := False;
@@ -2266,7 +2263,6 @@ Begin
      // Events triggered from ADC/DAC callback counter change
      // Compute spectrum and audio levels.
      if adc.haveSpec Then specHeader;  // Update spectrum display header
-     { TODO : Be sure following change to look at Rebel Busy txStat not cause problems) }
      if cbWFTX.Checked Then
      Begin
           If adc.haveSpec And (not d65.glinprog) Then
@@ -2613,7 +2609,6 @@ Begin
                          if not AnsiContainsText(d65.gld65decodes[i].dtDeltaFreq,'-') Then d65.gld65decodes[i].dtDeltaFreq := ' ' + d65.gld65decodes[i].dtDeltaFreq;
                          if length(d65.gld65decodes[i].dtSigLevel)=2 Then d65.gld65decodes[i].dtSigLevel := d65.gld65decodes[i].dtSigLevel[1] + '0' + d65.gld65decodes[i].dtSigLevel[2];
                          ListBox1.Items.Insert(0, d65.gld65decodes[i].dtTimeStamp + '  ' + PadRight(d65.gld65decodes[i].dtSigLevel,3) + '  ' + PadRight(d65.gld65decodes[i].dtDeltaFreq,5) + '   ' + d65.gld65decodes[i].dtDecoded);
-                         { TODO : Add call to grab signal report for logging in this general area }
                          // Look at exchange - it should be their_call my_call -## or their_call my_call R-##
                          // if seen that should be the signal report value
                          wc := WordCount(d65.gld65decodes[i].dtDecoded,[' ']);
@@ -3210,156 +3205,6 @@ Begin
      else
      begin
           result := false;
-     end;
-end;
-
-procedure TForm1.breakOutFields(const msg : String; var mvalid : Boolean);
-Var
-  foo       : String;
-  exchange  : exch;
-  i,wc      : Integer;
-  isiglevel : Integer;
-  gonogo    : Boolean;
-  toparse   : String;
-  isValid   : Boolean;
-  isBreakIn : Boolean;
-  level     : Integer;
-  response  : String;
-  connectTo : String;
-  fullCall  : String;
-  hisGrid   : String;
-Begin
-     { TODO : Simplify this to reuse for parsing logging data }
-     mvalid   := False;
-     gonogo   := False;
-     isValid  := False;
-     // Get the decode to parse
-     foo := msg;
-     foo := DelSpace1(foo);
-     foo := StringReplace(foo,' ',',',[rfReplaceAll,rfIgnoreCase]);
-
-     // Now with a structured message I'll have...
-     // UTC, Sync, dB, DT, DF, EC, NC1, Call FROM, MSG
-     // Where NC1 is one of [CQ, CQ ###, QRZ, DE, CALLSIGN]
-     // Where MSG is one of [Grid,-##,R-##,RRR,RO,73]
-
-     // First check is for first two characters to be numeric AND wordcount
-     // = 9 or 10.  10 Handles case of a CQ ### format (not seen on HF, but...)
-     // If not wc = 9 or 10 then it's not something to parse here.
-     i := 0;
-     wc := wordcount(foo,[',']);
-     if (wc=8) or (wc=9) or (wc=10) Then
-     Begin
-          if wc=8 Then
-          Begin
-               // Parse string into parts (8 word exchange)
-               exchange.utc  := TrimLeft(TrimRight(UpCase(ExtractWord(1,foo,[',']))));
-               exchange.sync := TrimLeft(TrimRight(UpCase(ExtractWord(2,foo,[',']))));
-               exchange.db   := TrimLeft(TrimRight(UpCase(ExtractWord(3,foo,[',']))));
-               exchange.dt   := TrimLeft(TrimRight(UpCase(ExtractWord(4,foo,[',']))));
-               exchange.df   := TrimLeft(TrimRight(UpCase(ExtractWord(5,foo,[',']))));
-               exchange.ec   := TrimLeft(TrimRight(UpCase(ExtractWord(6,foo,[',']))));
-               exchange.nc1  := TrimLeft(TrimRight(UpCase(ExtractWord(7,foo,[',']))));
-               exchange.nc1s := '';
-               exchange.nc2  := TrimLeft(TrimRight(UpCase(ExtractWord(8,foo,[',']))));
-               exchange.ng   := '';
-          end;
-          if wc=9 Then
-          Begin
-               // Parse string into parts (9 word exchange)
-               exchange.utc  := TrimLeft(TrimRight(UpCase(ExtractWord(1,foo,[',']))));
-               exchange.sync := TrimLeft(TrimRight(UpCase(ExtractWord(2,foo,[',']))));
-               exchange.db   := TrimLeft(TrimRight(UpCase(ExtractWord(3,foo,[',']))));
-               exchange.dt   := TrimLeft(TrimRight(UpCase(ExtractWord(4,foo,[',']))));
-               exchange.df   := TrimLeft(TrimRight(UpCase(ExtractWord(5,foo,[',']))));
-               exchange.ec   := TrimLeft(TrimRight(UpCase(ExtractWord(6,foo,[',']))));
-               exchange.nc1  := TrimLeft(TrimRight(UpCase(ExtractWord(7,foo,[',']))));
-               exchange.nc1s := '';
-               exchange.nc2  := TrimLeft(TrimRight(UpCase(ExtractWord(8,foo,[',']))));
-               exchange.ng   := TrimLeft(TrimRight(UpCase(ExtractWord(9,foo,[',']))));
-          End;
-          if wc=10 Then
-          Begin
-               // Parse string into parts (10 word exchange)
-               exchange.utc  := TrimLeft(TrimRight(UpCase(ExtractWord(1,foo,[',']))));
-               exchange.sync := TrimLeft(TrimRight(UpCase(ExtractWord(2,foo,[',']))));
-               exchange.db   := TrimLeft(TrimRight(UpCase(ExtractWord(3,foo,[',']))));
-               exchange.dt   := TrimLeft(TrimRight(UpCase(ExtractWord(4,foo,[',']))));
-               exchange.df   := TrimLeft(TrimRight(UpCase(ExtractWord(5,foo,[',']))));
-               exchange.ec   := TrimLeft(TrimRight(UpCase(ExtractWord(6,foo,[',']))));
-               exchange.nc1  := TrimLeft(TrimRight(UpCase(ExtractWord(7,foo,[',']))));
-               exchange.nc1s := TrimLeft(TrimRight(UpCase(ExtractWord(8,foo,[',']))));
-               exchange.nc2  := TrimLeft(TrimRight(UpCase(ExtractWord(9,foo,[',']))));
-               exchange.ng   := TrimLeft(TrimRight(UpCase(ExtractWord(10,foo,[',']))));
-          End;
-
-          i := 0;
-          if TryStrToInt(exchange.utc[1..2],i) Then gonogo := True else gonogo := False;
-
-          if gonogo Then
-          Begin
-               isiglevel := -30;
-               if not tryStrToInt(exchange.db,isiglevel) Then
-               Begin
-                    gonogo := False;
-               End
-               Else
-               Begin
-                    gonogo := True;
-                    if isiglevel > -1 Then
-                    Begin
-                         isiglevel := -1;
-                    End;
-                    if isiglevel < -30 Then
-                    Begin
-                         isiglevel := -30;
-                    End;
-               End;
-          End;
-
-          If gonogo then
-          begin
-               gonogo := False;
-               i := -9999;
-               if not TryStrToInt(exchange.df,i) Then
-               begin
-                    gonogo := False;
-               end
-               else
-               begin
-                    if (i<-1100) or (i>1100) Then gonogo := False else gonogo := True;
-               end;
-          end;
-
-          if gonogo Then
-          Begin
-               gonogo := False;
-               // Have signal report and DF
-               // Now can Call the message parser
-               toParse := '';
-               if wc = 8 Then toParse  := exchange.nc1  + ' ' + exchange.nc2;
-               if wc = 9 Then toParse  := exchange.nc1  + ' ' + exchange.nc2 + ' ' + exchange.ng;
-               if wc = 10 Then toParse := exchange.nc1  + ' ' + exchange.nc1s + ' ' + exchange.nc2 + ' ' + exchange.ng;
-
-               isValid   := False;
-               isBreakIn := False;
-               level     := 0;
-               response  := '';
-               connectTo := '';
-               fullCall  := '';
-               hisGrid   := '';
-
-               decomposeDecode(toParse,inQSOWith,isValid,isBreakIn,level,response,connectTo,fullCall,hisGrid);
-
-               if not isValid then
-               Begin
-                    mvalid := False;
-               end
-               else
-               begin
-                    mvalid := True;
-               end;
-          end;
      end;
 end;
 
@@ -4072,7 +3917,6 @@ begin
                edTXReport.Text := sdb;
                if cbTXeqRXDF.Checked Then
                Begin
-                    { TODO : Changing this so my DF stays at TXDF unless I tell it to move }
                     edTXDF.Text := sdf;
                     edRXDF.Text := sdf;
                end
@@ -5045,7 +4889,6 @@ Var
    foo      : String;
    wc       : Integer;
 begin
-     { TODO : Actually log things :) }
      Waterfall1.Visible   := True;
      PaintBox1.Visible    := True;
      buttonConfig.Visible := True;

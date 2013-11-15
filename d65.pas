@@ -21,8 +21,6 @@ unit d65;
 // Boston, MA 02110-1301, USA.
 //
 {$mode objfpc}{$H+}
-
-{ TODO : KVASD.DAT is being left behing AGAIN - kill it, nuke it, obliterate it. }
 interface
 
 uses
