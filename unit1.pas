@@ -96,10 +96,8 @@ type
 
   TForm1 = class(TForm)
     b73: TButton;
-    b73x: TButton;
     bACQ: TButton;
     bCQ: TButton;
-    bDE: TButton;
     bQRZ: TButton;
     bReport: TButton;
     bRReport: TButton;
@@ -4957,16 +4955,6 @@ begin
      if Sender = bQRZ Then
      Begin
           thisTXmsg := 'QRZ ' + thisTXCall + ' ' + thisTXgrid;
-          edTXMsg.Text := thisTXmsg;
-     end;
-     if Sender = bDE Then
-     Begin
-          thisTXmsg := 'DE ' + thisTXCall + ' ' + thisTXgrid;
-          edTXMsg.Text := thisTXmsg;
-     end;
-     if Sender = b73x Then
-     Begin
-          thisTXmsg := 'DE ' + thisTXCall + ' 73';
           edTXMsg.Text := thisTXmsg;
      end;
      if Sender = bACQ Then
