@@ -52,7 +52,7 @@ uses
   Classes, SysUtils, FileUtil, Forms, Controls, Graphics, Dialogs, StdCtrls,
   ExtCtrls, Math, StrUtils, CTypes, Windows, lconvencoding, ComCtrls, EditBtn,
   DbCtrls, Types, portaudio, adc, spectrum, waterfall1, spot, BufDataset,
-  sqlite3conn, sqldb, valobject, rebel, d65, LResources;
+  sqlite3conn, sqldb, valobject, rebel, d65, LResources, blcksock;
 
 Const
   JT_DLL = 'JT65v31.dll';
@@ -105,6 +105,9 @@ type
     bRReport: TButton;
     bRRR: TButton;
     Button1: TButton;
+    logGrid: TEdit;
+    Label107: TLabel;
+    logDXLab: TButton;
     buttonXferMacro: TButton;
     cbNZLPF: TCheckBox;
     cbWFTX: TCheckBox;
@@ -529,7 +532,6 @@ var
   pfails         : CTypes.cuint64;
   avgdt          : Double;
   inQSOWith      : String;
-  newLog         : Boolean;
   logEntry       : alog;
   stime,etime    : String;
   setQRG,readQRG : Boolean;
@@ -1021,7 +1023,6 @@ Begin
      sopQRG    := 0;
      eopQRG    := 0;
      inQSOWith := '';
-     newLog    := True;
      readQRG   := False;
      readPTT   := False;
      setPTT    := False;
@@ -2626,17 +2627,10 @@ Begin
                               n1 := ExtractWord(1,d65.gld65decodes[i].dtDecoded,[' ']);
                               n2 := ExtractWord(2,d65.gld65decodes[i].dtDecoded,[' ']);
                               ng  := ExtractWord(3,d65.gld65decodes[i].dtDecoded,[' ']);
-                              if(n1=myscall) or (n1=mycall) then
+                              if((n1=myscall) or (n1=mycall)) and (length(ng)>2) then
                               Begin
                                    // Need to see if ng is a R-## or #--
-                                   if length(ng)=3 Then
-                                   Begin
-                                        if ng[1]='-' Then logMySig.Text:=ng;
-                                   end;
-                                   if length(ng)=4 Then
-                                   Begin
-                                        if ng[1..2]='R-' Then logMySig.Text:=ng;
-                                   end;
+                                   if ng[1]='-' Then logMySig.Text:=ng else if ng[1..2]='R-' Then logMySig.Text := ng[2..Length(ng)];
                               end;
                          end;
                          if (rbOn.Checked) And (sopQRG = eopQRG) And (StrToInt(edDialQRG.Text) > 0) Then
@@ -3755,6 +3749,7 @@ Begin
           if ((nc1='CQ') or (nc1='QRZ') or (nc1='DE')) And isGrid(ng) Then
           Begin
                // Check for Prefix/Suffix Call
+               logGrid.Text := ng;
                If AnsiContainsText(nc2,'/') Then isSlashed := true else isSlashed := false;
                If isSlashed then level := 2 else level := 1;
                If isSlashed then
@@ -3879,6 +3874,7 @@ Begin
                          fullCall  := nc2;
                          hisGrid   := ng;
                          response := connectTo + ' ' + myscall + ' ' + sigLevel;
+                         logGrid.Text := ng;
                          isBreakin := False;
                          isValid := True;
                     End
@@ -3915,16 +3911,14 @@ Begin
                          Begin
                               response := '';
                               response := connectTo + ' ' + myscall + ' R' + ng;
-                              if newLog Then logMySig.Text := ng;
-                              if newLog Then newLog := False;
+                              logMySig.Text := ng;
                          end;
 
                          if (length(ng)=4) and (ng[1..2]='R-') Then
                          Begin
                               response := '';
                               response := connectTo + ' ' + myscall + ' RRR';
-                              if newLog Then logMySig.Text := ng[2..4];
-                              if newLog Then newLog := False;
+                              logMySig.Text := ng[2..4];
                          end;
 
                          if Length(response)>0 Then
@@ -4071,11 +4065,9 @@ begin
                if thisUTC.Minute < 10 then ldate := ldate + '0' + IntToStr(thisUTC.Minute) else ldate := ldate + IntToStr(thisUTC.Minute);
                logTimeOn.Text := ldate;
                if isBreakIn Then Memo2.Append('[TE] ' + response + ' to ' + connectTo + ' [' + fullCall + '] @ ' + hisGrid + ' Proto ' + IntToStr(level) + '[' + sdb + 'dB @ ' + sdf + 'Hz]') else Memo2.Append('[IM] ' + response + ' to ' + connectTo + ' [' + fullCall + '] @ ' + hisGrid + ' Proto ' + IntToStr(level) + '[' + sdb + 'dB @ ' + sdf + 'Hz]');
-               { TODO : Pull logging data here }
                logCallsign.Text := fullCall;
                logSigReport.Text := sdb;
                logQRG.Text := FormatFloat('0.0000',(StrToInt(edDialQRG.Text)/1000000.0));
-               logTimeOn.Text := IntToStr(thisUTC.Year) + IntToStr(thisUTC.Month) + IntToStr(thisUTC.Day) + ' ' + IntToStr(thisUTC.Hour) + IntToStr(thisUTC.Minute);
                edTXMsg.Text := response;
                thisTXMsg := response;
                edTXToCall.Text := fullCall;
@@ -5058,6 +5050,12 @@ begin
 end;
 
 procedure TForm1.LogQSOClick(Sender: TObject);
+Var
+   sock     : TTCPBLockSocket;
+   cmd,parm : String;
+   dt,tm,bn : String;
+   foo      : String;
+   wc       : Integer;
 begin
      { TODO : Actually log things :) }
      Waterfall1.Visible   := True;
@@ -5065,7 +5063,81 @@ begin
      buttonConfig.Visible := True;
      groupLogQSO.Visible  := False;
      // Do logging
+     if sender = logDXLab Then
+     Begin
+          { TODO : Make sure this is correct }
+          // Direct TCP log to DX Keeper \0/!
+          // For this I need to create a socket - connect to DX Keeper at
+          // 127.0.0.1 port 52001
+          sock := TTCPBlockSocket.Create;
+          sock.Connect('127.0.0.1','52001');
+          cmd  := 'LOG';
+          parm := '<CALL:' + IntToStr(Length(logCallSign.Text)) + '>' + UpCase(logCallSign.Text);
+          parm := parm + '<RST_SENT:' + IntToStr(Length(logSigReport.Text)) + '>' + logSigReport.Text;
+          parm := parm + '<RST_RCVD:' + IntToStr(Length(logMySig.Text)) + '>' + logMySig.Text;
+          parm := parm + '<FREQ:' + IntToStr(Length(logQRG.Text)) +'>' + logQRG.Text;
 
+          if (length(logGrid.Text)=4) or (length(logGrid.Text)=6) Then
+          Begin
+               // <GRIDSQUARE:#>
+               parm := parm + '<GRIDSQUARE:' + IntToStr(Length(logGrid.Text)) + '>' + logGrid.Text;
+          end;
+
+          if length(logPower.text) > 0 Then
+          Begin
+               // <TX_PWR:#> logPower.text
+               parm := parm + '<TX_PWR:' + IntToStr(Length(logPower.Text)) + '>' + logPower.Text;
+          end;
+          if length(logComments.Text) > 0 Then
+          Begin
+               // <COMMENT:#>
+               parm := parm + '<COMMENT:' + IntToStr(Length(logComments.Text)) + '>' + logComments.Text;
+          end;
+
+          foo := DelSpace1(TrimLeft(TrimRight(UpCase(logQRG.Text)))); // Insures there is only one space between words, deletes left/right padding (space) and makes upper case.
+          wc  := WordCount(foo,['.',',']);
+          dt := ExtractWord(1,foo,['.',',']);
+          tm := ExtractWord(2,foo,['.',',']);
+          if dt='1' Then foo := '160M';
+          if dt='3' Then foo := '80M';
+          if dt='7' Then foo := '40M';
+          if dt='10' Then foo := '30M';
+          if dt='14' Then foo := '20M';
+          if dt='18' Then foo := '17M';
+          if dt='21' Then foo := '15M';
+          if dt='24' Then foo := '12M';
+          if dt='28' Then foo := '10M';
+          if dt='50' Then foo := '6M';
+          if dt='144' Then foo := '2M';
+          parm := parm + '<BAND:' + IntToStr(Length(foo)) + '>' + foo;
+
+          parm := parm + '<MODE:4>JT65';  // OK as hardcoded for now but not later :)
+
+          foo := DelSpace1(TrimLeft(TrimRight(UpCase(logTimeOn.Text)))); // Insures there is only one space between words, deletes left/right padding (space) and makes upper case.
+          wc  := WordCount(foo,[' ']);
+          dt := ExtractWord(1,foo,[' ']);
+          tm := ExtractWord(2,foo,[' ']);
+          parm := parm + '<QSO_DATE:' + IntToStr(Length(dt)) + '>' + dt;
+          parm := parm + '<TIME_ON:' + IntToStr(Length(tm)) + '>' + tm;
+          if length(logTimeOff.Text)= 13 Then
+          Begin
+               foo := DelSpace1(TrimLeft(TrimRight(UpCase(logTimeOff.Text)))); // Insures there is only one space between words, deletes left/right padding (space) and makes upper case.
+               wc  := WordCount(foo,[' ']);
+               dt := ExtractWord(1,foo,[' ']);
+               tm := ExtractWord(2,foo,[' ']);
+               parm := parm + '<TIME_OFF:' + IntToStr(Length(tm)) + '>' + tm;
+          end;
+          parm := parm + '<EOR>';
+
+          sock.SendString('<command:'+IntToStr(length(cmd))+'>' + cmd + '<parameters:' + IntToStr(length(parm)) + '>' + parm);
+
+          sock.CloseSocket;
+          sock.Destroy;
+     end;
+     if sender = LogQSO Then
+     Begin
+          // Save to ADIF file
+     end;
      // Clear log record for next time
      logEntry.timeOn     := '';
      logEntry.timeOff    := '';
@@ -5078,7 +5150,6 @@ begin
      logEntry.haveMySig  := False;
      logEntry.allNew     := True;
      logEntry.inProgress := False;
-     newLog              := True;
 end;
 
 procedure TForm1.Memo1DblClick(Sender: TObject);
@@ -5262,7 +5333,16 @@ begin
 end;
 
 procedure TForm1.Button1Click(Sender: TObject);
+Var
+   ldate : String;
 begin
+     ldate := IntToStr(thisUTC.Year);
+     if thisUTC.Month < 10 then ldate := ldate + '0' + IntToStr(thisUTC.Month) else ldate := ldate + IntToStr(thisUTC.Month);
+     if thisUTC.Day < 10 then ldate := ldate + '0' + IntToStr(thisUTC.Day) else ldate := ldate + IntToStr(thisUTC.Day);
+     ldate := ldate + ' ';
+     if thisUTC.Hour < 10 then ldate := ldate + '0' + IntToStr(thisUTC.Hour) else ldate := ldate + IntToStr(thisUTC.Hour);
+     if thisUTC.Minute < 10 then ldate := ldate + '0' + IntToStr(thisUTC.Minute) else ldate := ldate + IntToStr(thisUTC.Minute);
+     logTimeOff.Text := ldate;
      Waterfall1.Visible   := False;
      PaintBox1.Visible    := False;
      buttonConfig.Visible := False;
