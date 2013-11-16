@@ -78,20 +78,6 @@ type
       ng   : String;
   end;
 
-  alog = Record
-      timeOn     : String;
-      timeOff    : String;
-      aCall      : String;
-      sigtx      : String;
-      sigrx      : String;
-      qrg        : String;
-      plvl       : String;
-      comment    : String;
-      haveMySig  : Boolean;
-      allNew     : Boolean;
-      inProgress : Boolean;
-  end;
-
   { TForm1 }
 
   TForm1 = class(TForm)
@@ -102,7 +88,11 @@ type
     bReport: TButton;
     bRReport: TButton;
     bRRR: TButton;
-    Button1: TButton;
+    logClearComments: TButton;
+    doLogQSO: TButton;
+    logCancel: TButton;
+    logEndTime: TButton;
+    logClearCancel: TButton;
     logGrid: TEdit;
     Label107: TLabel;
     logDXLab: TButton;
@@ -371,7 +361,7 @@ type
     procedure audioChange(Sender: TObject);
     procedure Button13Click(Sender: TObject);
     procedure Button14Click(Sender: TObject);
-    procedure Button1Click(Sender: TObject);
+    procedure doLogQSOClick(Sender: TObject);
     procedure buttonXferMacroClick(Sender: TObject);
     procedure cbNZLPFChange(Sender: TObject);
     procedure comboQRGListChange(Sender: TObject);
@@ -529,7 +519,6 @@ var
   pfails         : CTypes.cuint64;
   avgdt          : Double;
   inQSOWith      : String;
-  logEntry       : alog;
   stime,etime    : String;
   setQRG,readQRG : Boolean;
   sopQRG,eopQRG  : Integer;
@@ -1907,12 +1896,12 @@ Begin
                try
                   if not FileUtil.DeleteFileUTF8(homedir+'KVASD.DAT') Then inc(kvdatdel) else kvdatdel :=0;
                except
-                  ShowMessage('Debug - could not remove orphaned kvasd.dat' + sLineBreak + 'Please notify W6CQZ');
+                  //ShowMessage('Debug - could not remove orphaned kvasd.dat' + sLineBreak + 'Please notify W6CQZ');
                end;
           end;
      end;
-     if kvdatdel > 9 Then ListBox2.Items.Add('Can not kill kvasd.dat after' + IntToStr(kvdatdel) + ' attempts.');
-     if kvdatdel > 99 Then showmessage('Fatal - kvasd.dat will not delete after 100 attempts');
+     //if kvdatdel > 9 Then ListBox2.Items.Add('Can not kill kvasd.dat after' + IntToStr(kvdatdel) + ' attempts.');
+     //if kvdatdel > 99 Then showmessage('Fatal - kvasd.dat will not delete after 100 attempts');
 end;
 
 procedure TForm1.OncePerSecond;
@@ -4888,11 +4877,47 @@ Var
    dt,tm,bn : String;
    foo      : String;
    wc       : Integer;
+   ldate    : String;
 begin
-     Waterfall1.Visible   := True;
-     PaintBox1.Visible    := True;
-     buttonConfig.Visible := True;
-     groupLogQSO.Visible  := False;
+
+     if sender = logClearComments Then logComments.Text := '';
+
+     if sender = logClearCancel Then
+     Begin
+          // Clear all fields and dismiss
+          logCallSign.Text := '';
+          logQRG.Text := '';
+          logGrid.Text := '';
+          logTimeOn.Text := '';
+          logTimeOff.Text := '';
+          logSigReport.Text := '';
+          logMySig.Text := '';
+          Waterfall1.Visible   := True;
+          PaintBox1.Visible    := True;
+          buttonConfig.Visible := True;
+          PageControl.Visible  := False;
+          groupLogQSO.visible  := False;
+     end;
+     if sender = logCancel Then
+     Begin
+          // Just dismiss but don't clear fields
+          Waterfall1.Visible   := True;
+          PaintBox1.Visible    := True;
+          buttonConfig.Visible := True;
+          PageControl.Visible  := False;
+          groupLogQSO.visible  := False;
+     end;
+     if sender = logEndTime Then
+     Begin
+          // Set QSO end time to now
+          ldate := IntToStr(thisUTC.Year);
+          if thisUTC.Month < 10 then ldate := ldate + '0' + IntToStr(thisUTC.Month) else ldate := ldate + IntToStr(thisUTC.Month);
+          if thisUTC.Day < 10 then ldate := ldate + '0' + IntToStr(thisUTC.Day) else ldate := ldate + IntToStr(thisUTC.Day);
+          ldate := ldate + ' ';
+          if thisUTC.Hour < 10 then ldate := ldate + '0' + IntToStr(thisUTC.Hour) else ldate := ldate + IntToStr(thisUTC.Hour);
+          if thisUTC.Minute < 10 then ldate := ldate + '0' + IntToStr(thisUTC.Minute) else ldate := ldate + IntToStr(thisUTC.Minute);
+          logTimeOff.Text := ldate;
+     end;
      // Do logging
      if sender = logDXLab Then
      Begin
@@ -4907,13 +4932,11 @@ begin
           parm := parm + '<RST_SENT:' + IntToStr(Length(logSigReport.Text)) + '>' + logSigReport.Text;
           parm := parm + '<RST_RCVD:' + IntToStr(Length(logMySig.Text)) + '>' + logMySig.Text;
           parm := parm + '<FREQ:' + IntToStr(Length(logQRG.Text)) +'>' + logQRG.Text;
-
           if (length(logGrid.Text)=4) or (length(logGrid.Text)=6) Then
           Begin
                // <GRIDSQUARE:#>
                parm := parm + '<GRIDSQUARE:' + IntToStr(Length(logGrid.Text)) + '>' + logGrid.Text;
           end;
-
           if length(logPower.text) > 0 Then
           Begin
                // <TX_PWR:#> logPower.text
@@ -4924,7 +4947,6 @@ begin
                // <COMMENT:#>
                parm := parm + '<COMMENT:' + IntToStr(Length(logComments.Text)) + '>' + logComments.Text;
           end;
-
           foo := DelSpace1(TrimLeft(TrimRight(UpCase(logQRG.Text)))); // Insures there is only one space between words, deletes left/right padding (space) and makes upper case.
           wc  := WordCount(foo,['.',',']);
           dt := ExtractWord(1,foo,['.',',']);
@@ -4941,9 +4963,7 @@ begin
           if dt='50' Then foo := '6M';
           if dt='144' Then foo := '2M';
           parm := parm + '<BAND:' + IntToStr(Length(foo)) + '>' + foo;
-
           parm := parm + '<MODE:4>JT65';  // OK as hardcoded for now but not later :)
-
           foo := DelSpace1(TrimLeft(TrimRight(UpCase(logTimeOn.Text)))); // Insures there is only one space between words, deletes left/right padding (space) and makes upper case.
           wc  := WordCount(foo,[' ']);
           dt := ExtractWord(1,foo,[' ']);
@@ -4959,28 +4979,40 @@ begin
                parm := parm + '<TIME_OFF:' + IntToStr(Length(tm)) + '>' + tm;
           end;
           parm := parm + '<EOR>';
-
           sock.SendString('<command:'+IntToStr(length(cmd))+'>' + cmd + '<parameters:' + IntToStr(length(parm)) + '>' + parm);
-
           sock.CloseSocket;
           sock.Destroy;
+          { TODO : Save this to ADIF as a fallback in case of error }
+          logCallSign.Text := '';
+          logQRG.Text := '';
+          logGrid.Text := '';
+          logTimeOn.Text := '';
+          logTimeOff.Text := '';
+          logSigReport.Text := '';
+          logMySig.Text := '';
+          Waterfall1.Visible   := True;
+          PaintBox1.Visible    := True;
+          buttonConfig.Visible := True;
+          PageControl.Visible  := False;
+          groupLogQSO.visible  := False;
      end;
      if sender = LogQSO Then
      Begin
           // Save to ADIF file
+
+          logCallSign.Text := '';
+          logQRG.Text := '';
+          logGrid.Text := '';
+          logTimeOn.Text := '';
+          logTimeOff.Text := '';
+          logSigReport.Text := '';
+          logMySig.Text := '';
+          Waterfall1.Visible   := True;
+          PaintBox1.Visible    := True;
+          buttonConfig.Visible := True;
+          PageControl.Visible  := False;
+          groupLogQSO.visible  := False;
      end;
-     // Clear log record for next time
-     logEntry.timeOn     := '';
-     logEntry.timeOff    := '';
-     logEntry.aCall      := '';
-     logEntry.sigtx      := '';
-     logEntry.sigrx      := '';
-     logEntry.qrg        := '';
-     logEntry.plvl       := '';
-     logEntry.comment    := '';
-     logEntry.haveMySig  := False;
-     logEntry.allNew     := True;
-     logEntry.inProgress := False;
 end;
 
 procedure TForm1.Memo1DblClick(Sender: TObject);
@@ -5163,7 +5195,7 @@ begin
      GroupBox16.Visible := True;
 end;
 
-procedure TForm1.Button1Click(Sender: TObject);
+procedure TForm1.doLogQSOClick(Sender: TObject);
 Var
    ldate : String;
 begin

@@ -1380,6 +1380,7 @@ begin
                         if gld65decodes[j].dtProcessed Then
                         begin
                              gld65decodes[j].dtTimeStamp := decode.timeStamp;
+                             if decode.dsigLevel > -1 Then decode.dsigLevel := -1;
                              gld65decodes[j].dtSigLevel := IntToStr(decode.dsigLevel);
                              gld65decodes[j].dtNumSync := IntToStr(decode.numSync);
                              gld65decodes[j].dtDeltaTime := FormatFloat('0.0',decode.deltaTime);
