@@ -16,25 +16,233 @@ object Form1: TForm1
   OnClose = FormClose
   OnCreate = FormCreate
   LCLVersion = '1.0.12.0'
-  object Label16: TLabel
-    Left = 536
-    Height = 33
-    Top = 231
-    Width = 118
-    Caption = 'TX: IDLE'
-    Font.Height = -27
-    Font.Name = 'Arial'
-    Font.Style = [fsBold]
-    ParentColor = False
-    ParentFont = False
+  object groupLogQSO: TGroupBox
+    Left = 152
+    Height = 247
+    Top = 17
+    Width = 748
+    Caption = 'Log QSO'
+    ClientHeight = 229
+    ClientWidth = 744
+    TabOrder = 10
+    Visible = False
+    object LogQSO: TButton
+      Left = 450
+      Height = 28
+      Top = 19
+      Width = 116
+      Caption = 'Save ADIF'
+      Font.Height = -16
+      Font.Name = 'Arial'
+      Font.Style = [fsBold]
+      OnClick = LogQSOClick
+      ParentFont = False
+      TabOrder = 0
+    end
+    object logCallsign: TEdit
+      Left = 6
+      Height = 24
+      Top = 19
+      Width = 80
+      CharCase = ecUppercase
+      TabOrder = 1
+    end
+    object logSigReport: TEdit
+      Left = 6
+      Height = 24
+      Top = 100
+      Width = 57
+      MaxLength = 3
+      TabOrder = 2
+    end
+    object logQRG: TEdit
+      Left = 102
+      Height = 24
+      Top = 19
+      Width = 86
+      TabOrder = 3
+    end
+    object logMySig: TEdit
+      Left = 78
+      Height = 24
+      Top = 100
+      Width = 59
+      MaxLength = 3
+      TabOrder = 4
+    end
+    object logTimeOn: TEdit
+      Left = 6
+      Height = 24
+      Top = 60
+      Width = 120
+      TabOrder = 5
+    end
+    object Label99: TLabel
+      Left = 6
+      Height = 17
+      Top = 44
+      Width = 81
+      Caption = 'Date/Time On'
+      ParentColor = False
+    end
+    object Label100: TLabel
+      Left = 6
+      Height = 17
+      Top = 3
+      Width = 72
+      Caption = 'Call Worked'
+      ParentColor = False
+    end
+    object Label101: TLabel
+      Left = 102
+      Height = 17
+      Top = 3
+      Width = 93
+      Caption = 'Frequency MHz'
+      ParentColor = False
+    end
+    object Label102: TLabel
+      Left = 6
+      Height = 17
+      Top = 84
+      Width = 57
+      Caption = 'Report TX'
+      ParentColor = False
+    end
+    object Label103: TLabel
+      Left = 78
+      Height = 17
+      Top = 84
+      Width = 59
+      Caption = 'Report RX'
+      ParentColor = False
+    end
+    object logTimeOff: TEdit
+      Left = 142
+      Height = 24
+      Top = 60
+      Width = 122
+      TabOrder = 6
+    end
+    object Label104: TLabel
+      Left = 142
+      Height = 17
+      Top = 44
+      Width = 80
+      Caption = 'Date/Time Off'
+      ParentColor = False
+    end
+    object logComments: TEdit
+      Left = 6
+      Height = 24
+      Top = 140
+      Width = 600
+      TabOrder = 7
+    end
+    object Label105: TLabel
+      Left = 6
+      Height = 17
+      Top = 124
+      Width = 64
+      Caption = 'Comments'
+      ParentColor = False
+    end
+    object logPower: TEdit
+      Left = 219
+      Height = 24
+      Top = 19
+      Width = 45
+      TabOrder = 8
+    end
+    object Label106: TLabel
+      Left = 219
+      Height = 17
+      Top = 3
+      Width = 37
+      Caption = 'Power'
+      ParentColor = False
+    end
+    object logDXLab: TButton
+      Left = 450
+      Height = 29
+      Top = 60
+      Width = 116
+      Caption = 'DX Keeper'
+      Font.Height = -16
+      Font.Name = 'Arial'
+      Font.Style = [fsBold]
+      OnClick = LogQSOClick
+      ParentFont = False
+      TabOrder = 9
+    end
+    object logGrid: TEdit
+      Left = 278
+      Height = 24
+      Top = 19
+      Width = 80
+      MaxLength = 6
+      TabOrder = 10
+    end
+    object Label107: TLabel
+      Left = 278
+      Height = 17
+      Top = 3
+      Width = 25
+      Caption = 'Grid'
+      ParentColor = False
+    end
+    object logClearCancel: TButton
+      Left = 582
+      Height = 29
+      Top = 60
+      Width = 148
+      Caption = 'Clear and Cancel'
+      Font.Height = -16
+      Font.Name = 'Arial'
+      Font.Style = [fsBold]
+      OnClick = LogQSOClick
+      ParentFont = False
+      TabOrder = 11
+    end
+    object logCancel: TButton
+      Left = 614
+      Height = 29
+      Top = 18
+      Width = 116
+      Caption = 'Cancel'
+      Font.Height = -16
+      Font.Name = 'Arial'
+      Font.Style = [fsBold]
+      OnClick = LogQSOClick
+      ParentFont = False
+      TabOrder = 12
+    end
+    object logEndTime: TButton
+      Left = 278
+      Height = 24
+      Top = 60
+      Width = 104
+      Caption = 'Off Time = Now'
+      OnClick = LogQSOClick
+      TabOrder = 13
+    end
+    object logClearComments: TButton
+      Left = 618
+      Height = 24
+      Top = 140
+      Width = 112
+      Caption = 'Clear Comments'
+      OnClick = LogQSOClick
+      TabOrder = 14
+    end
   end
   object PageControl: TPageControl
     Left = 152
     Height = 243
     Top = 21
     Width = 747
-    ActivePage = TabSheet1
-    TabIndex = 0
+    ActivePage = TabSheet7
+    TabIndex = 6
     TabOrder = 5
     Visible = False
     object TabSheet1: TTabSheet
@@ -354,7 +562,7 @@ object Form1: TForm1
     end
     object TabSheet6: TTabSheet
       Caption = 'PTT/Rig Control'
-      ClientHeight = 202
+      ClientHeight = 214
       ClientWidth = 739
       object GroupBox3: TGroupBox
         Left = 4
@@ -965,7 +1173,7 @@ object Form1: TForm1
     end
     object TabSheet3: TTabSheet
       Caption = 'Spotting Networks'
-      ClientHeight = 187
+      ClientHeight = 214
       ClientWidth = 739
       object GroupBox6: TGroupBox
         Left = 4
@@ -1034,8 +1242,8 @@ object Form1: TForm1
           Left = 414
           Height = 17
           Top = 8
-          Width = 72
-          Caption = 'jt65hflog.csv'
+          Width = 78
+          Caption = 'hfwst_log.csv'
           ParentColor = False
         end
         object cbSaveToCSV: TCheckBox
@@ -1063,7 +1271,7 @@ object Form1: TForm1
     end
     object TabSheet7: TTabSheet
       Caption = 'ADIF Logging Options'
-      ClientHeight = 187
+      ClientHeight = 214
       ClientWidth = 739
       object GroupBox8: TGroupBox
         Left = 4
@@ -1077,8 +1285,8 @@ object Form1: TForm1
           Left = 4
           Height = 17
           Top = 0
-          Width = 207
-          Caption = 'Path for ADIF log file -- jt65hflog.adif'
+          Width = 213
+          Caption = 'Path for ADIF log file -- hfwst_log.adif'
           ParentColor = False
         end
         object edADIFPath: TDirectoryEdit
@@ -1093,29 +1301,13 @@ object Form1: TForm1
           TabOrder = 0
           OnChange = rigControlSet
         end
-        object Label44: TLabel
-          Left = 94
-          Height = 17
-          Top = 60
-          Width = 243
-          Caption = 'Log mode as JT65 or JT65a - your choice.'
-          ParentColor = False
-        end
-        object edADIFMode: TEdit
-          Left = 4
-          Height = 24
-          Top = 56
-          Width = 80
-          OnChange = rigControlSet
-          TabOrder = 1
-        end
         object cbRememberComments: TCheckBox
           Left = 4
           Height = 20
-          Top = 88
+          Top = 59
           Width = 569
           Caption = 'Remember comments field - if unchecked the comments field is cleared for each new log entry.'
-          TabOrder = 2
+          TabOrder = 1
         end
       end
       object Button8: TButton
@@ -1373,9 +1565,21 @@ object Form1: TForm1
   end
   object PaintBox1: TPaintBox
     Left = 152
-    Height = 29
+    Height = 12
     Top = 35
     Width = 747
+  end
+  object Label16: TLabel
+    Left = 536
+    Height = 33
+    Top = 231
+    Width = 118
+    Caption = 'TX: IDLE'
+    Font.Height = -27
+    Font.Name = 'Arial'
+    Font.Style = [fsBold]
+    ParentColor = False
+    ParentFont = False
   end
   object Label108: TLabel
     Left = 80
@@ -1402,235 +1606,15 @@ object Form1: TForm1
     Style = csDropDownList
     TabOrder = 9
   end
-  object groupLogQSO: TGroupBox
-    Left = 152
-    Height = 243
-    Top = 21
-    Width = 748
-    Caption = 'Log QSO'
-    ClientHeight = 225
-    ClientWidth = 744
-    TabOrder = 10
-    Visible = False
-    object LogQSO: TButton
-      Left = 450
-      Height = 28
-      Top = 19
-      Width = 116
-      Caption = 'Save ADIF'
-      Font.Height = -16
-      Font.Name = 'Arial'
-      Font.Style = [fsBold]
-      OnClick = LogQSOClick
-      ParentFont = False
-      TabOrder = 0
-    end
-    object logCallsign: TEdit
-      Left = 6
-      Height = 24
-      Top = 19
-      Width = 80
-      CharCase = ecUppercase
-      TabOrder = 1
-    end
-    object logSigReport: TEdit
-      Left = 6
-      Height = 24
-      Top = 100
-      Width = 57
-      MaxLength = 3
-      TabOrder = 2
-    end
-    object logQRG: TEdit
-      Left = 102
-      Height = 24
-      Top = 19
-      Width = 86
-      TabOrder = 3
-    end
-    object logMySig: TEdit
-      Left = 78
-      Height = 24
-      Top = 100
-      Width = 59
-      MaxLength = 3
-      TabOrder = 4
-    end
-    object logTimeOn: TEdit
-      Left = 6
-      Height = 24
-      Top = 60
-      Width = 120
-      TabOrder = 5
-    end
-    object Label99: TLabel
-      Left = 6
-      Height = 17
-      Top = 44
-      Width = 81
-      Caption = 'Date/Time On'
-      ParentColor = False
-    end
-    object Label100: TLabel
-      Left = 6
-      Height = 17
-      Top = 3
-      Width = 72
-      Caption = 'Call Worked'
-      ParentColor = False
-    end
-    object Label101: TLabel
-      Left = 102
-      Height = 17
-      Top = 3
-      Width = 93
-      Caption = 'Frequency MHz'
-      ParentColor = False
-    end
-    object Label102: TLabel
-      Left = 6
-      Height = 17
-      Top = 84
-      Width = 57
-      Caption = 'Report TX'
-      ParentColor = False
-    end
-    object Label103: TLabel
-      Left = 78
-      Height = 17
-      Top = 84
-      Width = 59
-      Caption = 'Report RX'
-      ParentColor = False
-    end
-    object logTimeOff: TEdit
-      Left = 142
-      Height = 24
-      Top = 60
-      Width = 122
-      TabOrder = 6
-    end
-    object Label104: TLabel
-      Left = 142
-      Height = 17
-      Top = 44
-      Width = 80
-      Caption = 'Date/Time Off'
-      ParentColor = False
-    end
-    object logComments: TEdit
-      Left = 6
-      Height = 24
-      Top = 140
-      Width = 600
-      TabOrder = 7
-    end
-    object Label105: TLabel
-      Left = 6
-      Height = 17
-      Top = 124
-      Width = 64
-      Caption = 'Comments'
-      ParentColor = False
-    end
-    object logPower: TEdit
-      Left = 219
-      Height = 24
-      Top = 19
-      Width = 45
-      TabOrder = 8
-    end
-    object Label106: TLabel
-      Left = 219
-      Height = 17
-      Top = 3
-      Width = 37
-      Caption = 'Power'
-      ParentColor = False
-    end
-    object logDXLab: TButton
-      Left = 450
-      Height = 29
-      Top = 60
-      Width = 116
-      Caption = 'DX Keeper'
-      Font.Height = -16
-      Font.Name = 'Arial'
-      Font.Style = [fsBold]
-      OnClick = LogQSOClick
-      ParentFont = False
-      TabOrder = 9
-    end
-    object logGrid: TEdit
-      Left = 278
-      Height = 24
-      Top = 19
-      Width = 80
-      MaxLength = 6
-      TabOrder = 10
-    end
-    object Label107: TLabel
-      Left = 278
-      Height = 17
-      Top = 3
-      Width = 25
-      Caption = 'Grid'
-      ParentColor = False
-    end
-    object logClearCancel: TButton
-      Left = 582
-      Height = 29
-      Top = 60
-      Width = 148
-      Caption = 'Clear and Cancel'
-      Font.Height = -16
-      Font.Name = 'Arial'
-      Font.Style = [fsBold]
-      OnClick = LogQSOClick
-      ParentFont = False
-      TabOrder = 11
-    end
-    object logCancel: TButton
-      Left = 614
-      Height = 29
-      Top = 18
-      Width = 116
-      Caption = 'Cancel'
-      Font.Height = -16
-      Font.Name = 'Arial'
-      Font.Style = [fsBold]
-      OnClick = LogQSOClick
-      ParentFont = False
-      TabOrder = 12
-    end
-    object logEndTime: TButton
-      Left = 278
-      Height = 24
-      Top = 60
-      Width = 104
-      Caption = 'Off Time = Now'
-      OnClick = LogQSOClick
-      TabOrder = 13
-    end
-    object logClearComments: TButton
-      Left = 618
-      Height = 24
-      Top = 140
-      Width = 112
-      Caption = 'Clear Comments'
-      OnClick = LogQSOClick
-      TabOrder = 14
-    end
-  end
   object Label15: TLabel
     Left = 8
-    Height = 33
-    Top = 228
+    Height = 38
+    Top = 216
     Width = 133
     Alignment = taCenter
     AutoSize = False
     Caption = '12:34:56'
-    Font.Height = 33
+    Font.Height = 39
     Font.Name = 'Arial'
     Font.Style = [fsBold]
     ParentColor = False
@@ -1715,7 +1699,7 @@ object Form1: TForm1
     ParentColor = False
     ParentFont = False
   end
-  object Button2: TButton
+  object btnClearDecodes: TButton
     Left = 8
     Height = 28
     Top = 266
@@ -1724,7 +1708,7 @@ object Form1: TForm1
     Font.Height = -13
     Font.Name = 'Arial'
     Font.Style = [fsBold]
-    OnClick = Button2Click
+    OnClick = btnClearDecodesClick
     ParentFont = False
     TabOrder = 3
   end
@@ -1781,8 +1765,8 @@ object Form1: TForm1
   end
   object btnsetQRG: TButton
     Left = 8
-    Height = 32
-    Top = 192
+    Height = 24
+    Top = 184
     Width = 133
     Caption = 'Set QRG'
     Font.Height = -13
@@ -2046,7 +2030,7 @@ object Form1: TForm1
     ScrollBars = ssAutoBoth
     TabOrder = 12
   end
-  object RadioGroup2: TRadioGroup
+  object groupTXMode: TRadioGroup
     Left = 832
     Height = 195
     Top = 576
@@ -2068,7 +2052,7 @@ object Form1: TForm1
     Font.Name = 'Arial'
     ParentFont = False
     TabOrder = 13
-    object RadioButton1: TRadioButton
+    object rbMode65: TRadioButton
       Left = 6
       Height = 33
       Top = 6
@@ -2081,7 +2065,7 @@ object Form1: TForm1
       TabOrder = 2
       TabStop = True
     end
-    object RadioButton4: TRadioButton
+    object rbMode4: TRadioButton
       Left = 6
       Height = 33
       Top = 39
@@ -2092,7 +2076,7 @@ object Form1: TForm1
       ParentFont = False
       TabOrder = 0
     end
-    object RadioButton5: TRadioButton
+    object rbMode9: TRadioButton
       Left = 6
       Height = 33
       Top = 72
@@ -2103,7 +2087,7 @@ object Form1: TForm1
       ParentFont = False
       TabOrder = 1
     end
-    object RadioButton8: TRadioButton
+    object rbModeR: TRadioButton
       Left = 6
       Height = 33
       Top = 105
@@ -2114,7 +2098,7 @@ object Form1: TForm1
       ParentFont = False
       TabOrder = 3
     end
-    object RadioButton9: TRadioButton
+    object rbModeP: TRadioButton
       Left = 6
       Height = 33
       Top = 138
@@ -2126,7 +2110,7 @@ object Form1: TForm1
       TabOrder = 4
     end
   end
-  object RadioGroup3: TRadioGroup
+  object groupBW: TRadioGroup
     Left = 888
     Height = 88
     Top = 576
@@ -2148,7 +2132,7 @@ object Form1: TForm1
     Font.Name = 'Arial'
     ParentFont = False
     TabOrder = 14
-    object RadioButton6: TRadioButton
+    object rbRX2K: TRadioButton
       Left = 6
       Height = 29
       Top = 6
@@ -2161,7 +2145,7 @@ object Form1: TForm1
       TabOrder = 1
       TabStop = True
     end
-    object RadioButton7: TRadioButton
+    object rbRX5K: TRadioButton
       Left = 6
       Height = 29
       Top = 35
@@ -2786,9 +2770,9 @@ object Form1: TForm1
     TabOrder = 17
   end
   object ProgressBar1: TProgressBar
-    Left = 904
-    Height = 217
-    Top = 21
+    Left = 903
+    Height = 192
+    Top = 35
     Width = 20
     Max = 47
     Orientation = pbVertical
@@ -2825,8 +2809,8 @@ object Form1: TForm1
   end
   object Image1: TImage
     Left = 928
-    Height = 217
-    Top = 21
+    Height = 192
+    Top = 35
     Width = 25
     Picture.Data = {
       1754506F727461626C654E6574776F726B47726170686963E502000089504E47

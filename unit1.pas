@@ -4,23 +4,8 @@ URGENT
 Work out method to be sure a change to TXDF regnerates message.  More complex than first glance indicates with new way of doing things :(
 
 Less urgent
+
 Shorthand decoder core dumped
-Waterfall TX Marker isn't quite right - it's maybe 10 Hz high looking
-Extract received signal report for logging // Partially completed - need to move parser such that it gets for qso by button
-Add logging code
-
-I think I have next item fixed.
-FIX THIS NOW -- The message parser is not robust in handling technically incorrect responses to CQ - the "state machine" is not recognizing going into connected
-mode unless it gets the one and only perfectly correct response type to a CQ.  Fix.
-
-Move all code involving TX control into txControl() : Boolean;  // Semi done
-
-On hold.  Work out handlers for working JT65V2 types.  Also need to think about case of where a data item could be
-sent either in V1 or V2 format.  I think... I want to force the issue here and just use V2 for everything.
-It's the only way to insure more update from ancient versions.
-
-Fix reversed prefix/suffix in decoder
-Look into issue with loss of net leading to program hang on exit if RB on - timeout too long on attempt to http is likely problem
 Begin to graft sound output code in
 Add macro edit/define
 Add qrg edit/define
@@ -28,19 +13,6 @@ Add worked call tracking taking into consideration a call worked in one grid is 
 worked if in a new one.
 }
 
-{
-Hook decoder output back to double click actions - In progress, needs ***much*** testing.
-Add serial communications routines for next phase
-Validate validate validate message input, callsigns, grids, QRGs etc. - In progress - weak and needs testing.
-Fill in RB call from Station call if user does not manually set. - Done.  Computes RB call from real pfx, call, sfx if nothing manually set.
-
-Monitor situation with decodes sometimes being dropped or decoder indicating
-a hit with no data returned... the main problem is corrected and it's likely
-that will fix the other as well.
-
-Tweak UI for small screen size ability [mostly complete - just needs minor
-adjustments and font size testing]
-}
 // (c) 2013 CQZ Electronics
 unit Unit1;
 
@@ -179,17 +151,17 @@ type
     Memo1: TMemo;
     Memo2: TMemo;
     Panel1: TPanel;
-    RadioButton1: TRadioButton;
+    rbMode65: TRadioButton;
     rbTXEven: TRadioButton;
     rbTXOdd: TRadioButton;
-    RadioButton4: TRadioButton;
-    RadioButton5: TRadioButton;
-    RadioButton6: TRadioButton;
-    RadioButton7: TRadioButton;
-    RadioButton8: TRadioButton;
-    RadioButton9: TRadioButton;
-    RadioGroup2: TRadioGroup;
-    RadioGroup3: TRadioGroup;
+    rbMode4: TRadioButton;
+    rbMode9: TRadioButton;
+    rbRX2K: TRadioButton;
+    rbRX5K: TRadioButton;
+    rbModeR: TRadioButton;
+    rbModeP: TRadioButton;
+    groupTXMode: TRadioGroup;
+    groupBW: TRadioGroup;
     rigRebel: TRadioButton;
     lastQRG: TEdit;
     tbMultiBin: TTrackBar;
@@ -235,7 +207,7 @@ type
     Label90: TLabel;
     Label91: TLabel;
     btnsetQRG: TButton;
-    Button2: TButton;
+    btnClearDecodes: TButton;
     buttonConfig: TButton;
     Button4: TButton;
     Button5: TButton;
@@ -246,7 +218,6 @@ type
 //    Chart1: TChart;
     edDialQRG: TEdit;
     edGrid: TEdit;
-    edADIFMode: TEdit;
     editQRG: TEdit;
     edRBCall: TEdit;
     edStationInfo: TEdit;
@@ -269,7 +240,6 @@ type
     TabSheet9: TTabSheet;
     GroupBox17: TGroupBox;
     GroupBox18: TGroupBox;
-    Label44: TLabel;
     rbOn: TCheckBox;
     comboAudioIn: TComboBox;
     cbCQCOlor: TComboBox;
@@ -352,22 +322,19 @@ type
     TabSheet7: TTabSheet;
     TabSheet8: TTabSheet;
     Timer1: TTimer;
-//    FBar1: TBarSeries;
     tbWFSpeed: TTrackBar;
     tbWFContrast: TTrackBar;
     tbWFBright: TTrackBar;
     tbWFGain: TTrackBar;
-    Waterfall1: TWaterfallControl1;
+    Waterfall: TWaterfallControl1;
     procedure audioChange(Sender: TObject);
-    procedure Button13Click(Sender: TObject);
-    procedure Button14Click(Sender: TObject);
     procedure doLogQSOClick(Sender: TObject);
     procedure buttonXferMacroClick(Sender: TObject);
     procedure cbNZLPFChange(Sender: TObject);
     procedure comboQRGListChange(Sender: TObject);
     procedure comboMacroListChange(Sender: TObject);
     procedure btnsetQRGClick(Sender: TObject);
-    procedure Button2Click(Sender: TObject);
+    procedure btnClearDecodesClick(Sender: TObject);
     procedure buttonConfigClick(Sender: TObject);
     procedure Button4Click(Sender: TObject);
     procedure comboTTYPortsChange(Sender: TObject);
@@ -878,7 +845,6 @@ Begin
      cbSaveToCSV.Checked := query.FieldByName('usecsv').AsBoolean;
      edCSVPath.Text := query.FieldByName('csvpath').AsString;
      edADIFPath.Text := query.FieldByName('adifpath').AsString;
-     edADIFMode.Text := query.FieldByName('logas').AsString;
      cbRememberComments.Checked := query.FieldByName('remembercomments').AsBoolean;
      cbMultiOffQSO.Checked := query.FieldByName('multioffqso').AsBoolean;
      cbRestoreMulti.Checked := query.FieldByName('automultion').AsBoolean;
@@ -1061,19 +1027,19 @@ Begin
      ListBox2.Clear;
      Memo1.Clear;
      // Create and initialize TWaterfallControl
-     Waterfall1 := TWaterfallControl1.Create(self);
-     Waterfall1.init;
-     Waterfall1.Height := 180;
-     Waterfall1.Width  := 747;
-     Waterfall1.Top    := 47;
-     Waterfall1.Left   := 152;
-     Waterfall1.Parent := Self;
-     Waterfall1.OnMouseDown := waterfallMouseDown;
-     Waterfall1.DoubleBuffered := True;
+     Waterfall := TWaterfallControl1.Create(self);
+     Waterfall.init;
+     Waterfall.Height := 180;
+     Waterfall.Width  := 747;
+     Waterfall.Top    := 47;
+     Waterfall.Left   := 152;
+     Waterfall.Parent := Self;
+     Waterfall.OnMouseDown := waterfallMouseDown;
+     Waterfall.DoubleBuffered := True;
 
      If mustcfg Then
      Begin
-          Waterfall1.Visible := False;
+          Waterfall.Visible := False;
           PaintBox1.Visible  := False;
      end;
 
@@ -1513,11 +1479,11 @@ Begin
      // This is mainly for me.  :)
      If cbWFTX.Checked Then
      Begin
-          Waterfall1.Repaint;
+          Waterfall.Repaint;
      end
      else
      begin
-          If not clRebel.txStat then Waterfall1.repaint;
+          If not clRebel.txStat then Waterfall.repaint;
      end;
 
      If toggleTX.Checked then toggleTX.state := cbChecked else toggleTX.state := cbUnchecked;
@@ -2549,13 +2515,11 @@ procedure TForm1.displayDecodes3;
 Var
    i,j,k,wc : Integer;
    afoo     : String;
-   bfoo     : String;
-   cfoo     : String;
-   n1,n2,ng : String;
+   bfoo,n1  : String;
+   cfoo,ng  : String;
    srec     : Spot.spotRecord;
    nodteval : Boolean;
 Begin
-     //ListBox2.Items.Add('Entering display decodes');
      k := 0;
      for i := 0 to 49 do if not d65.gld65decodes[i].dtProcessed Then inc(k);
      If k>0 Then
@@ -2604,11 +2568,22 @@ Begin
                          if wc = 3 Then
                          Begin
                               n1 := '';
-                              n2 := '';
                               ng  := '';
                               n1 := ExtractWord(1,d65.gld65decodes[i].dtDecoded,[' ']);
-                              n2 := ExtractWord(2,d65.gld65decodes[i].dtDecoded,[' ']);
                               ng  := ExtractWord(3,d65.gld65decodes[i].dtDecoded,[' ']);
+                              if((n1=myscall) or (n1=mycall)) and (length(ng)>2) then
+                              Begin
+                                   // Need to see if ng is a R-## or #--
+                                   if ng[1]='-' Then logMySig.Text:=ng else if ng[1..2]='R-' Then logMySig.Text := ng[2..Length(ng)];
+                              end;
+                         end;
+                         if wc = 2 Then
+                         Begin
+                              // In case of working with slashed calls
+                              n1 := '';
+                              ng  := '';
+                              n1 := ExtractWord(1,d65.gld65decodes[i].dtDecoded,[' ']);
+                              ng  := ExtractWord(2,d65.gld65decodes[i].dtDecoded,[' ']);
                               if((n1=myscall) or (n1=mycall)) and (length(ng)>2) then
                               Begin
                                    // Need to see if ng is a R-## or #--
@@ -4642,7 +4617,7 @@ begin
                baseTX   := 1270.5;
                baseTX   := baseTX + StrToInt(edDialQRG.Text) + txdf;  // This is the floating point value in Hz of the sync carrier (base frequency - data goes up from this)
                k := rebelTuning(baseTX); // Base sync tone as RF tuning word
-               // For this we clear the whole 128
+               // For this we clear the whole 128 and it's 128 because of way I pass FSK values to Rebel - it only uses 126 :)
                for i := 0 to 127 do qrgset[i] := '0';
                j := 0;
                // Two passes - stuff sync then stuff data.
@@ -4658,11 +4633,6 @@ begin
                          inc(j); // Not to self - yes it generates nice 2 tone FSK if you leave this line out.
                     end;
                end;
-               // Diag dump
-               //foo := '3,FSK VALUES FOLLOW,';
-               //for i := 0 to 124 do foo := foo + qrgset[i] + ',';
-               //foo := foo + qrgset[125] + ',0,0';
-               //Memo1.Append(foo);
                txDirty := True;  // Flag to force an update to the FSK TX
                txValid := True;
           end;
@@ -4711,11 +4681,6 @@ begin
                          inc(j); // Not to self - yes it generates nice 2 tone FSK if you leave this line out.
                     end;
                end;
-               // Diag dump
-               //foo := '3,FSK VALUES FOLLOW,';
-               //for i := 0 to 124 do foo := foo + qrgset[i] + ',';
-               //foo := foo + qrgset[125] + ',0,0';
-               //Memo1.Append(foo);
                txDirty := True;  // Flag to force an update to the FSK TX
                txValid := True;
                if isFText(msg) or isSText(msg) Then Memo2.Append('Message to send:  ' + msg + ' at TXDF ' + edTXDF.Text) else Memo2.Append('Odd - did not compute for FT');
@@ -4872,12 +4837,13 @@ end;
 
 procedure TForm1.LogQSOClick(Sender: TObject);
 Var
-   sock     : TTCPBLockSocket;
-   cmd,parm : String;
-   dt,tm,bn : String;
-   foo      : String;
-   wc       : Integer;
-   ldate    : String;
+   sock      : TTCPBLockSocket;
+   cmd,parm  : String;
+   dt,tm     : String;
+   foo,ldate : String;
+   wc        : Integer;
+   fname     : String;
+   lfile     : TextFile;
 begin
 
      if sender = logClearComments Then logComments.Text := '';
@@ -4892,7 +4858,7 @@ begin
           logTimeOff.Text := '';
           logSigReport.Text := '';
           logMySig.Text := '';
-          Waterfall1.Visible   := True;
+          Waterfall.Visible   := True;
           PaintBox1.Visible    := True;
           buttonConfig.Visible := True;
           PageControl.Visible  := False;
@@ -4901,7 +4867,7 @@ begin
      if sender = logCancel Then
      Begin
           // Just dismiss but don't clear fields
-          Waterfall1.Visible   := True;
+          Waterfall.Visible   := True;
           PaintBox1.Visible    := True;
           buttonConfig.Visible := True;
           PageControl.Visible  := False;
@@ -4919,15 +4885,9 @@ begin
           logTimeOff.Text := ldate;
      end;
      // Do logging
-     if sender = logDXLab Then
+     if (sender = logDXLab) or (sender = logQSO) Then
      Begin
-          { TODO : Make sure this is correct }
-          // Direct TCP log to DX Keeper \0/!
-          // For this I need to create a socket - connect to DX Keeper at
-          // 127.0.0.1 port 52001
-          sock := TTCPBlockSocket.Create;
-          sock.Connect('127.0.0.1','52001');
-          cmd  := 'LOG';
+          // Build the ADIF string for direct DX Keeper or file logging.
           parm := '<CALL:' + IntToStr(Length(logCallSign.Text)) + '>' + UpCase(logCallSign.Text);
           parm := parm + '<RST_SENT:' + IntToStr(Length(logSigReport.Text)) + '>' + logSigReport.Text;
           parm := parm + '<RST_RCVD:' + IntToStr(Length(logMySig.Text)) + '>' + logMySig.Text;
@@ -4949,20 +4909,23 @@ begin
           end;
           foo := DelSpace1(TrimLeft(TrimRight(UpCase(logQRG.Text)))); // Insures there is only one space between words, deletes left/right padding (space) and makes upper case.
           wc  := WordCount(foo,['.',',']);
-          dt := ExtractWord(1,foo,['.',',']);
-          tm := ExtractWord(2,foo,['.',',']);
-          if dt='1' Then foo := '160M';
-          if dt='3' Then foo := '80M';
-          if dt='7' Then foo := '40M';
-          if dt='10' Then foo := '30M';
-          if dt='14' Then foo := '20M';
-          if dt='18' Then foo := '17M';
-          if dt='21' Then foo := '15M';
-          if dt='24' Then foo := '12M';
-          if dt='28' Then foo := '10M';
-          if dt='50' Then foo := '6M';
-          if dt='144' Then foo := '2M';
-          parm := parm + '<BAND:' + IntToStr(Length(foo)) + '>' + foo;
+          if wc=2 Then
+          Begin
+               dt := ExtractWord(1,foo,['.',',']);
+               tm := ExtractWord(2,foo,['.',',']);
+               if dt='1' Then foo := '160M';
+               if dt='3' Then foo := '80M';
+               if dt='7' Then foo := '40M';
+               if dt='10' Then foo := '30M';
+               if dt='14' Then foo := '20M';
+               if dt='18' Then foo := '17M';
+               if dt='21' Then foo := '15M';
+               if dt='24' Then foo := '12M';
+               if dt='28' Then foo := '10M';
+               if dt='50' Then foo := '6M';
+               if dt='144' Then foo := '2M';
+               parm := parm + '<BAND:' + IntToStr(Length(foo)) + '>' + foo;
+          end;
           parm := parm + '<MODE:4>JT65';  // OK as hardcoded for now but not later :)
           foo := DelSpace1(TrimLeft(TrimRight(UpCase(logTimeOn.Text)))); // Insures there is only one space between words, deletes left/right padding (space) and makes upper case.
           wc  := WordCount(foo,[' ']);
@@ -4979,26 +4942,52 @@ begin
                parm := parm + '<TIME_OFF:' + IntToStr(Length(tm)) + '>' + tm;
           end;
           parm := parm + '<EOR>';
-          sock.SendString('<command:'+IntToStr(length(cmd))+'>' + cmd + '<parameters:' + IntToStr(length(parm)) + '>' + parm);
-          sock.CloseSocket;
-          sock.Destroy;
-          { TODO : Save this to ADIF as a fallback in case of error }
-          logCallSign.Text := '';
-          logQRG.Text := '';
-          logGrid.Text := '';
-          logTimeOn.Text := '';
-          logTimeOff.Text := '';
-          logSigReport.Text := '';
-          logMySig.Text := '';
-          Waterfall1.Visible   := True;
-          PaintBox1.Visible    := True;
-          buttonConfig.Visible := True;
-          PageControl.Visible  := False;
-          groupLogQSO.visible  := False;
-     end;
-     if sender = LogQSO Then
-     Begin
-          // Save to ADIF file
+
+          if sender = logDXLab Then
+          Begin
+               try
+                  // Direct TCP log to DX Keeper \0/!
+                  // For this I need to create a socket - connect to DX Keeper at
+                  // 127.0.0.1 port 52001
+                  sock := TTCPBlockSocket.Create;
+                  sock.Connect('127.0.0.1','52001');
+                  cmd  := 'LOG';
+                  sock.SendString('<command:'+IntToStr(length(cmd))+'>' + cmd + '<parameters:' + IntToStr(length(parm)) + '>' + parm);
+                  sock.CloseSocket;
+                  sock.Destroy;
+               except
+                  { TODO : Do something about this }
+               end;
+          end;
+
+          // If this was a DX Keeper log it's been done - now push the ADIF string to flat file
+          // This gives a fallback in case DX Keeper barfs or if DX Keeper not in play does all
+          // needing to be done.
+          // ADIF Path is defined in edADIFPath file name is hfwst_log.adif
+          try
+             fname := edADIFPath.Text + '\hfwst_log.adif';
+             // Parm has the ADIF string
+             if fileExists(fname) Then
+             Begin
+                  // Need to open and append
+                  AssignFile(lfile, fname);
+                  Append(lFile);
+                  writeln(lfile,parm);
+                  closeFile(lfile);
+             end
+             else
+             begin
+                  // Need to create and add
+                  AssignFile(lfile, fname);
+                  rewrite(lfile);
+                  writeln(lfile,'HFWST ADIF Export');
+                  writeln(lfile,'<eoh>');
+                  writeln(lfile,parm);
+                  closeFile(lfile);
+             end;
+          except
+             { TODO : Do something about this }
+          end;
 
           logCallSign.Text := '';
           logQRG.Text := '';
@@ -5007,7 +4996,8 @@ begin
           logTimeOff.Text := '';
           logSigReport.Text := '';
           logMySig.Text := '';
-          Waterfall1.Visible   := True;
+          if not cbRememberComments.Checked then logComments.Text := '';
+          Waterfall.Visible   := True;
           PaintBox1.Visible    := True;
           buttonConfig.Visible := True;
           PageControl.Visible  := False;
@@ -5030,38 +5020,13 @@ begin
      Memo3.Clear;
 end;
 
-//procedure TForm1.qrgdbAfterPost(DataSet: TDataSet);
-//Var
-//   fs  : String;
-//   fsc : String;
-//   ff  : Double;
-//   fi  : Integer;
-//begin
-//     fs  := '';
-//     ff  := 0.0;
-//     fi  := 0;
-//     fs  := DataSet.FieldValues['FQRG'];
-//     fsc := '';
-//     // Attempt to convert to integer assuming someing in Khz would be > 1799.9
-//     // and something in MHz < 1800.0
-//     // evalQRG(const qrg : String; const mode : string; var qrgk : Double; var qrghz : Integer; var asciiqrg : String) : Boolean;
-//     mval.forceDecimalAmer := False;
-//     mval.forceDecimalEuro := False;
-//     if not mval.evalQRG(fs,'STRICT',ff,fi,fsc) Then
-//     Begin
-//          ListBox1.Items.Insert(0,'Added QRG is invalid.');
-//          //DataSet.FieldValues['FQRG'] := '0.0';
-//     end;
-//end;
-
-procedure TForm1.Button2Click(Sender: TObject);
+procedure TForm1.btnClearDecodesClick(Sender: TObject);
 begin
      ListBox1.Clear;
 end;
 
 procedure TForm1.audioChange(Sender: TObject);
 Var
-//   foo,ttadc  : String;
    foo       : String;
    paResult  : TPaError;
    iadcText  : String;
@@ -5072,14 +5037,10 @@ begin
           // Audio Input device change.  Set PA to new device and update DB
           ListBox2.Items.Insert(0,'Changing PortAudio input device');
           foo := comboAudioIn.Items.Strings[comboAudioIn.ItemIndex];
-          //ttadc := foo;
           if foo[1] = '0' Then iadcText := foo[2] else iadcText := foo[1..2];
           portAudio.Pa_AbortStream(paInStream);
           portAudio.Pa_CloseStream(paInStream);
           ListBox2.Items.Insert(0,'Closed former stream');
-
-          //paInStream := Nil;
-
           // Input
           if cbUseMono.Checked Then
           Begin
@@ -5123,7 +5084,6 @@ begin
                Halt;
           end;
           ListBox2.Items.Insert(0,'Changed input to device:  ' + IntToStr(paInParams.device));
-          ListBox2.Items.Insert(0,'Changed input to device:  ' + IntToStr(paInParams.device));
      end;
 
 end;
@@ -5157,42 +5117,14 @@ end;
 
 procedure TForm1.comboMacroListChange(Sender: TObject);
 begin
-     //if comboMacroList.ItemIndex < 0 Then comboMacroList.ItemIndex := 0;
      if comboMacroList.ItemIndex > 0 Then
      Begin
           comboMacroList.ReadOnly := True;
-          // Changing this to require pushing the transfer macro to TX buffer button.
-          //edTXMsg.Text := comboMacroList.Items.Strings[comboMacroList.ItemIndex];
      end
      else
      begin
           comboMacroList.ReadOnly := False;
      end;
-end;
-
-//procedure TForm1.comboMacroListKeyUp(Sender: TObject; var Key: Word;
-//  Shift: TShiftState);
-//Var
-//   foo : String;
-//begin
-//     { TODO : Validate the message and save to db }
-//     foo := Upcase(TrimLeft(TrimRight(comboMacroList.Text)));
-//     if length(foo) > 13 Then
-//     Begin
-//          foo := foo[1..13];
-//          comboMacroList.Text := foo;
-//     end;
-//     edTXMsg.Text := foo;
-//end;
-
-procedure TForm1.Button13Click(Sender: TObject);
-begin
-     GroupBox16.Visible := False;
-end;
-
-procedure TForm1.Button14Click(Sender: TObject);
-begin
-     GroupBox16.Visible := True;
 end;
 
 procedure TForm1.doLogQSOClick(Sender: TObject);
@@ -5206,7 +5138,7 @@ begin
      if thisUTC.Hour < 10 then ldate := ldate + '0' + IntToStr(thisUTC.Hour) else ldate := ldate + IntToStr(thisUTC.Hour);
      if thisUTC.Minute < 10 then ldate := ldate + '0' + IntToStr(thisUTC.Minute) else ldate := ldate + IntToStr(thisUTC.Minute);
      logTimeOff.Text := ldate;
-     Waterfall1.Visible   := False;
+     Waterfall.Visible   := False;
      PaintBox1.Visible    := False;
      buttonConfig.Visible := False;
      PageControl.Visible  := False;
@@ -5260,7 +5192,7 @@ end;
 
 procedure TForm1.buttonConfigClick(Sender: TObject);
 begin
-     Waterfall1.Visible   := False;
+     Waterfall.Visible   := False;
      PaintBox1.Visible    := False;
      buttonConfig.Visible := False;
      Button4.Visible      := True;
@@ -5308,9 +5240,9 @@ begin
           showmessage('The entered grid square is not valid' + sLineBreak + 'TX is disabled.');
      end;
 
-     if canTX Then ListBox2.Items.Insert(0,'After config save CAN transmit') else ListBox2.Items.Insert(0,'After config save CAN NOT transmit.');
+     //if canTX Then ListBox2.Items.Insert(0,'After config save CAN transmit') else ListBox2.Items.Insert(0,'After config save CAN NOT transmit.');
 
-     Waterfall1.Visible   := True;
+     Waterfall.Visible   := True;
      PaintBox1.Visible    := True;
      buttonConfig.Visible := True;
      Button4.Visible      := False;
@@ -5339,7 +5271,6 @@ begin
      Begin
           updateDB;
           portAudio.Pa_AbortStream(paInStream);
-          //portAudio.Pa_AbortStream(paOutStream);
           portaudio.Pa_Terminate();
           rbThread.Terminate;
           if not rbThread.FreeOnTerminate Then rbThread.Free;
@@ -5400,7 +5331,6 @@ begin
                     rb.pushSpots;
                end;
           end;
-          //inc(rbtick);
           sleep(1000);
      end;
 end;
@@ -5422,13 +5352,7 @@ begin
                     if i > 25 then break;
                     sleep(1);
                end;
-               // V5 Decoder
-               //setLength(rxf,length(adc.d65rxFBuffer));
-               //for i := 0 to length(adc.d65rxFBuffer)-1 do rxf[i] := adc.d65rxFBuffer[i];
-               //demodulate.fdemod(rxf);
-               //setLength(rxf,0);
                d65.doDecode(0,524287);
-               //d65.doDecode(0,533504);
                inc(decodeping);
                runDecode := False;
                decoderBusy := False;
@@ -5473,146 +5397,6 @@ Begin
      result.Day := 0;
      GetSystemTime(result);
 end;
-
-//procedure TForm1.removeDupes(var list : TStringList; var removes : Array of Integer);
-//Var
-//  dupelist  : TStringList;
-//  i,j,c1,c2 : Integer;
-//  c4        : Integer;
-//  dcount    : Integer;
-//  s1        : String;
-//  havedupe  : Boolean;
-//  ostrong   : Boolean;
-//Begin
-//     // What I have here is a string list that may or may not have duplicates.
-//     // The easy cases of a true duplicate has already been handled, but...
-//     // The harder case may still be present where the excahnge is a dupe but
-//     // the signal strength/df/dt may differ.  This is the case when a very
-//     // strong signal leads to alias decodes.  What I need to do is look for
-//     // duplicate exchange text but differing "other" fields where the winner
-//     // is the decode with the strongest dB figure.
-//     //
-//
-//     // The input stringist contains db,exchange,index of array member
-//
-//     havedupe := True;
-//     dupeList := TStringList.Create;
-//     dupeList.Clear;
-//     dupeList.CaseSensitive := False;
-//     dupeList.Sorted := True;
-//     dupeList.Duplicates := Types.dupError;
-//
-//     for i := 0 to length(removes)-1 do removes[i] := -9999;
-//
-//     if list.Count < 2 Then havedupe := False;  // No need to bother here if it can't have a dupe!
-//
-//     while havedupe do
-//     begin
-//          // See if any dupes exist.
-//          dupelist.clear;
-//          // Attempt to add all members (exchange portion only) to dupelist set
-//          // to disallow duplicates.  If an entry attempt of dupe is made an
-//          // exception will be thrown.  This repeats until all dupes have been
-//          // removed.
-//          havedupe := False;
-//          for i := 0 to list.Count - 1 do
-//          begin
-//               s1 := '';
-//               c1 := 9999;
-//               c2 := 9999;
-//               c4 := 9999;
-//               Try
-//                  if not (ExtractWord(2,list.strings[i],[',']) = 'REMOVE ME') Then
-//                  Begin
-//                       dupeList.Add(ExtractWord(2,list.strings[i],[',']));
-//                  end;
-//               except
-//                  havedupe := True;
-//                  s1 := ExtractWord(2,List.Strings[i],[',']) ; // Get exchange portion of the dupe.
-//                  c1 := StrToInt(ExtractWord(1,list.Strings[i],[','])); // Signal strength
-//                  c4 := i;                                              // Index of this entry in list.Strings[]
-//                  break;
-//               end;
-//          end;
-//
-//          if havedupe then
-//          begin
-//               // I know I have duplicate(s) member(s) if I make it here.  Lets do it like so...
-//               // Comapre all other items in list.strings[] substring exchange to s1 (excluding
-//               // index c4 which is the original) to find if s1/c1 idx c4 is the strongest dupe.  If
-//               // s1/c1 idx c4 is strongest remove all other duplicate entries leaving only
-//               // list.strings[c4] or if not leaving only strongest dupe that is otherwise dupe of
-//               // s1/c1 idx c4.
-//               //
-//               // DO NOT DELTE ANY ENTRIES IN list.strings[] until done -- just set the exchange
-//               // substring to REMOVE ME
-//
-//               // First pass - find dupe count.
-//               dcount := 0;
-//               ostrong := True;
-//               havedupe := True;
-//
-//               For i := 0 to list.Count - 1 do
-//               begin
-//                    If ExtractWord(2,list.Strings[i],[',']) = s1 Then
-//                    Begin
-//                         if i <> c4 then
-//                         Begin
-//                              inc(dcount);
-//                              c2 := StrToInt(ExtractWord(1,list.Strings[i],[',']));
-//                              if c2 > c1 then ostrong := false;
-//                         End;
-//                    End;
-//               end;
-//
-//               if dcount>0 Then
-//               // At this point I have a duplicate count (1...x) and will know if s1/c1 idx c4
-//               // is strongest.  If not strongest I go one way - If strongest I go another.
-//
-//               if (dcount > 0) and ostrong Then
-//               Begin
-//                    //Memo1.Append('Removing dupes ['+ IntToStr(dcount) + ']');
-//                    // Have at least 1 dupe and s1/c1 idx c4 is strongest.
-//                    // Walk the list again and set all dupes that are not s1/c1 idx c4 to
-//                    // sig,REMOVE ME,idx instead of sig,EXCHANGE,idx
-//                    for i := 0 to list.Count-1 do
-//                    Begin
-//                         If ExtractWord(2,list.Strings[i],[',']) = s1 Then
-//                         Begin
-//                              if i <> c4 then
-//                              Begin
-//                                   // Update this string to remove status.
-//                                   list.Strings[i] := ExtractWord(1,list.strings[i],[',']) + ',REMOVE ME,' + ExtractWord(3,list.strings[i],[',']);
-//                                   //Memo1.Append(list.Strings[i]);
-//                              End;
-//                         End;
-//                    end;
-//               end;
-//
-//               if (dcount > 0) and (not ostrong) Then
-//               Begin
-//                    // Have at least 1 dupe and s1/c1 idx c4 is NOT strongest so - flag s1/c1 idx c4 as removed.
-//                    list.Strings[c4] := ExtractWord(1,list.strings[c4],[',']) + ',REMOVE ME,' + ExtractWord(3,list.strings[c4],[',']);
-//                    //Memo1.Append(list.Strings[i]);
-//               end;
-//               // Keep repeating until havedupe false
-//          end;
-//          dupelist.Clear;
-//     end;
-//     j := 0; // j holds index to removes[] incremented after each add to removes[]
-//     // Now -- walk the list and add any entry in list.strings[] where exchange = REMOVE ME
-//     // to removes[] as its original index held in third word of list.strings[]
-//     for i := 0 to list.Count - 1 do
-//     begin
-//          if ExtractWord(2,list.strings[i],[',']) = 'REMOVE ME' then
-//          begin
-//               removes[j] := StrToInt(ExtractWord(3,list.Strings[i],[','])); // Index of this entry in calling code's data
-//               inc(j);
-//          end;
-//     end;
-//     dupeList.clear;
-//     dupeList.Destroy;
-//end;
 
 constructor rbcThread.Create(CreateSuspended : boolean);
 begin
@@ -5710,7 +5494,6 @@ begin
      Query.Params.ParamByName('USECSV').AsBoolean    := cbSaveToCSV.Checked;
      Query.Params.ParamByName('CSVPATH').AsString    := t(edCSVPath.Text);
      Query.Params.ParamByName('ADIFPATH').AsString   := t(edADIFPath.Text);
-     Query.Params.ParamByName('LOGAS').AsString      := t(edADIFMode.Text);
      Query.Params.ParamByName('REMCOM').AsBoolean    := cbRememberComments.Checked;
      Query.Params.ParamByName('MQSOOFF').AsBoolean   := cbMultiOffQSO.Checked;
      Query.Params.ParamByName('MAUTOON').AsBoolean   := cbRestoreMulti.Checked;
@@ -5886,7 +5669,6 @@ Begin
      edCSVPath.Text := homeDir;
      // Tabsheet 5
      edADIFPath.Text := homeDir;
-     edADIFMode.Text := 'JT65';
      cbRememberComments.Checked := False;
      // Tabsheet 6
      cbMultiOffQSO.Checked := True;
