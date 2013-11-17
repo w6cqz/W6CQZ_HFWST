@@ -60,6 +60,7 @@ type
     bReport: TButton;
     bRReport: TButton;
     bRRR: TButton;
+    logEQSL: TButton;
     logClearComments: TButton;
     doLogQSO: TButton;
     logCancel: TButton;
@@ -82,14 +83,6 @@ type
     Label22: TLabel;
     Label25: TLabel;
     Label37: TLabel;
-    Label45: TLabel;
-    Label46: TLabel;
-    Label47: TLabel;
-    Label48: TLabel;
-    Label49: TLabel;
-    Label50: TLabel;
-    Label51: TLabel;
-    Label52: TLabel;
     Label53: TLabel;
     Label54: TLabel;
     Label55: TLabel;
@@ -215,7 +208,6 @@ type
     Button7: TButton;
     Button8: TButton;
     updateConfig: TButton;
-//    Chart1: TChart;
     edDialQRG: TEdit;
     edGrid: TEdit;
     editQRG: TEdit;
@@ -236,7 +228,6 @@ type
     sqlite3: TSQLite3Connection;
     query: TSQLQuery;
     transaction: TSQLTransaction;
-    TabSheet10: TTabSheet;
     TabSheet9: TTabSheet;
     GroupBox17: TGroupBox;
     GroupBox18: TGroupBox;
@@ -2094,22 +2085,6 @@ Begin
      end;
      // Update Rebel debug information
      if catMethod = 'Rebel' Then groupRebelOptions.Visible := True else groupRebelOptions.Visible := False;
-     if haveRebel and clRebel.connected Then
-     Begin
-          Label45.Caption := 'Rebel Firmware:  ' + clRebel.rebVer;
-          Label46.Caption := 'DDS Type:  ' + clRebel.ddsVer;
-          Label48.Caption := 'DDS Reference:  ' + IntToStr(clRebel.ddsRef);
-          Label49.Caption := 'Loop Speed:  ' + clRebel.loops;
-          Label47.Caption := 'Band Select:  ' + IntToStr(clRebel.band);
-          Label50.Caption := 'RX Offset:  ' + IntToStr(clRebel.rxoffset);
-          Label51.Caption := 'TX Offset:  ' + IntToStr(clRebel.txoffset);
-          Label52.Caption := 'RX Frequency:  ' + IntToStr(Round(clRebel.qrg));
-          TabSheet10.Visible := True;
-     end
-     else
-     begin
-          TabSheet10.Visible := False;
-     end;
      // Paint a line for second = 51
      if (thisSecond = 51) and (lastSecond = 50) Then
      Begin
@@ -4885,7 +4860,7 @@ begin
           logTimeOff.Text := ldate;
      end;
      // Do logging
-     if (sender = logDXLab) or (sender = logQSO) Then
+     if (sender = logDXLab) or (sender = logQSO) or (sender = logEQSL) Then
      Begin
           // Build the ADIF string for direct DX Keeper or file logging.
           parm := '<CALL:' + IntToStr(Length(logCallSign.Text)) + '>' + UpCase(logCallSign.Text);
@@ -4951,7 +4926,8 @@ begin
                   // 127.0.0.1 port 52001
                   sock := TTCPBlockSocket.Create;
                   sock.Connect('127.0.0.1','52001');
-                  cmd  := 'LOG';
+                  //if sender = logEQSL then cmd  := 'EQSLLOG' else cmd := 'LOG';
+                  cmd := 'LOG';
                   sock.SendString('<command:'+IntToStr(length(cmd))+'>' + cmd + '<parameters:' + IntToStr(length(parm)) + '>' + parm);
                   sock.CloseSocket;
                   sock.Destroy;
