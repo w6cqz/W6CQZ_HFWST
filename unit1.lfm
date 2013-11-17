@@ -330,7 +330,7 @@ object Form1: TForm1
     Top = 2
     Width = 266
     Alignment = taRightJustify
-    Caption = 'HFWST by W6CQZ v0.7 - Phoenix'
+    Caption = 'HFWST by W6CQZ v0.8 - Phoenix'
     Font.Height = -17
     Font.Name = 'Arial'
     Font.Style = [fsBold]
@@ -1636,8 +1636,8 @@ object Form1: TForm1
     Height = 243
     Top = 20
     Width = 747
-    ActivePage = TabSheet1
-    TabIndex = 0
+    ActivePage = TabSheet6
+    TabIndex = 1
     TabOrder = 5
     Visible = False
     object TabSheet7: TTabSheet

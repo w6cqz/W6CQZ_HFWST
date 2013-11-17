@@ -4,7 +4,7 @@ URGENT
 Work out method to be sure a change to TXDF regnerates message.  More complex than first glance indicates with new way of doing things :(
 
 Less urgent
-
+Order fields in logging panel
 Shorthand decoder core dumped
 Begin to graft sound output code in
 Add macro edit/define
@@ -502,6 +502,8 @@ var
   thisTXcall     : String;  // Station callsign (full with prefix or suffix if needed)
   thisTXgrid     : String;  // Station grid
   thisTXmsg      : String;  // Messages to TX
+  lastTXmsg      : String;  // Last TX message (for watchdog)
+  sameTXCount    : Integer; // Count same message sent (for watchdog)
   thisTXdf       : Integer; // DF for current TX message
   transmitting   : String;  // Holds message currently being transmitted
   transmitted    : String;  // Last message transmitted (used to compare to above for same TX message count)
@@ -1772,6 +1774,30 @@ Begin
           // TX In progress has been set but TX not set in Rebel - make it so.
           if (thisSecond=1) and (lastSecond=0) Then
           Begin
+               if lastTXMsg = thisTXmsg Then
+               Begin
+                    inc(sameTXCount);
+                    i := -1;
+                    if tryStrToInt(edTXWD.Text,i) Then
+                    Begin
+                         if i > 0 Then
+                         Begin
+                              if sameTXCount > i-1 Then
+                              Begin
+                                   toggleTX.Checked := False;
+                                   toggleTX.state := cbUnchecked;
+                                   lastTXMsg := '';
+                                   sameTXCount := 0;
+                                   ListBox1.Items.Insert(0,'Notice: Same TX Message 6 times.  TX is OFF');
+                              end;
+                         end;
+                    end;
+               end
+               else
+               begin
+                    lastTXMsg := thisTXmsg;
+                    sameTXCount := 0;
+               end;
                clRebel.pttOn;  // This is a toggle action - would be good to double check it went into TX though it is going to keep hammering it every tick until it does enable
                if clRebel.txStat Then Image1.Picture.LoadFromLazarusResource('transmit');
                { TODO : Temporary HACK do not leave this!  It should try this more than once but less than (tm) a "lot" }
@@ -2625,6 +2651,8 @@ end;
 
 procedure TForm1.toggleTXClick(Sender: TObject);
 begin
+     lastTXMsg := '';
+     sameTXCount := 0;
      If toggleTX.Checked then toggleTX.state := cbChecked else toggleTX.state := cbUnchecked;
 end;
 
@@ -3912,6 +3940,7 @@ begin
      Begin
           foo := Form1.ListBox1.Items[Index];
           if IsWordPresent('WARNING:', foo, [' ']) Then lineWarn := True else lineWarn := False;
+          if IsWordPresent('Notice:', foo, [' ']) Then lineWarn := True else lineWarn := False;
           if IsWordPresent('CQ', foo, [' ']) Then lineCQ := True;
           if IsWordPresent('QRZ', foo, [' ']) Then lineCQ := True;
           if IsWordPresent(TrimLeft(TrimRight(UpCase(edCall.Text))), foo, [' ']) Then lineMyCall := True else lineMyCall := False;
@@ -4716,6 +4745,8 @@ procedure TForm1.mgenClick(Sender: TObject);
 Var
    foo : String;
 begin
+     lastTXMsg := '';
+     sameTXCount := 0;
      thisTXmsg := '';
      if Sender = bCQ Then
      Begin
