@@ -1636,8 +1636,9 @@ object Form1: TForm1
     Height = 243
     Top = 20
     Width = 747
-    ActivePage = TabSheet6
-    TabIndex = 1
+    ActivePage = TabSheet1
+    ParentBiDiMode = False
+    TabIndex = 8
     TabOrder = 5
     Visible = False
     object TabSheet7: TTabSheet

@@ -2,6 +2,7 @@
 URGENT
 
 Work out method to be sure a change to TXDF regnerates message.  More complex than first glance indicates with new way of doing things :(
+Have macro free text entry reflect what's sent.
 
 Less urgent
 Order fields in logging panel
@@ -29,11 +30,30 @@ uses
 Const
   JT_DLL = 'JT65v31.dll';
   SYNC65 : array[0..125] of CTypes.cint =
-        (1,0,0,1,1,0,0,0,1,1,1,1,1,1,0,1,0,1,0,0,0,1,0,1,1,0,0,1,0,0,
-        0,1,1,1,0,0,1,1,1,1,0,1,1,0,1,1,1,1,0,0,0,1,1,0,1,0,1,0,1,1,
-        0,0,1,1,0,1,0,1,0,1,0,0,1,0,0,0,0,0,0,1,1,0,0,0,0,0,0,0,1,1,
-        0,1,0,0,1,0,1,1,0,1,0,1,0,1,0,0,1,1,0,0,1,0,0,1,0,0,0,0,1,1,
+        (1,0,0,1,1,0,0,0,1,1,1,1,1,1,0,1,0,1,0,0,0,1,0,1,1,0,0,1,0,0,0,1,1,1,0,0,1,1,1,1,0,1,1,0,1,1,1,1,0,0,0,1,1,0,1,0,1,0,1,1,
+        0,0,1,1,0,1,0,1,0,1,0,0,1,0,0,0,0,0,0,1,1,0,0,0,0,0,0,0,1,1,0,1,0,0,1,0,1,1,0,1,0,1,0,1,0,0,1,1,0,0,1,0,0,1,0,0,0,0,1,1,
         1,1,1,1,1,1);
+
+  V1PREFIX : array[0..338] of String =
+        ('1A','1S','3A','3B6','3B8','3B9','3C','3C0','3D2','3D2C','3D2R','3DA','3V','3W','3X','3Y','3YB','3YP','4J','4L','4S',
+         '4U1I','4U1U','4W','4X','5A','5B','5H','5N','5R','5T','5U','5V','5W','5X','5Z','6W','6Y','7O','7P','7Q','7X','8P','8Q',
+         '8R','9A','9G','9H','9J','9K','9L','9M2','9M6','9N','9Q','9U','9V','9X','9Y','A2','A3','A4','A5','A6','A7','A9','AP',
+         'BS7','BV','BV9','BY','C2','C3','C5','C6','C9','CE','CE0X','CE0Y','CE0Z','CE9','CM','CN','CP','CT','CT3','CU','CX','CY0',
+         'CY9','D2','D4','D6','DL','DU','E3','E4','EA','EA6','EA8','EA9','EI','EK','EL','EP','ER','ES','ET','EU','EX','EY','EZ',
+         'F','FG','FH','FJ','FK','FKC','FM','FO','FOA','FOC','FOM','FP','FR','FRG','FRJ','FRT','FT5W','FT5X','FT5Z','FW','FY','M',
+         'MD','MI','MJ','MM','MU','MW','H4','H40','HA','HB','HB0','HC','HC8','HH','HI','HK','HK0A','HK0M','HL','HM','HP','HR','HS',
+         'HV','HZ','I','IS','IS0','J2','J3','J5','J6','J7','J8','JA','JDM','JDO','JT','JW','JX','JY','K','KG4','KH0','KH1','KH2',
+         'KH3','KH4','KH5','KH5K','KH6','KH7','KH8','KH9','KL','KP1','KP2','KP4','KP5','LA','LU','LX','LY','LZ','OA','OD','OE','OH',
+         'OH0','OJ0','OK','OM','ON','OX','OY','OZ','P2','P4','PA','PJ2','PJ7','PY','PY0F','PT0S','PY0T','PZ','R1F','R1M','S0','S2',
+         'S5','S7','S9','SM','SP','ST','SU','SV','SVA','SV5','SV9','T2','T30','T31','T32','T33','T5','T7','T8','T9','TA','TF','TG',
+         'TI','TI9','TJ','TK','TL','TN','TR','TT','TU','TY','TZ','UA','UA2','UA9','UK','UN','UR','V2','V3','V4','V5','V6','V7','V8',
+         'VE','VK','VK0H','VK0M','VK9C','VK9L','VK9M','VK9N','VK9W','VK9X','VP2E','VP2M','VP2V','VP5','VP6','VP6D','VP8','VP8G',
+         'VP8H','VP8O','VP8S','VP9','VQ9','VR','VU','VU4','VU7','XE','XF4','XT','XU','XW','XX9','XZ','YA','YB','YI','YJ','YK','YL',
+         'YN','YO','YS','YU','YV','YV0','Z2','Z3','ZA','ZB','ZC4','ZD7','ZD8','ZD9','ZF','ZK1N','ZK1S','ZK2','ZK3','ZL','ZL7','ZL8',
+         'ZL9','ZP','ZS','ZS8','KC4','E5');
+
+  V1SUFFIX : array[0..11] of String =
+        ('P','0','1','2','3','4','5','6','7','8','9','A');
 
 type
 
@@ -370,7 +390,7 @@ type
     function  isSText(c : String) : Boolean;
     function  isFText(c : String) : Boolean;
     function  getLocalGrid : String;
-    function  messageParser(const ex : String; var nc1t : String; var pfx : String; var sfx : String; var nc2t : String; var ng : String; var sh : String) : Boolean;
+    function  messageParser(const ex : String; var nc1t : String; var pfx : String; var sfx : String; var nc2t : String; var ng : String; var sh : String; var proto : String) : Boolean;
     procedure decomposeDecode(const exchange    : String;
                               const connectedTo : String;
                               var isValid       : Boolean;
@@ -409,6 +429,9 @@ type
     procedure mgen(const msg : String; var isValid : Boolean; var isBreakIn : Boolean; var level : Integer; var response : String; var connectTo : String; var fullCall : String; var hisGrid : String; var sdf : String; var sdB : String; var txp : Integer);
 
     function t(const s : String) : String;
+    function valV1Prefix(const s : string) : Boolean;
+    function valV1Suffix(const s : string) : Boolean;
+    function isV1Call(const s : String) : Boolean;
 
   private
     { private declarations }
@@ -520,6 +543,7 @@ procedure interleave(Ptsyms : CTypes.pcint; Pdirection : CTypes.pcint); cdecl; e
 procedure graycode(Ptsyms : CTypes.pcint; Pcount : CTypes.pcint; Pdirection : CTypes.pcint); cdecl; external JT_DLL name 'graycode_';
 procedure set65; cdecl; external JT_DLL name 'setup65_';
 procedure packgrid(saveGrid : PChar; ng : CTypes.pcint; text : CTypes.pcbool); cdecl; external JT_DLL name 'packgrid_';
+procedure packmsg(msg : Pointer; syms : Pointer); cdecl; external JT_DLL name 'packmsg_';
 
 {$R *.lfm}
 
@@ -563,6 +587,18 @@ Var
 Begin
      // This runs on first timer interrupt once per run session
      timer1.Enabled:=False;
+     // Trying to fix an ANNOYING corruption to my GUI layout
+     TabSheet1.PageIndex := 0;
+     TabSheet6.PageIndex := 1;
+     TabSheet2.PageIndex := 2;
+     TabSheet3.PageIndex := 3;
+     TabSheet7.PageIndex := 4;
+     TabSheet4.PageIndex := 5;
+     TabSheet5.PageIndex := 6;
+     TabSheet8.PageIndex := 7;
+     TabSheet9.PageIndex := 8;
+     PageControl.PageIndex := 0;
+
      // Below is a hack until I sort out another issue.
      LazarusResources.Add('decode','PNG',[
        #137'PNG'#13#10#26#10#0#0#0#13'IHDR'#0#0#0#25#0#0#0#216#8#6#0#0#0#30']Hr'#0#0
@@ -4146,15 +4182,12 @@ Begin
      end;
 end;
 
-function  TForm1.messageParser(const ex : String; var nc1t : String; var pfx : String; var sfx : String; var nc2t : String; var ng : String; var sh : String) : Boolean;
+function  TForm1.messageParser(const ex : String; var nc1t : String; var pfx : String; var sfx : String; var nc2t : String; var ng : String; var sh : String; var proto : String) : Boolean;
 Var
    foo   : String;
-   w1,w2 : String;
    i, wc : Integer;
    w     : Array[1..4] of String;
-   ispfx : Boolean;
-   issfx : Boolean;
-   b     : Boolean;
+   go    : Boolean;
 Begin
      Result := False;
      nc1t   := '';
@@ -4163,349 +4196,222 @@ Begin
      nc2t   := '';
      ng     := '';
      sh     := '';
-     // Attempts to take an arbitrary string and convert it into the fields of a structured message.
-     // Easiest cases first
+     proto  := '';
+     // As usual this has turned into a pit of confusing despair.  Part of it is that I was too close to my brain exploding
+     // when I wrote this and I based it on being V2 compliant so now having to back pedal in V1 support.
+
+     // So.  Here's what I need this to do.  V2 support is off the table for now.
+     // It needs to return proto = JL if it's a standard no slashed callsigns message or JT if it is.
+     // Reason for this - I generate messages for non-slashed with my own code and use JT's in libJT65
+     // for the convoluted V1 slashed types.  Basically being lazy but I don't have time (right now)
+     // to reinvent and validate that wheel.
+
+     // This returns true if it's a structured message with the fields broken out into nc1t, pfx, sfx, nc2t, ng if (and only
+     // if proto = JL
+
+     // ex contains the full message.  Check for presence of slash first.
+     if ansicontainstext(ex,'/') Then proto := 'JT' else proto := 'JL';
+
+     // Break this into the words - array w[1..4] where count may be 1, 2, 3 or 4. NOTE the 1 based index!
      for i := 1 to 4 do w[i] := '';
      foo := DelSpace1(TrimLeft(TrimRight(UpCase(ex)))); // Insures there is only one space between words, deletes left/right padding (space) and makes upper case.
      wc  := WordCount(foo,[' ']);
-     If (wc > 0) and isSText(foo) Then
+     if (wc > 0) and (wc < 5) Then for i := 1 to wc do w[i] := ExtractWord(i,foo,[' ']) else wc := 0;
+
+     // OK - simplification time!
+     // If proto = JT all I care about is that it could be encoded as a structured message using libJT65 encoder
+     // If proto = JL all I care about is that it could be encoded as a structured message using my custom encoder
+     //
+     // For proto = JT this means Word 1 is a call, Word 2 is a call and Word 3 is a control type.  That's IT
+     if isSText(foo) and (proto = 'JL') and (wc = 3) Then
      Begin
-          for i := 1 to wc do w[i] := ExtractWord(i,foo,[' ']);
-
-          if wc=4 then
+          if (isCallsign(w[1]) or (w[1]='CQ') or (w[1]='QRZ')) and isCallsign(w[2]) and (isControl(w[3]) or isGrid(w[3])) Then
           Begin
-               // Only one structured message has four words:  CQ ### Call Grid and Prefix/Suffix is disallowed with these.
-               if w[1] = 'CQ' Then
-               Begin
-                    b := True;
-                    for i := 1 to length(w[2]) do if not isDigit(w[2][i]) then b := False;
-
-                    if b Then
-                    Begin
-                         if tryStrToInt(w[2],i) Then
-                         Begin
-                              if (i > 0) And (i < 1000) Then b := True else b := False;
-                         end
-                         else
-                         begin
-                              b := False;
-                         end;
-                         if b Then
-                         Begin
-                              // Have to have an offset 001 to 999 followed by a callsign followed by a Grid
-                              nc1t := 'CQ';
-                              nc2t := w[3];
-                              if length(w[2]) = 1 Then w[2] := '00'+w[2];
-                              if length(w[2]) = 2 Then w[2] := '0'+w[2];
-                              pfx  := w[2];
-                              sfx  := '';
-                              ng   := w[4];
-                              sh     := '';
-                              if isGrid(ng) Then
-                              Begin
-                                   result := True;
-                              end
-                              else
-                              begin
-                                   Result := False;
-                                   nc1t   := '';
-                                   pfx    := '';
-                                   sfx    := '';
-                                   nc2t   := '';
-                                   ng     := '';
-                                   sh     := '';
-                              end;
-                         end
-                         else
-                         begin
-                              // Does not contain a valid offset
-                              Result := False;
-                              nc1t   := '';
-                              pfx    := '';
-                              sfx    := '';
-                              nc2t   := '';
-                              ng     := '';
-                              sh     := '';
-                         end;
-                    end
-                    else
-                    begin
-                         // Does not contain a valid offset
-                         Result := False;
-                         nc1t   := '';
-                         pfx    := '';
-                         sfx    := '';
-                         nc2t   := '';
-                         ng     := '';
-                         sh     := '';
-                    end;
-               End
-               Else
-               Begin
-                    // No idea what it is - so it's free text.
-                    Result := False;
-                    nc1t   := '';
-                    pfx    := '';
-                    sfx    := '';
-                    nc2t   := '';
-                    ng     := '';
-                    sh     := '';
-               End;
-          End;
-
-          if wc=3 then
+               Result := True;
+               nc1t   := w[1];
+               pfx    := '';
+               sfx    := '';
+               nc2t   := w[2];
+               ng     := w[3];
+               sh     := '';
+               proto  := 'JL';
+          end
+          else
           Begin
-               // Many types:
-               //
-               // CQ Call Grid
-               // CQ Prefix/Call Grid
-               // CQ Call/Suffix Grid
-               //
-               // QRZ Call Grid
-               // QRZ Prefix/Call Grid
-               // QRZ Call/Suffix Grid
-               //
-               // DE Call Grid
-               // DE Prefix/Call Grid
-               // DE Call/Suffix Grid
-               // DE Call 73
-               // DE Prefix/Call 73
-               // DE Call/Suffix 73
-               //
-               // Call Call Grid
-               // Call Call -##
-               // Call Call R-##
-               // Call Call RO
-               // Call Call RRR
-               // Call Call 73
-
-               if (w[1]='CQ') Or (w[1]='QRZ') Or (w[1]='DE') Then
-               Begin
-                    If AnsiContainsText(w[2],'/') Then
-                    Begin
-                         w1 := '';
-                         w2 := '';
-                         w1 := ExtractWord(1,w[2],['/']);
-                         w2 := ExtractWord(2,w[2],['/']);
-
-                         ispfx := True;
-                         issfx := True;
-
-                         if isCallsign(w1) Then ispfx := False;
-                         if isCallsign(w2) Then issfx := False;
-
-
-                         if ispfx and issfx Then
-                         Begin
-                              // Seems to be a pair of non callsign values with a /
-                              Result := False;
-                              nc1t   := '';
-                              pfx    := '';
-                              sfx    := '';
-                              nc2t   := '';
-                              ng     := '';
-                              sh     := '';
-                         end;
-
-                         if (not ispfx) and (not issfx) Then
-                         Begin
-                              // Bit more complicated here as it could be garbage or a Prefix that looks like a callsign.
-                              // There are some 4 character Prefix values defined in WSJT that look like a full callsign
-                              // like:
-                              //
-                              // 3D2C/ 3D2R/ CE0X/ CE0Y/ CE0Z/ HK0A/ HK0M/ KH5K/ PY0F/ PT0S/ PY0T/
-                              // VK0H/ VK0M/ VK9C/ VK9L/ VK9M/ VK9N/ VK9W/ VK9X/ VP2E/ VP2M/ VP2V/
-                              // VP6D/ VP8G/ VP8H/ VP8O/ VP8S/ ZK1N/ ZK1S/
-                              //
-
-                              // Now... the only way I can end up with a pair of calls is to have a 4 character Prefix
-                              // that looks like a callsign with a 3 character "real" callsign or a 4 character callsign
-                              // with a 3 character Suffix that looks like a callsign.  I have to wonder what the chances
-                              // of that happening may be?  Seems slight at best.  A 4 character Prefix being used by a 1x1
-                              // format callsign seems almost impossible, but, who knows...  A 4 character "real" callsign
-                              // with a 3 character Suffix looking like a 1x1 callsign seems, well, stupid.
-
-                              // So...  I'm going to punt for now and do a simple test for a > 4 character w1 value or > 3
-                              // character w2 value.  If length w1=3 and w2=3 then I give up.
-
-                              // Some simple checks here.  Prefix can be 1..4 characters
-                              //                           Suffix can be 1..3 characters
-                              // If w1 length > 4 it can't be a prefix
-                              // If w2 length > 3 it can't be a prefix
-
-                              // A couple of other tests... if length w1 < 3 or length w2 < 3 neither can be a callsign.  But,
-                              // this is included in the isCallsign test so never mind.
-
-                              // Actually... I'm way overthinking this as usual.  It'll only be when I parse these things in
-                              // JT65-HF that this makes any difference.
-
-                              if Length(w1) > 4 Then ispfx := False;
-                              if Length(w2) > 3 Then issfx := False;
-                              if (not ispfx) And (not issfx) Then
-                              Begin
-                                   if Length(w1) > Length(w2) Then issfx := True;
-                                   if Length(w2) > Length(w1) Then ispfx := True;
-                              end;
-
-                              if Length(w1) = Length(w2) Then
-                              Begin
-                                   // Flip a coin... call w1 Prefix w2 Call
-                                   ispfx := True;
-                                   issfx := False;
-                              end;
-
-                         end;
-
-                         If (ispfx and (not issfx)) Or (issfx and (not ispfx)) Then
-                         Begin
-                              // Yay! We have a winner
-                              nc1t := w[1]; // CQ QRZ or DE
-                              if ispfx then nc2t := w2;
-                              if issfx then nc2t := w1;
-                              if ispfx then pfx := w1 else pfx  := '';
-                              if issfx then sfx := w2 else sfx  := '';
-                              ng   := w[3];
-                              if w[3] = '73' Then
-                              Begin
-                                   Result := True;
-                              end
-                              else
-                              begin
-                                   if isGrid(ng) Then
-                                   Begin
-                                        result := True;
-                                   end
-                                   else
-                                   begin
-                                        Result := False;
-                                        nc1t   := '';
-                                        pfx    := '';
-                                        sfx    := '';
-                                        nc2t   := '';
-                                        ng     := '';
-                                        sh     := '';
-                                   end;
-                              end;
-                         end;
-                    End
-                    Else
-                    Begin
-                         // Have to have a callsign here followed by a Grid
-                         // Or, for DE, A callsign follwed by 73
-                         nc1t := w[1]; // CQ QRZ or DE
-                         nc2t := w[2];
-                         pfx  := '';
-                         sfx  := '';
-                         ng   := w[3];
-                         sh     := '';
-                         if w[3] = '73' Then
-                         Begin
-                              Result := True;
-                         end
-                         else
-                         begin
-                              if isGrid(ng) Then
-                              Begin
-                                   result := True;
-                              end
-                              else
-                              begin
-                                   Result := False;
-                                   nc1t   := '';
-                                   pfx    := '';
-                                   sfx    := '';
-                                   nc2t   := '';
-                                   ng     := '';
-                                   sh     := '';
-                              end;
-                         end;
-                    End;
-               End;
-
-               // Have now covered CQ/DE/QRZ Call Grid, CQ/DE/QRZ PFX/Call Grid and CQ/DE/QRZ Call/SFX Grid
-
-               If not Result Then
-               Begin
-                    // Didn't parse to any of the above cases leaving:
-                    // Call Call Grid
-                    // Call Call -##
-                    // Call Call R-##
-                    // Call Call RO
-                    // Call Call RRR
-                    // Call Call 73
-
-                    if ((w[3] = 'RO') Or (w[3] = 'RRR') Or (w[3] = '73') Or (AnsiContainsText(w[3],'-'))) And (isCallSign(w[1]) and isCallsign(w[2])) Then
-                    Begin
-                         // Call Call RO or Call Call RRR or Call Call 73 or Call Call -## or Call Call R-##
-                         nc1t := w[1];
-                         nc2t := w[2];
-                         pfx  := '';
-                         sfx  := '';
-                         ng   := w[3];
-                         result := True;
-                         sh     := '';
-                    End;
-
-                    If not Result Then
-                    Begin
-                         // This leaves Call Call Grid as only thing it can be if valid.
-                         if isCallsign(w[1]) And isCallsign(w[2]) And isGrid(w[3]) Then
-                         Begin
-                              // It's a call call grid for sure at this point
-                              nc1t := w[1];
-                              nc2t := w[2];
-                              pfx  := '';
-                              sfx  := '';
-                              ng   := w[3];
-                              result := True;
-                              sh     := '';
-                         End;
-                    End;
-               End;
-          End;
-
-          if wc = 1 Then
-          Begin
-               // Handler for SH messages RO, RRR and 73 [And ATT]
-               nc1t := '';
-               nc2t := '';
-               pfx  := '';
-               sfx  := '';
-               ng   := '';
-               sh   := '';
                Result := False;
+               nc1t   := '';
+               pfx    := '';
+               sfx    := '';
+               nc2t   := '';
+               ng     := '';
+               sh     := '';
+          end;
+     End;
 
-               if w[1] = 'RO'  Then sh := 'RO';
-               if w[1] = 'RRR' Then sh := 'RRR';
-               if w[1] = '73'  Then sh := '73';
-               if w[1] = 'ATT' Then sh := 'ATT';
+     if (proto = 'JT') and (wc=2) Then
+     Begin
+          // For proto = JT I'm not breaking out the fields - all I care about is proto = JT and result = true.
+          Result := False;
+          nc1t   := '';
+          pfx    := '';
+          sfx    := '';
+          nc2t   := '';
+          ng     := '';
+          sh     := '';
+          // Working with V1 slashed calls.  I'm only interested in what could be valid structured types here so
+          // it has to be a 2 word exchange and contain a slash in the text somewhere.
+          proto := 'JT'; // Forces the encoder to use JT65V1 from library for message crunching
+          //
+          // There is an impossible case - both calls containing slash.  Can't be done.
+          //
+          go := True; // Sets to false if this set evaluates to a return
+          if (ansiContainsText(w[1],'/')) and (ansiContainsText(w[2],'/')) Then
+          Begin
+               // Can't do it
+               go := False;
+               Result := False;
+          end;
 
-               if (sh='RO') or (sh='RRR') or (sh='73') or (sh='ATT') Then result := True;
+          // CQ Prefix/Call
+          // CQ Call/Suffix
+          // CQ Call
+          // QRZ Prefix/Call
+          // QRZ Call/Suffix
+          // QRZ Call
+          if go and ((w[1]='CQ') or (w[1]='QRZ')) Then
+          Begin
+               // w[2] MUST be a valid call or prefix/call or call/suffix
+               if isV1Call(w[2]) Then
+               Begin
+                    go := False;
+                    result := True;
+               end
+               else
+               begin
+                    // Call is not JT65V1 compliant.
+                    go := False;
+                    result := False;
+               end;
+          end
+          else
+          begin
+               // Not a CQ, QRZ, DE form - try next eval.
+               go := True;
+               result := False;
+          end;
+
+          // Call Prefix/Call
+          // Call Call/Suffix
+          // Prefix/Call Call
+          // Call/Suffix Call
+          // Call Call (Technically invalid but will handle for those that didn't set the flippn' grid
+          If go Then
+          Begin
+               // Didn't evaluate to one of the CQ,QRZ or DE forms
+               // Next up is pair of calls
+               // Where we must have
+               // CALL CALL (stupid but will do)
+               // PREFIX/CALL CALL
+               // CALL/SUFFIX CALL
+               // CALL PREFIX/CALL
+               // CALL CALL/SUFFIX
+               if isV1Call(w[1]) and isV1Call(w[2]) Then
+               Begin
+                    go := False;
+                    result := True;
+               End
+               else
+               begin
+                    // Not a call call type - try next eval.
+                    go := True;
+                    result := False;
+               end;
+          end;
+
+          // Call -##
+          // Call R-##
+          // Call RRR
+          // Call 73
+          // Prefix/Call 73
+          // Call/Suffix 73
+          // Call 73
+          If go then
+          begin
+               // Didn't evaluate to one of the CQ or CALL CALL forms
+               // Next up is call and control type
+               // CALL -##
+               // CALL R-##
+               // CALL RRR
+               // CALL 73
+               // PREFIX/CALL -##
+               // CALL/SUFFIX -##
+               // PREFIX/CALL R-##
+               // CALL/SUFFIX R-##
+               // PREFIX/CALL RRR
+               // CALL/SUFFIX RRR
+               // PREFIX/CALL 73
+               // CALL/SUFFIX 73
+               if isV1Call(w[1]) And isControl(w[2]) Then
+               Begin
+                    go := False;
+                    result := True;
+               end
+               else
+               begin
+                    go := True;
+                    result := False;
+               end;
+          end;
+     end;
+end;
+
+function TForm1.isV1Call(const s : String) : Boolean;
+Var
+   wa, wb : String;
+   i      : Integer;
+Begin
+     Result := False;
+     if ansiContainsText(s,'/') Then
+     Begin
+          // It's slashed
+          // split it to wa and wb
+          i := WordCount(s,['/']);
+          If i=2 Then
+          Begin
+               wa := ExtractWord(1,s,['/']);
+               wb := ExtractWord(2,s,['/']);
+               // Ok - we must have wa = valid prefix and wb = valid call
+               // or
+               // wa = valid call and wb = valid suffix
+               // or (dammit - thanks JT, really... thanks)
+               // wa = valid call and wb = 'MM' where MM is actually a prefix value shuffled to suffix position.
+               If valV1Prefix(wa) and isCallSign(wb) Then
+               Begin
+                    Result := True;
+               end;
+               If isCallSign(wa) and valV1Suffix(wb) Then
+               Begin
+                    Result := True;
+               end;
+               if isCallSign(wa) and (wb='MM') Then
+               Begin
+                    Result := True;
+               end;
+          end
+          else
+          begin
+               // This means it has more than 1 slash - impossible so bail.
+               // This was handled above so should never get here but might
+               // as well have a double check as it's important.
+               Result := False;
           end;
      end
      else
      begin
-          Result := False;
-          nc1t   := '';
-          pfx    := '';
-          sfx    := '';
-          nc2t   := '';
-          ng     := '';
-          sh     := '';
+          // No slash - validate it
+          if isCallsign(s) Then Result := True;
      end;
-
-     if not Result Then
-     Begin
-          Result := False;
-          nc1t   := '';
-          pfx    := '';
-          sfx    := '';
-          nc2t   := '';
-          ng     := '';
-          sh     := '';
-     end;
-end;
-
+End;
 function TForm1.rebelTuning(const f : Double) : CTypes.cuint;
 Begin
      // Takes Hz value and returns DDS tuning word based upon DDS ref frequency
@@ -4520,7 +4426,7 @@ end;
 procedure TForm1.genTX(const msg : String; const txdf : Integer);
 Var
    foo, sh       : String;
-   form          : String;
+   form, proto   : String;
    i,j,k,dir,cnt : CTypes.cint;
    nc1,nc2,ng    : LongWord;
    ng1           : LongWord;
@@ -4528,9 +4434,13 @@ Var
    pfxt,sfxt     : String;
    syms          : Array[0..11] Of CTypes.cint;
    tsyms         : Array[0..62] Of CTypes.cint;
-   sm, ft        : Boolean;
+   sm, ft, doit  : Boolean;
    baseTX        : CTypes.cdouble;
+   pfoo          : PChar;
 begin
+     { TODO : M A J O R
+     Have to rebuild the JT65V1 message generation for Prefix calls YESTERDAY
+     }
      // Validate the message for proper content BEFORE calling this
      txValid := False;
      nc1t := '';
@@ -4539,22 +4449,15 @@ begin
      nc2t := '';
      ngt  := '';
      sh   := '';
+     proto:= ''; // Proto is to handle if I call my own (JL) encoder or use JT's (JT)
      sm   := False; // Structured message type
      ft   := False; // Free text message type
-     //shm  := False; // Shorthand message type
+     doit := False;
      foo := TrimLeft(TrimRight(UpCase(msg)));
-     if messageParser(foo, nc1t, pfxt, sfxt, nc2t, ngt, sh) Then
+     if messageParser(foo, nc1t, pfxt, sfxt, nc2t, ngt, sh, proto) Then
      Begin
           sm := True;
-          if (sh='RO') or (sh='RRR') or (sh='ATT') or (sh='73') Then
-          Begin
-               sm  := false;
-               ft  := false;
-          end
-          else
-          begin
-               //shm := true;
-          end;
+          sh := '';
      end
      else
      begin
@@ -4564,30 +4467,38 @@ begin
                ft := True;
           end;
      end;
+
+     // One last check for proto.  This will force it to use libJT65 message generator if
+     // there's a slash in the string and it wasn't set to JT proto.  Maybe not, again, one
+     // of my better ideas... but for now it stands.
+     if sm and (ansicontainstext(foo,'/')) and (not (proto='JT')) Then proto := 'JT';
+
      // If sm this is a structured message
      if sm then
      begin
-          nc1 := 0;
-          nc2 := 0;
-          ng  := 0;
-          nc2 := gCall(nc2t);
-          ng1 := 0;
-          gGrid(ngt,ng1);
-          ng  := ng1;
-          if Length(TrimLeft(TrimRight(DelSpace1(UpCase(pfxt))))) > 0 Then
+          if proto = 'JT' Then
           Begin
-               pfxt := TrimLeft(TrimRight(DelSpace1(UpCase(pfxt))));
-               form := TrimLeft(TrimRight(DelSpace1(UpCase(nc1t))));
-               nc1 := gPrefix(form,pfxt);
-          end;
-          if Length(TrimLeft(TrimRight(DelSpace1(UpCase(sfxt))))) > 0 Then
-          Begin
-               sfxt := TrimLeft(TrimRight(DelSpace1(UpCase(sfxt))));
-               form := TrimLeft(TrimRight(DelSpace1(UpCase(nc1t))));
-               nc1 := gSuffix(form,sfxt);
-          end;
-          If (Length(TrimLeft(TrimRight(DelSpace1(pfxt))))= 0) And (Length(TrimLeft(TrimRight(DelSpace1(sfxt))))= 0) Then
-          Begin
+               memo3.Append('Using libJT65 SM encoder');
+               // It's a slashed call form so use the tried and true V1 encoder from libJT65
+               pfoo := '';
+               if SysUtils.StrBufSize(pfoo) < 22 Then pfoo := SysUtils.StrAlloc(22);
+               strpcopy(pfoo,PadRight(foo,22));
+               for i := 0 to 11 do syms[i] := 0;
+               for i := 0 to 62 do tsyms[i] := 0;
+               packmsg(CTypes.pcchar(@pfoo),CTypes.pcint(@syms[0]));
+               rscode(CTypes.pcint(@syms[0]),CTypes.pcint(@tsyms[0]));
+               dir := 1;
+               interleave(CTypes.pcint(@tsyms[0]),CTypes.pcint(@dir));
+               dir := 1;
+               cnt := 63;
+               graycode(CTypes.pcint(@tsyms[0]),CTypes.pcint(@cnt),CTypes.pcint(@dir));
+               doit := True; // Make the FSK generator run :)
+          end
+          else
+          begin
+               memo3.Append('Using local SM encoder');
+               // Use local code encoder and by my current rule set there will be no slashed calls here
+               nc1 := 0;
                If (nc1t = 'CQ') or (nc1t = 'QRZ') or (nc1t = 'DE') Then
                Begin
                     sfxt := '';
@@ -4599,51 +4510,68 @@ begin
                begin
                     nc1 := gCall(nc1t);
                end;
-          end;
-          for i := 0 to 11 do syms[i] := 0;
-          for i := 0 to 62 do tsyms[i] := 0;
-          if gSyms(nc1,nc2,ng,syms) Then
-          Begin
-               rscode(CTypes.pcint(@syms[0]),CTypes.pcint(@tsyms[0]));
-               dir := 1;
-               interleave(CTypes.pcint(@tsyms[0]),CTypes.pcint(@dir));
-               dir := 1;
-               cnt := 63;
-               graycode(CTypes.pcint(@tsyms[0]),CTypes.pcint(@cnt),CTypes.pcint(@dir));
-               // tsyms holds the 63 TX symbols - will need to look at TXDF and current dial
-               // RX QRG to compute the true RF TX QRG list.  TXDF 0 = 1270.5 Hz so if dial
-               // is 14076.0 and TXDF = 0 then first tone (sync) will be at 14,077,270.5 Hz
-               // Then call rebelTuning(double f in hz) to get back an UINT32 tuning word
-               // for the AD9834.
-               //isyms         : Array[0..62] Of CTypes.cint;
-               //ssyms         : Array[0..62] Of String;
-               // So.... tone 0 (sync) = Dial QRG + 1270.5 + TXDF
-               baseTX   := 1270.5;
-               baseTX   := baseTX + StrToInt(edDialQRG.Text) + txdf;  // This is the floating point value in Hz of the sync carrier (base frequency - data goes up from this)
-               k := rebelTuning(baseTX); // Base sync tone as RF tuning word
-               // For this we clear the whole 128 and it's 128 because of way I pass FSK values to Rebel - it only uses 126 :)
-               for i := 0 to 127 do qrgset[i] := '0';
-               j := 0;
-               // Two passes - stuff sync then stuff data.
-               // Once I debug and am sure can try rolling it into one pass.
-               // Stuff the values - sync where SYNC65[i]=1 data where SYNC65[i]=0;
-               // NOTE for this it's 125 on qrgset - DONT'T bork this and do 127 :)
-               for i := 0 to 125 do if SYNC65[i]=1 Then qrgset[i] := IntToStr(k);
-               for i := 0 to 125 do
-               begin
-                    if SYNC65[i]=0 Then
-                    Begin
-                         qrgset[i] := IntToStr(rebelTuning(baseTX + (2.6917 * (tsyms[j]+2))));
-                         inc(j); // Not to self - yes it generates nice 2 tone FSK if you leave this line out.
+
+               nc2 := 0;
+               nc2 := gCall(nc2t);
+
+               ng  := 0;
+               ng1 := 0;
+               gGrid(ngt,ng1);
+               ng  := ng1; // Why do I do this?
+
+               for i := 0 to 11 do syms[i] := 0;
+               for i := 0 to 62 do tsyms[i] := 0;
+
+               if gSyms(nc1,nc2,ng,syms) Then
+               Begin
+                    rscode(CTypes.pcint(@syms[0]),CTypes.pcint(@tsyms[0]));
+                    dir := 1;
+                    interleave(CTypes.pcint(@tsyms[0]),CTypes.pcint(@dir));
+                    dir := 1;
+                    cnt := 63;
+                    graycode(CTypes.pcint(@tsyms[0]),CTypes.pcint(@cnt),CTypes.pcint(@dir));
+                    doit := true;
+               End;
+               // Generate FSK values
+               if doit Then
+               Begin
+                    // tsyms holds the 63 TX symbols - will need to look at TXDF and current dial
+                    // RX QRG to compute the true RF TX QRG list.  TXDF 0 = 1270.5 Hz so if dial
+                    // is 14076.0 and TXDF = 0 then first tone (sync) will be at 14,077,270.5 Hz
+                    // Then call rebelTuning(double f in hz) to get back an UINT32 tuning word
+                    // for the AD9834.
+                    //isyms         : Array[0..62] Of CTypes.cint;
+                    //ssyms         : Array[0..62] Of String;
+                    // So.... tone 0 (sync) = Dial QRG + 1270.5 + TXDF
+                    baseTX   := 1270.5;
+                    baseTX   := baseTX + StrToInt(edDialQRG.Text) + txdf;  // This is the floating point value in Hz of the sync carrier (base frequency - data goes up from this)
+                    k := rebelTuning(baseTX); // Base sync tone as RF tuning word
+                    // For this we clear the whole 128 and it's 128 because of way I pass FSK values to Rebel - it only uses 126 :)
+                    for i := 0 to 127 do qrgset[i] := '0';
+                    j := 0;
+                    // Two passes - stuff sync then stuff data.
+                    // Once I debug and am sure can try rolling it into one pass.
+                    // Stuff the values - sync where SYNC65[i]=1 data where SYNC65[i]=0;
+                    // NOTE for this it's 125 on qrgset - DONT'T bork this and do 127 :)
+                    for i := 0 to 125 do if SYNC65[i]=1 Then qrgset[i] := IntToStr(k);
+                    for i := 0 to 125 do
+                    begin
+                         if SYNC65[i]=0 Then
+                         Begin
+                              qrgset[i] := IntToStr(rebelTuning(baseTX + (2.6917 * (tsyms[j]+2))));
+                              inc(j); // Not to self - yes it generates nice 2 tone FSK if you leave this line out.
+                         end;
                     end;
+                    txDirty := True;  // Flag to force an update to the FSK TX
+                    txValid := True;
                end;
-               txDirty := True;  // Flag to force an update to the FSK TX
-               txValid := True;
           end;
      end;
+
      //If ft this is free text
      if ft then
      begin
+          memo3.Append('Using free text encoder');
           nc1 := 0;
           nc2 := 0;
           ng  := 0;
@@ -4690,103 +4618,182 @@ begin
                if isFText(msg) or isSText(msg) Then Memo2.Append('Message to send:  ' + msg + ' at TXDF ' + edTXDF.Text) else Memo2.Append('Odd - did not compute for FT');
           end;
      end;
-     //If shm it's shorthand
-     //if shm Then
-     //begin
-     //     // Lets play shorthand
-     //     ListBox1.Items.Add('Encoding shorthand message');
-     //     setLength(samps2,661500);
-     //     for i := 0 to 661499 do samps[i] := 0;
-     //     txdf := 0;
-     //     nsamps := 0;
-     //     shmsg := 0;
-     //     if sh = 'ATT' Then shmsg := 1;
-     //     if sh = 'RO'  Then shmsg := 2;
-     //     if sh = 'RRR' Then shmsg := 3;
-     //     if sh = '73'  Then shmsg := 4;
-     //     //procedure  gSamps(Ptxdf,Ptsysms,Pshmsg,Psamples,Psamplescount : Pointer); cdecl; external JL_DLL name 'gen65_';
-     //     gSamps(@txdf,@tsyms,@shmsg,@samps,@nsamps);
-     //     for i := 0 to 11024 do samps2[i] := 0;
-     //     for i := 11025 to 11025+nsamps do samps2[i] := samps[i-11025];
-     //     j := i+1;
-     //     for i := j to 661499 do samps2[i] := 0;
-     //     for i := 0 to 661499 do samps[i] := 0;
-     //     for i := 0 to 661499 do samps[i] := samps2[i];
-     //     setLength(samps2,0);
-     //     ListBox1.Items.Add('');
-     //     ListBox1.Items.Add('Samples created.  Attempting demodulation/decode.');
-     //     ListBox1.Items.Add('');
-     //     for i := 0 to 11 do syms[i] := 0;
-     //     if demodulate(samps, syms) Then
-     //     Begin
-     //          ListBox1.Items.Add('');
-     //          foo := '';
-     //          for i := 0 to 11 do foo := foo + IntToStr(syms[i]) + ' ';
-     //          ListBox1.Items.Add('Raw demodulator symbols:  ' + foo);
-     //          ListBox1.Items.Add('Raw demodulator symbols back to nc1, nc2 and ng...');
-     //          ListBox1.Items.Add('');
-     //          if dSyms(nc1,nc2,ng,syms) Then
-     //          Begin
-     //               if dText(foo,nc1,nc2,ng) Then ListBox1.Items.Add('JT65V2 Decoder:  ' + TrimLeft(TrimRight(foo))) Else ListBox1.Items.Add('JT65V2 Text Decoder fails.');
-     //          end
-     //          else
-     //          begin
-     //               ListBox1.Items.Add('Text decode failed.');
-     //          end;
-     //     end
-     //     else
-     //     begin
-     //          ListBox1.Items.Add('Demodulator returns False');
-     //     end;
-     //end;
 end;
 
 procedure TForm1.mgenClick(Sender: TObject);
 Var
    foo : String;
+   i   : Integer;
 begin
      lastTXMsg := '';
      sameTXCount := 0;
      thisTXmsg := '';
+
      if Sender = bCQ Then
      Begin
-          thisTXmsg := 'CQ ' + thisTXCall + ' ' + thisTXgrid;
+          if (edPrefix.Text = '') And (edSuffix.Text = '') Then thisTXmsg := 'CQ ' + thisTXCall + ' ' + thisTXgrid else thisTXmsg := 'CQ ' + thisTXCall;
           edTXMsg.Text := thisTXmsg;
           // Not sure this is best idea... but when calling CQ one should not move.
           cbTXeqRXDF.Checked := False;
           edRXDF.Text := edTXDF.Text;
      end;
+
      if Sender = bQRZ Then
      Begin
-          thisTXmsg := 'QRZ ' + thisTXCall + ' ' + thisTXgrid;
+          if (edPrefix.Text = '') And (edSuffix.Text = '') Then thisTXmsg := 'QRZ ' + thisTXCall + ' ' + thisTXgrid else thisTXmsg := 'QRZ ' + thisTXCall;
           edTXMsg.Text := thisTXmsg;
      end;
+
      if Sender = bACQ Then
      Begin
-          foo := getLocalGrid;
-          if length(foo)>4 then foo := foo[1..4];
-          thisTXmsg := TrimLeft(TrimRight(UpCase(edTXtoCall.Text))) + ' ' + TrimLeft(TrimRight(UpCase(edCall.Text))) + ' ' + TrimLeft(TrimRight(UpCase(foo)));
-          edTXMsg.Text := thisTXmsg;
+          if ansiContainsText(edTXtoCall.Text,'/') Then
+          Begin
+               // Working with V1 slashed
+               // Executive decision here.  A locally slashed call can't send its slashed call to another slashed call
+               // Sooooo... we drop the local
+               { TODO : Warn and make this a choice }
+               thisTXmsg := TrimLeft(TrimRight(UpCase(edTXtoCall.Text))) + ' ' + TrimLeft(TrimRight(UpCase(edCall.Text)));
+               edTXMsg.Text := thisTXmsg;
+          end
+          else
+          begin
+               if (edPrefix.Text = '') And (edSuffix.Text = '') Then
+               Begin
+                    foo := getLocalGrid;
+                    if length(foo)>4 then foo := foo[1..4];
+                    thisTXmsg := TrimLeft(TrimRight(UpCase(edTXtoCall.Text))) + ' ' + TrimLeft(TrimRight(UpCase(edCall.Text))) + ' ' + TrimLeft(TrimRight(UpCase(foo)));
+                    edTXMsg.Text := thisTXmsg;
+               end
+               else
+               begin
+                    thisTXmsg := TrimLeft(TrimRight(UpCase(edTXtoCall.Text))) + ' ' + TrimLeft(TrimRight(UpCase(myscall)));
+                    edTXMsg.Text := thisTXmsg;
+               end;
+          end;
      end;
+
      if Sender = bReport Then
      Begin
-          thisTXmsg := TrimLeft(TrimRight(UpCase(edTXtoCall.Text))) + ' ' + TrimLeft(TrimRight(UpCase(edCall.Text))) + ' ' + TrimLeft(TrimRight(UpCase(edTXReport.Text)));
-          edTXMsg.Text := thisTXmsg;
+          // Need to double check that report field contains valid data - that is a -## and it matters that -1 is not same as -01 :)
+          if tryStrToInt(edTXReport.Text,i) Then
+          Begin
+               // It has to be < 0
+               if i < 0 then
+               Begin
+                    if i > -10 Then
+                    begin
+                         // Double check it has leading 0
+                         edTXReport.Text := '-0' + IntToStr(abs(i));
+                    end;
+               end
+               else
+               begin
+                    edTXReport.Text := '-01';
+               end;
+          end;
+          // For this one if the remote call is slashed then it's easy mode as I'm not sending the local call to begin with
+          // so none of the worry introduced in answering a CQ method for slashed.
+          if ansiContainsText(edTXtoCall.Text,'/') Then
+          Begin
+               thisTXmsg := TrimLeft(TrimRight(UpCase(edTXtoCall.Text))) + ' ' + TrimLeft(TrimRight(UpCase(edTXReport.Text)));
+               edTXMsg.Text := thisTXmsg;
+          end
+          else
+          begin
+               if (edPrefix.Text = '') And (edSuffix.Text = '') Then
+               Begin
+                    thisTXmsg := TrimLeft(TrimRight(UpCase(edTXtoCall.Text))) + ' ' + TrimLeft(TrimRight(UpCase(edCall.Text))) + ' ' + TrimLeft(TrimRight(UpCase(edTXReport.Text)));
+                    edTXMsg.Text := thisTXmsg;
+               end
+               else
+               begin
+                    thisTXmsg := TrimLeft(TrimRight(UpCase(edTXtoCall.Text))) + ' ' + TrimLeft(TrimRight(UpCase(edTXReport.Text)));
+                    edTXMsg.Text := thisTXmsg;
+               end;
+          end;
      end;
+
      if Sender = bRReport Then
      Begin
-          thisTXmsg := TrimLeft(TrimRight(UpCase(edTXtoCall.Text))) + ' ' + TrimLeft(TrimRight(UpCase(edCall.Text))) + ' R' + TrimLeft(TrimRight(UpCase(edTXReport.Text)));
-          edTXMsg.Text := thisTXmsg;
+          // Need to double check that report field contains valid data - that is a -## and it matters that -1 is not same as -01 :)
+          if tryStrToInt(edTXReport.Text,i) Then
+          Begin
+               // It has to be < 0
+               if i < 0 then
+               Begin
+                    if i > -10 Then
+                    begin
+                         // Double check it has leading 0
+                         edTXReport.Text := '-0' + IntToStr(abs(i));
+                    end;
+               end
+               else
+               begin
+                    edTXReport.Text := '-01';
+               end;
+          end;
+          if ansiContainsText(edTXtoCall.Text,'/') Then
+          Begin
+               thisTXmsg := TrimLeft(TrimRight(UpCase(edTXtoCall.Text))) + ' R' + TrimLeft(TrimRight(UpCase(edTXReport.Text)));
+               edTXMsg.Text := thisTXmsg;
+          end
+          else
+          begin
+               if (edPrefix.Text = '') And (edSuffix.Text = '') Then
+               Begin
+                    thisTXmsg := TrimLeft(TrimRight(UpCase(edTXtoCall.Text))) + ' ' + TrimLeft(TrimRight(UpCase(edCall.Text))) + ' R' + TrimLeft(TrimRight(UpCase(edTXReport.Text)));
+                    edTXMsg.Text := thisTXmsg;
+               end
+               else
+               begin
+                    thisTXmsg := TrimLeft(TrimRight(UpCase(edTXtoCall.Text))) + ' R' + TrimLeft(TrimRight(UpCase(edTXReport.Text)));
+                    edTXMsg.Text := thisTXmsg;
+               end;
+          end;
      end;
+
      if Sender = bRRR Then
      Begin
-          thisTXmsg := TrimLeft(TrimRight(UpCase(edTXtoCall.Text))) + ' ' + TrimLeft(TrimRight(UpCase(edCall.Text))) + ' RRR';
-          edTXMsg.Text := thisTXmsg;
+          if ansiContainsText(edTXtoCall.Text,'/') Then
+          Begin
+               thisTXmsg := TrimLeft(TrimRight(UpCase(edTXtoCall.Text))) + ' RRR';
+               edTXMsg.Text := thisTXmsg;
+          end
+          else
+          begin
+               if (edPrefix.Text = '') And (edSuffix.Text = '') Then
+               Begin
+                    thisTXmsg := TrimLeft(TrimRight(UpCase(edTXtoCall.Text))) + ' ' + TrimLeft(TrimRight(UpCase(edCall.Text))) + ' RRR';
+                    edTXMsg.Text := thisTXmsg;
+               end
+               else
+               begin
+                    thisTXmsg := TrimLeft(TrimRight(UpCase(edTXtoCall.Text))) + ' RRR';
+                    edTXMsg.Text := thisTXmsg;
+               end;
+          end;
      end;
+
      if Sender = b73 Then
      Begin
-          thisTXmsg := TrimLeft(TrimRight(UpCase(edTXtoCall.Text))) + ' ' + TrimLeft(TrimRight(UpCase(edCall.Text))) + ' 73';
-          edTXMsg.Text := thisTXmsg;
+          if ansiContainsText(edTXtoCall.Text,'/') Then
+          Begin
+               thisTXmsg := TrimLeft(TrimRight(UpCase(edTXtoCall.Text))) + ' 73';
+               edTXMsg.Text := thisTXmsg;
+          end
+          else
+          begin
+               if (edPrefix.Text = '') And (edSuffix.Text = '') Then
+               Begin
+                    thisTXmsg := TrimLeft(TrimRight(UpCase(edTXtoCall.Text))) + ' ' + TrimLeft(TrimRight(UpCase(edCall.Text))) + ' 73';
+                    edTXMsg.Text := thisTXmsg;
+               end
+               else
+               begin
+                    thisTXmsg := TrimLeft(TrimRight(UpCase(edTXtoCall.Text))) + ' 73';
+                    edTXMsg.Text := thisTXmsg;
+               end;
+          end;
      end;
      if length(thisTXmsg)>1 Then
      Begin
@@ -5420,6 +5427,36 @@ end;
 function TForm1.t(const s : string) : String;
 Begin
      result := TrimLeft(TrimRight(s));
+end;
+
+function TForm1.valV1Prefix(const s : string) : Boolean;
+Var
+   i : Integer;
+Begin
+     result := False;
+     for i := 0 to length(V1PREFIX)-1 do
+     begin
+          if V1PREFIX[i]=TrimLeft(TrimRight(UpCase(s))) Then
+          begin
+               result := true;
+               break;
+          end;
+     end;
+end;
+
+function TForm1.valV1Suffix(const s : string) : Boolean;
+Var
+   i : Integer;
+Begin
+     result := False;
+     for i := 0 to length(V1SUFFIX)-1 do
+     begin
+          if V1SUFFIX[i]=TrimLeft(TrimRight(UpCase(s))) Then
+          begin
+               result := true;
+               break;
+          end;
+     end;
 end;
 
 procedure TForm1.updateDB;
