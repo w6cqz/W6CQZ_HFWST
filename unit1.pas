@@ -1,7 +1,15 @@
 { TODO :
 URGENT
+Find case of crash with no error when
+TX to Call is slashed...
+you run through the sequences...
+you call QRZ
+Watch this... I changed compiler flags and it seems to be ok now.  Not happy with this result, makes me nervous.
 
+Think about having RX move to keep passband centered for Rebel
 Have macro free text entry reflect what's sent.
+
+It's something with the PCHar alloc for calling libJT65 encoder
 
 Less urgent
 Order fields in logging panel
@@ -535,7 +543,7 @@ var
   dtrejects      : Integer;
   mycall,myscall : String;  // Keeps this stations call and slashed call in order (Same if not a slashed call)
   kvdatdel       : Integer; // Tracing how many calls it takes to delete a stuck KV
-
+  jtencode       : PChar; // To avoid heap error making this global
 implementation
 
 procedure rscode(Psyms : CTypes.pcint; Ptsyms : CTypes.pcint); cdecl; external JT_DLL name 'rs_encode_';
@@ -3857,10 +3865,18 @@ Begin
           if t1 Then
           Begin
                // Message is valid.  Check callsign and grid
-               { TODO : This should really evaluate if a suffix or prefix is in play }
-               if not isCallsign(edCall.Text) then t1 := False;
-               if not isGrid(edGrid.Text) then t1 := False;
+               { TODO : Be sure this works as expected }
                t1 := true;
+               if not isCallsign(edCall.Text) then t1 := False;
+               If Length(edPrefix.Text)> 1 Then
+               Begin
+                    if not valV1Call(edPrefix.Text + '/' + edCall.Text) then t1 := False;
+               end;
+               If Length(edSuffix.Text)> 1 Then
+               Begin
+                    if not valV1Call(edCall.Text + '/' + edSuffix.Text) then t1 := False;
+               end;
+               if not isGrid(edGrid.Text) then t1 := False;
           end;
      end;
      if txDirty then t1 := False; // Message has not been uploaded to Rebel
@@ -4436,11 +4452,7 @@ Var
    tsyms         : Array[0..62] Of CTypes.cint;
    sm, ft, doit  : Boolean;
    baseTX        : CTypes.cdouble;
-   pfoo          : PChar;
 begin
-     { TODO : M A J O R
-     Have to rebuild the JT65V1 message generation for Prefix calls YESTERDAY
-     }
      // Validate the message for proper content BEFORE calling this
      txValid := False;
      nc1t := '';
@@ -4476,16 +4488,15 @@ begin
      // If sm this is a structured message
      if sm then
      begin
+          doit := False;
           if proto = 'JT' Then
           Begin
                memo3.Append('Using libJT65 SM encoder');
                // It's a slashed call form so use the tried and true V1 encoder from libJT65
-               pfoo := '';
-               if SysUtils.StrBufSize(pfoo) < 22 Then pfoo := SysUtils.StrAlloc(22);
-               strpcopy(pfoo,PadRight(foo,22));
+               strpcopy(jtencode,PadRight(foo,22));
                for i := 0 to 11 do syms[i] := 0;
                for i := 0 to 62 do tsyms[i] := 0;
-               packmsg(CTypes.pcchar(@pfoo),CTypes.pcint(@syms[0]));
+               packmsg(jtencode,CTypes.pcint(@syms[0]));
                rscode(CTypes.pcint(@syms[0]),CTypes.pcint(@tsyms[0]));
                dir := 1;
                interleave(CTypes.pcint(@tsyms[0]),CTypes.pcint(@dir));
@@ -4532,40 +4543,40 @@ begin
                     graycode(CTypes.pcint(@tsyms[0]),CTypes.pcint(@cnt),CTypes.pcint(@dir));
                     doit := true;
                End;
-               // Generate FSK values
-               if doit Then
-               Begin
-                    // tsyms holds the 63 TX symbols - will need to look at TXDF and current dial
-                    // RX QRG to compute the true RF TX QRG list.  TXDF 0 = 1270.5 Hz so if dial
-                    // is 14076.0 and TXDF = 0 then first tone (sync) will be at 14,077,270.5 Hz
-                    // Then call rebelTuning(double f in hz) to get back an UINT32 tuning word
-                    // for the AD9834.
-                    //isyms         : Array[0..62] Of CTypes.cint;
-                    //ssyms         : Array[0..62] Of String;
-                    // So.... tone 0 (sync) = Dial QRG + 1270.5 + TXDF
-                    baseTX   := 1270.5;
-                    baseTX   := baseTX + StrToInt(edDialQRG.Text) + txdf;  // This is the floating point value in Hz of the sync carrier (base frequency - data goes up from this)
-                    k := rebelTuning(baseTX); // Base sync tone as RF tuning word
-                    // For this we clear the whole 128 and it's 128 because of way I pass FSK values to Rebel - it only uses 126 :)
-                    for i := 0 to 127 do qrgset[i] := '0';
-                    j := 0;
-                    // Two passes - stuff sync then stuff data.
-                    // Once I debug and am sure can try rolling it into one pass.
-                    // Stuff the values - sync where SYNC65[i]=1 data where SYNC65[i]=0;
-                    // NOTE for this it's 125 on qrgset - DONT'T bork this and do 127 :)
-                    for i := 0 to 125 do if SYNC65[i]=1 Then qrgset[i] := IntToStr(k);
-                    for i := 0 to 125 do
-                    begin
-                         if SYNC65[i]=0 Then
-                         Begin
-                              qrgset[i] := IntToStr(rebelTuning(baseTX + (2.6917 * (tsyms[j]+2))));
-                              inc(j); // Not to self - yes it generates nice 2 tone FSK if you leave this line out.
-                         end;
+          end;
+          // Generate FSK values
+          if doit Then
+          Begin
+               // tsyms holds the 63 TX symbols - will need to look at TXDF and current dial
+               // RX QRG to compute the true RF TX QRG list.  TXDF 0 = 1270.5 Hz so if dial
+               // is 14076.0 and TXDF = 0 then first tone (sync) will be at 14,077,270.5 Hz
+               // Then call rebelTuning(double f in hz) to get back an UINT32 tuning word
+               // for the AD9834.
+               //isyms         : Array[0..62] Of CTypes.cint;
+               //ssyms         : Array[0..62] Of String;
+               // So.... tone 0 (sync) = Dial QRG + 1270.5 + TXDF
+               baseTX   := 1270.5;
+               baseTX   := baseTX + StrToInt(edDialQRG.Text) + txdf;  // This is the floating point value in Hz of the sync carrier (base frequency - data goes up from this)
+               k := rebelTuning(baseTX); // Base sync tone as RF tuning word
+               // For this we clear the whole 128 and it's 128 because of way I pass FSK values to Rebel - it only uses 126 :)
+               for i := 0 to 127 do qrgset[i] := '0';
+               j := 0;
+               // Two passes - stuff sync then stuff data.
+               // Once I debug and am sure can try rolling it into one pass.
+               // Stuff the values - sync where SYNC65[i]=1 data where SYNC65[i]=0;
+               // NOTE for this it's 125 on qrgset - DONT'T bork this and do 127 :)
+               for i := 0 to 125 do if SYNC65[i]=1 Then qrgset[i] := IntToStr(k);
+               for i := 0 to 125 do
+               begin
+                    if SYNC65[i]=0 Then
+                    Begin
+                         qrgset[i] := IntToStr(rebelTuning(baseTX + (2.6917 * (tsyms[j]+2))));
+                         inc(j); // Not to self - yes it generates nice 2 tone FSK if you leave this line out.
                     end;
-                    txDirty := True;  // Flag to force an update to the FSK TX
-                    txValid := True;
-                    Memo2.Append('Message to send:  ' + thisTXMSg + ' at TXDF ' + edTXDF.Text);
                end;
+               txDirty := True;  // Flag to force an update to the FSK TX
+               txValid := True;
+               Memo2.Append('Message to send:  ' + thisTXMSg + ' at TXDF ' + edTXDF.Text);
           end;
      end;
 
@@ -4987,7 +4998,7 @@ begin
                   sock.CloseSocket;
                   sock.Destroy;
                except
-                  { TODO : Do something about this }
+                  // Should show a message that this failed, but it is saved to the ADIF file so it's not a total loss.
                end;
           end;
 
@@ -5334,6 +5345,7 @@ begin
      decodeping  := 0;
      decoderBusy := False;
      qrgValid    := False;
+     jtencode    := SysUtils.StrAlloc(32);
      Timer1.Enabled := True;
 end;
 
