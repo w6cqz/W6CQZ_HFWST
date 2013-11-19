@@ -1289,6 +1289,7 @@ object Form1: TForm1
       Font.Name = 'Arial'
       Font.Style = [fsBold]
       MaxLength = 5
+      OnChange = edTXDFChange
       OnDblClick = edTXDFDblClick
       ParentFont = False
       TabOrder = 16

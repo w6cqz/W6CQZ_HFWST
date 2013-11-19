@@ -1,7 +1,6 @@
 { TODO :
 URGENT
 
-Work out method to be sure a change to TXDF regnerates message.  More complex than first glance indicates with new way of doing things :(
 Have macro free text entry reflect what's sent.
 
 Less urgent
@@ -351,6 +350,7 @@ type
     procedure comboTTYPortsChange(Sender: TObject);
     procedure edRXDFChange(Sender: TObject);
     procedure edRXDFDblClick(Sender: TObject);
+    procedure edTXDFChange(Sender: TObject);
     procedure edTXDFDblClick(Sender: TObject);
     procedure edTXReportDblClick(Sender: TObject);
     procedure edTXtoCallDblClick(Sender: TObject);
@@ -4564,6 +4564,7 @@ begin
                     end;
                     txDirty := True;  // Flag to force an update to the FSK TX
                     txValid := True;
+                    Memo2.Append('Message to send:  ' + thisTXMSg + ' at TXDF ' + edTXDF.Text);
                end;
           end;
      end;
@@ -4615,7 +4616,7 @@ begin
                end;
                txDirty := True;  // Flag to force an update to the FSK TX
                txValid := True;
-               if isFText(msg) or isSText(msg) Then Memo2.Append('Message to send:  ' + msg + ' at TXDF ' + edTXDF.Text) else Memo2.Append('Odd - did not compute for FT');
+               Memo2.Append('Message to send:  ' + thisTXMSg + ' at TXDF ' + edTXDF.Text);
           end;
      end;
 end;
@@ -4799,7 +4800,6 @@ begin
      Begin
           if isFText(thisTXmsg) or isSText(thisTXmsg) Then genTX(thisTXmsg, StrToInt(edTXDF.Text)+clRebel.txOffset) else thisTXmsg := '';
           edTXMsg.Text := thisTXmsg; // this double checks for valid message.
-          Memo2.Append('Message to send:  ' + thisTXMSg + ' at TXDF ' + edTXDF.Text);
      end
      else
      begin
@@ -4831,6 +4831,23 @@ end;
 procedure TForm1.edRXDFDblClick(Sender: TObject);
 begin
      edRXDF.Text := '0';
+end;
+
+procedure TForm1.edTXDFChange(Sender: TObject);
+Var
+   i : Integer;
+begin
+     // Need to (maybe) regenerate message
+     i := 0;
+     if tryStrToInt(edTXDF.Text,i) Then
+     Begin
+          if isFText(edTXMsg.Text) or isSText(edTXMsg.Text) Then
+          Begin
+               thisTXMsg := edTXMsg.Text;
+               genTX(thisTXmsg, i+clRebel.txOffset);
+               edTXMsg.Text := thisTXmsg; // this double checks for valid message.
+          end;
+     end;
 end;
 
 procedure TForm1.edTXDFDblClick(Sender: TObject);
@@ -5166,9 +5183,9 @@ begin
      //function TForm1.isSText(c : String) : Boolean;
      if isFText(comboMacroList.Text) or isSText(comboMacroList.Text) Then
      Begin
-          edTXMsg.Text := comboMacroList.Text;
           thisTXMsg := comboMacroList.Text;
-          genTX(edTXMsg.Text,StrToInt(edTXDF.Text)+clRebel.txOffset);
+          if isFText(thisTXmsg) or isSText(thisTXmsg) Then genTX(thisTXmsg, StrToInt(edTXDF.Text)+clRebel.txOffset) else thisTXmsg := '';
+          edTXMsg.Text := thisTXmsg; // this double checks for valid message.
      end;
 end;
 
