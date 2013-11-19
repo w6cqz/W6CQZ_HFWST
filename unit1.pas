@@ -1699,12 +1699,14 @@ Begin
 
      // canTX is based upon having valid callsign and grid in config & valid message ready to send
      valid := True;
+     // Check for prefix and suffix set (prefix wins)
+     if (length(edPrefix.Text)>0) and (length(edSuffix.Text)>0) Then edSuffix.Text := '';
      // Validate prefix (if present)
-     if length(edPrefix.Text)>0 Then if not mval.evalPrefix(edPrefix.Text) Then valid := False;
+     if length(edPrefix.Text)>0 Then if not isV1Call(edPrefix.Text + '/' + edCall.Text) Then valid := False;
+     // Validate suffix (if present)
+     if length(edSuffix.Text)>0 Then if not isV1Call(edCall.Text + '/' + edSuffix.Text) Then valid := False;
      // Validate callsign
      if not mval.evalCSign(edCall.Text) Then valid := False;
-     // Validate suffix (if present)
-     if length(edSuffix.Text)>0 Then if not mval.evalSuffix(edSuffix.Text) Then valid := False;
      // Validate grid
      if not mval.evalGrid(edGrid.Text) Then valid := False;
      if (not isSText(edTXMsg.Text)) or (not isFText(edTXMsg.Text)) Then valid := False;
@@ -1735,6 +1737,7 @@ Begin
           If txInProgress Then
           Begin
                Label16.Caption := 'TX:  ' + transmitting;
+               Label16.Hint:='';
                Label16.Font.Color := clRed;
           end
           else
@@ -1742,11 +1745,13 @@ Begin
                If toggleTX.checked and canTX  Then
                Begin
                     Label16.Caption := 'TX:  ENABLED';
+                    Label16.Hint:='';
                     Label16.Font.Color := clBlack;
                end
                else
                begin
                     Label16.Caption := 'TX:  OFF';
+                    Label16.Hint:='';
                     Label16.Font.Color := clBlack;
                end;
           end;
@@ -3839,6 +3844,7 @@ end;
 function TForm1.txControl : Boolean;
 Var
   t1,t2 : Boolean;
+  foo   : String;
 Begin
      // Call this to see if you can TX at top of new minute.  Idea is to put ALL the logic for
      // being sure you can TX in O N E spot.
@@ -3867,16 +3873,29 @@ Begin
                // Message is valid.  Check callsign and grid
                { TODO : Be sure this works as expected }
                t1 := true;
-               if not isCallsign(edCall.Text) then t1 := False;
+               if not isCallsign(edCall.Text) then
+               Begin
+                    t1 := False;
+               end;
                If Length(edPrefix.Text)> 1 Then
                Begin
-                    if not valV1Call(edPrefix.Text + '/' + edCall.Text) then t1 := False;
+                    if not isV1Call(edPrefix.Text + '/' + edCall.Text) then
+                    Begin
+                         t1 := False;
+                    end;
                end;
                If Length(edSuffix.Text)> 1 Then
                Begin
-                    if not valV1Call(edCall.Text + '/' + edSuffix.Text) then t1 := False;
+                    if not isV1Call(edCall.Text + '/' + edSuffix.Text) then
+                    Begin
+                         t1 := False;
+                    end;
                end;
-               if not isGrid(edGrid.Text) then t1 := False;
+               if length(edGrid.Text)> 4 Then foo := edGrid.Text[1..4] else foo := edGrid.Text;
+               if not isGrid(foo) then
+               Begin
+                    t1 := False;
+               end;
           end;
      end;
      if txDirty then t1 := False; // Message has not been uploaded to Rebel

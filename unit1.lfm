@@ -273,32 +273,37 @@ object Form1: TForm1
   end
   object Label16: TLabel
     Left = 536
-    Height = 33
+    Height = 34
     Top = 231
-    Width = 118
+    Width = 312
+    AutoSize = False
     Caption = 'TX: IDLE'
-    Font.Height = -27
+    Font.Height = 34
     Font.Name = 'Arial'
     Font.Style = [fsBold]
     ParentColor = False
     ParentFont = False
+    OptimalFill = True
   end
   object Label108: TLabel
-    Left = 80
+    Left = 8
     Height = 23
-    Top = 21
-    Width = 29
+    Top = 20
+    Width = 133
+    Alignment = taCenter
+    AutoSize = False
     Caption = '-20'
-    Font.Height = -19
+    Font.Height = 23
     Font.Name = 'Arial'
     Font.Style = [fsBold]
     ParentColor = False
     ParentFont = False
+    OptimalFill = True
   end
   object comboQRGList: TComboBox
     Left = 8
     Height = 30
-    Top = 112
+    Top = 120
     Width = 133
     Font.Height = -19
     Font.Name = 'Arial'
@@ -348,15 +353,18 @@ object Form1: TForm1
   end
   object Label3: TLabel
     Left = 8
-    Height = 25
-    Top = 21
-    Width = 60
-    Caption = 'Audio'
-    Font.Height = -21
+    Height = 20
+    Top = 2
+    Width = 133
+    Alignment = taCenter
+    AutoSize = False
+    Caption = 'Audio Level'
+    Font.Height = 20
     Font.Name = 'Arial'
     Font.Style = [fsBold]
     ParentColor = False
     ParentFont = False
+    OptimalFill = True
   end
   object ListBox3: TListBox
     Left = 8
@@ -401,15 +409,18 @@ object Form1: TForm1
   end
   object Label27: TLabel
     Left = 8
-    Height = 35
-    Top = 50
-    Width = 93
+    Height = 53
+    Top = 45
+    Width = 133
+    Alignment = taCenter
+    AutoSize = False
     Caption = 'QRG:  '
-    Font.Height = -29
+    Font.Height = 48
     Font.Name = 'Arial'
     Font.Style = [fsBold]
     ParentColor = False
     ParentFont = False
+    OptimalFill = True
   end
   object buttonConfig: TButton
     Left = 152
@@ -466,14 +477,17 @@ object Form1: TForm1
   object Label91: TLabel
     Left = 8
     Height = 20
-    Top = 88
-    Width = 69
+    Top = 96
+    Width = 133
+    Alignment = taCenter
+    AutoSize = False
     Caption = 'QRG List'
-    Font.Height = -16
+    Font.Height = 20
     Font.Name = 'Arial'
     Font.Style = [fsBold]
     ParentColor = False
     ParentFont = False
+    OptimalFill = True
   end
   object Label90: TLabel
     Left = 1624
@@ -1095,15 +1109,16 @@ object Form1: TForm1
     object Label11: TLabel
       AnchorSideTop.Control = toggleTX
       AnchorSideBottom.Control = Label9
-      Left = 181
-      Height = 20
-      Top = 130
+      Left = 178
+      Height = 21
+      Top = 129
       Width = 76
       Anchors = [akLeft, akBottom]
+      AutoSize = False
       BorderSpacing.Top = 3
       BorderSpacing.Bottom = 6
       Caption = 'TX Period'
-      Font.Height = -16
+      Font.Height = 19
       Font.Name = 'Arial'
       Font.Style = [fsBold]
       ParentColor = False
@@ -1480,17 +1495,17 @@ object Form1: TForm1
     Left = 152
     Height = 20
     Top = 231
-    Width = 64
-    Caption = 'NZ LPF'
+    Width = 156
+    Caption = 'Higher Speed Decoding'
     Checked = True
     OnChange = cbNZLPFChange
     State = cbChecked
     TabOrder = 19
   end
   object cbWFTX: TCheckBox
-    Left = 224
+    Left = 536
     Height = 20
-    Top = 231
+    Top = 752
     Width = 100
     Caption = 'WF During TX'
     TabOrder = 20
@@ -1537,11 +1552,11 @@ object Form1: TForm1
     ParentColor = False
   end
   object cbSpecWindow: TCheckBox
-    Left = 344
+    Left = 328
     Height = 20
-    Top = 231
-    Width = 157
-    Caption = 'Window Spectrum Data'
+    Top = 232
+    Width = 155
+    Caption = 'Extra Smooth Waterfall'
     TabOrder = 21
   end
   object Label55: TLabel
@@ -1633,12 +1648,13 @@ object Form1: TForm1
     ParentColor = False
   end
   object PageControl: TPageControl
-    Left = 153
+    Left = 152
     Height = 243
     Top = 20
     Width = 747
     ActivePage = TabSheet1
     ParentBiDiMode = False
+    ParentShowHint = False
     TabIndex = 8
     TabOrder = 5
     Visible = False
