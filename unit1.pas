@@ -1,15 +1,8 @@
 { TODO :
-URGENT
-Find case of crash with no error when
-TX to Call is slashed...
-you run through the sequences...
-you call QRZ
-Watch this... I changed compiler flags and it seems to be ok now.  Not happy with this result, makes me nervous.
-
 Think about having RX move to keep passband centered for Rebel
 Have macro free text entry reflect what's sent.
 
-It's something with the PCHar alloc for calling libJT65 encoder
+Watch for any hint of reutrn to core dump after doing library encoded TX and returning to local encoded.
 
 Less urgent
 Order fields in logging panel
@@ -440,6 +433,7 @@ type
     function valV1Prefix(const s : string) : Boolean;
     function valV1Suffix(const s : string) : Boolean;
     function isV1Call(const s : String) : Boolean;
+    function lateTXOffset : Integer;
 
   private
     { private declarations }
@@ -1816,13 +1810,24 @@ Begin
                end;
           end;
      end;
+     // It is time to rethink TX control.  When can/would I TX?
+     // If Station info Pfx/Call or Call or Call/Sfx And Grid is valid
+     // If a valid message is in buffer.
+     // If a message has been generated and ready to TX
+     // If TX is enabled
+     // If this minute matches even/odd choice
+     // If this second >=1 and <=15
 
-     if (not clRebel.txStat) And (not clRebel.busy) And txControl And txInProgress Then
+     If not clRebel.txStat And not clRebel.busy And txControl And txInprogress Then
      Begin
-          transmitting := thisTXmsg; // Moving this up so it displays TX message with no delay.
-          // TX In progress has been set but TX not set in Rebel - make it so.
-          if (thisSecond=1) and (lastSecond=0) Then
+          // We checked that Rebel is not already transmitting
+          // We checked that Rebel is not currently busy
+          // We validated message content and sender data
+          // We see TX has been requested.
+          // Now - we need to turn it on - First with the simple on time case
+          If (thisSecond = 1) And (lastSecond=0) Then
           Begin
+               // Check for repeat TX and case of exceeding watchdog counter for runaway TX
                if lastTXMsg = thisTXmsg Then
                Begin
                     inc(sameTXCount);
@@ -1837,7 +1842,7 @@ Begin
                                    toggleTX.state := cbUnchecked;
                                    lastTXMsg := '';
                                    sameTXCount := 0;
-                                   ListBox1.Items.Insert(0,'Notice: Same TX Message 6 times.  TX is OFF');
+                                   ListBox1.Items.Insert(0,'Notice: Same TX Message ' + edTXWD.Text + ' times.  TX is OFF');
                               end;
                          end;
                     end;
@@ -1847,16 +1852,94 @@ Begin
                     lastTXMsg := thisTXmsg;
                     sameTXCount := 0;
                end;
-               clRebel.pttOn;  // This is a toggle action - would be good to double check it went into TX though it is going to keep hammering it every tick until it does enable
-               if clRebel.txStat Then Image1.Picture.LoadFromLazarusResource('transmit');
-               { TODO : Temporary HACK do not leave this!  It should try this more than once but less than (tm) a "lot" }
+               // PTT on
+               clRebel.pttOn;
+               // Check to see if it went to TX
                if not clRebel.txStat Then
                Begin
+                    // If for some reason it didn't enter TX clear the TX request
+                    // It will be reset if necessary and attempt again.
                     txInProgress := false;
                end
                else
                begin
+                    // Indicate TX triggered during this minute
                     didTX := True;
+                    // Indicate it is in TX
+                    Image1.Picture.LoadFromLazarusResource('transmit');
+                    transmitting := thisTXmsg;
+               end;
+          end
+          else
+          begin
+               // Need firmware >=99 to do this.
+               if StrToInt(clRebel.rebVer) > 98 Then
+               Begin
+                    // Late TX start - first see if it could even happen this late.
+                    // Not sure I could get here if thisSecond <= 1, but lets be sure.
+                    if thisSecond > 1 Then
+                    Begin
+                         i := lateTXOffset;
+                         if i > -1 Then
+                         Begin
+                              // Can do.  Send Rebel late TX start command with offset
+                              // to proper symbol to begin TX at.
+                              // Check for repeat TX and case of exceeding watchdog counter for runaway TX
+                              if lastTXMsg = thisTXmsg Then
+                              Begin
+                                   inc(sameTXCount);
+                                   i := -1;
+                                   if tryStrToInt(edTXWD.Text,i) Then
+                                   Begin
+                                        if i > 0 Then
+                                        Begin
+                                             if sameTXCount > i-1 Then
+                                             Begin
+                                                  toggleTX.Checked := False;
+                                                  toggleTX.state := cbUnchecked;
+                                                  lastTXMsg := '';
+                                                  sameTXCount := 0;
+                                                  ListBox1.Items.Insert(0,'Notice: Same TX Message ' + edTXWD.Text + ' times.  TX is OFF');
+                                             end;
+                                        end;
+                                   end;
+                              end
+                              else
+                              begin
+                                   lastTXMsg := thisTXmsg;
+                                   sameTXCount := 0;
+                              end;
+                              ListBox2.Items.Insert(0,'TX On at offset = ' + IntToStr(i));
+                              clRebel.lateOffset := i;
+                              // PTT on
+                              clRebel.latePTTOn;
+                              if not clRebel.txStat Then
+                              Begin
+                                   // If for some reason it didn't enter TX clear the TX request
+                                   // It will be reset if necessary and attempt again.
+                                   txInProgress := false;
+                              end
+                              else
+                              begin
+                                   // Indicate TX triggered during this minute
+                                   didTX := True;
+                                   // Indicate it is in TX
+                                   Image1.Picture.LoadFromLazarusResource('transmit');
+                                   transmitting := thisTXmsg;
+                                   // Double checking to clear Late TX offset value
+                                   clRebel.lateOffset := 0;
+                              end;
+                         end
+                         else
+                         begin
+                              // Was too late
+                              ListBox2.Items.Insert(0,'Too late for TX to start');
+                         end;
+                    end;
+               end
+               else
+               begin
+                    ListBox2.Items.Insert(0,'Rebel firmware not late TX capable');
                end;
           end;
      end;
@@ -1875,7 +1958,7 @@ Begin
           transmitting := '';
      end;
 
-     if rbOn.Checked then rbOn.Caption := 'Spots:  ' + IntToStr(rb.rbCount) else rbOn.Caption := 'RB Enable';
+     if rbOn.Checked then rbOn.Caption := 'RB Spots:  ' + IntToStr(rb.rbCount) else rbOn.Caption := 'RB Enable';
      if length(edRBCall.Text) < 3 Then rbOn.Caption := 'Disabled';
 
      if rbOn.Checked and (not rb.rbOn) Then
@@ -1932,8 +2015,6 @@ Begin
                end;
           end;
      end;
-     //if kvdatdel > 9 Then ListBox2.Items.Add('Can not kill kvasd.dat after' + IntToStr(kvdatdel) + ' attempts.');
-     //if kvdatdel > 99 Then showmessage('Fatal - kvasd.dat will not delete after 100 attempts');
 end;
 
 procedure TForm1.OncePerSecond;
@@ -1942,7 +2023,34 @@ Var
   foo   : String;
 Begin
      // Items that run on each new second or selected new seconds
-     //if (thisSecond = 47) And (lastSecond = 46) And InSync And paActive And not decoderBusy And not didTX Then
+
+     // Check to see if we should invoke TX during the only valid time window
+     // this should occur thisSecond >=0 and thisSecond <=15
+     if (thisSecond < 16) and not clRebel.txStat and not txInProgress Then
+     Begin
+          // Honoring Rebel being in TX already so it doesn't cancel TX if you clear the message buffer
+          if txValid and not txDirty then canTX := True;
+          if not canTX and not clRebel.txStat then toggleTX.Checked := False;
+
+          // Enable TX if necessary
+          if not txInProgress and inSync and txControl Then
+          Begin
+               txInProgress := False;
+               if rbTXEven.Checked and (not Odd(thisUTC.Minute)) and (not txInProgress) Then
+               Begin
+                    txInProgress := true;
+               end;
+               if rbTXOdd.Checked and Odd(thisUTC.Minute) and (not txInProgress) Then
+               Begin
+                    txInProgress := true;
+               end;
+          end
+          else
+          begin
+               txInProgress := false;
+          end;
+     end;
+
      if (thisSecond = 48) And (lastSecond = 47) And paActive And not decoderBusy And not didTX Then
      Begin
           // Attempt a decode with V3 Decoder
@@ -2209,30 +2317,6 @@ Begin
      Begin
           inSync := True;
           ListBox2.Items.Insert(0,'Timing loop now in sync');
-     end;
-     // TX to index = 0
-     //dac.d65txBufferIdx := 0;
-
-     // Honoring Rebel being in TX already so it doesn't cancel TX if you clear the message buffer
-     if txValid and not txDirty then canTX := True;
-     if not canTX and not clRebel.txStat then toggleTX.Checked := False;
-
-     // Enable TX if necessary
-     if not txInProgress and inSync and txControl Then
-     Begin
-          txInProgress := False;
-          if rbTXEven.Checked and (not Odd(thisUTC.Minute)) and (not txInProgress) Then
-          Begin
-               txInProgress := true;
-          end;
-          if rbTXOdd.Checked and Odd(thisUTC.Minute) and (not txInProgress) Then
-          Begin
-               txInProgress := true;
-          end;
-     end
-     else
-     begin
-          txInProgress := false;
      end;
 
      // Prune decoder output display
@@ -5458,6 +5542,29 @@ function TForm1.utcTime: TSystemTime;
 Begin
      result.Day := 0;
      GetSystemTime(result);
+end;
+
+function TForm1.lateTXOffset : Integer;
+Var
+   msoff : Integer;
+   msidx : Double;
+Begin
+     result := 0;
+     // I need to look at current second and millisecond getting as close to current
+     // symbol that would be transmitting had I started on time.
+     msoff := ((ThisUTC.Second * 1000) + ThisUTC.Millisecond)-1000;  // Remember we start at second = 1 thus -1000
+     if msoff > 15000 then
+     begin
+          result := -1;
+     end
+     else
+     begin
+          // OK a JT65 symbol is 371.5 ms long so lets figure this puppy out.
+          msidx  := msoff/371.5;
+          msoff  := round(msidx);
+          result := msoff;
+     end;
+
 end;
 
 constructor rbcThread.Create(CreateSuspended : boolean);

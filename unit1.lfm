@@ -335,7 +335,7 @@ object Form1: TForm1
     Top = 2
     Width = 266
     Alignment = taRightJustify
-    Caption = 'HFWST by W6CQZ v0.8 - Phoenix'
+    Caption = 'HFWST by W6CQZ v0.9 - Phoenix'
     Font.Height = -17
     Font.Name = 'Arial'
     Font.Style = [fsBold]
@@ -2114,9 +2114,11 @@ object Form1: TForm1
           Width = 82
           Caption = 'Smoothing'
           Checked = True
+          Enabled = False
           OnChange = rigControlSet
           State = cbChecked
           TabOrder = 5
+          Visible = False
         end
       end
       object GroupBox18: TGroupBox

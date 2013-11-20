@@ -17,28 +17,29 @@ Type
 
     TRebel = Class
            Private
-                 prPort      : String;
-                 prBaud      : Integer;
-                 prConnected : Boolean;
-                 prCommand   : String;
-                 prResponse  : String;
-                 prError     : String;
-                 prTTY       : SynaSer.TBlockSerial;
-                 prPorts     : TStringList;
-                 prQRG       : Double;
-                 prBand      : CTypes.cint;
-                 prRXOffset  : CTypes.cint;
-                 prTXOffset  : CTypes.cint;
-                 prDDSRef    : CTypes.cint;
-                 prRebVer    : String;
-                 prDDSVer    : String;
-                 prLocked    : Boolean;
-                 prBusy      : Boolean;
-                 prLoopSpeed : String;
-                 prTXState   : Boolean; // True = TX on False = TX off
-                 prTXArray   : Array[0..127] Of CTypes.cuint; // Holds the 126 tuning words needed to TX a JT65 frame [See note 1 why it's 128]
-                 prDebug     : String;
-                 function    ddsWord(const hz : double; const offset : CTypes.cint; const ref : CTypes.cint) : CTypes.cuint32;
+                 prPort       : String;
+                 prBaud       : Integer;
+                 prConnected  : Boolean;
+                 prCommand    : String;
+                 prResponse   : String;
+                 prError      : String;
+                 prTTY        : SynaSer.TBlockSerial;
+                 prPorts      : TStringList;
+                 prQRG        : Double;
+                 prBand       : CTypes.cint;
+                 prRXOffset   : CTypes.cint;
+                 prTXOffset   : CTypes.cint;
+                 prDDSRef     : CTypes.cint;
+                 prLateOffset : CTypes.cint;
+                 prRebVer     : String;
+                 prDDSVer     : String;
+                 prLocked     : Boolean;
+                 prBusy       : Boolean;
+                 prLoopSpeed  : String;
+                 prTXState    : Boolean; // True = TX on False = TX off
+                 prTXArray    : Array[0..127] Of CTypes.cuint; // Holds the 126 tuning words needed to TX a JT65 frame [See note 1 why it's 128]
+                 prDebug      : String;
+                 function     ddsWord(const hz : double; const offset : CTypes.cint; const ref : CTypes.cint) : CTypes.cuint32;
 
            Public
                  Constructor create;
@@ -50,6 +51,7 @@ Type
                  function    setQRG     : Boolean;
                  function    poll       : Boolean;
                  function    pttOn      : Boolean;
+                 function    latePTTOn  : Boolean;
                  function    pttOff     : Boolean;
                  function    ltx        : Boolean; // Loads array into rebel for TX
                  function    setOffsets : Boolean;
@@ -99,6 +101,9 @@ Type
                     read  prLoopSpeed;
                  property txStat    : Boolean
                     read  prTXState; // True = PTT on False = PTT off
+                 property lateOffset : CTypes.cint
+                    read  prLateOffset
+                    write prLateOffset;
                  property txArray [Index: Integer]: CTypes.cuint
                     read  getData
                     write setData;
@@ -339,6 +344,45 @@ begin
      end;
      prBusy := False;
 end;
+
+function TRebel.latePTTOn : Boolean;
+Var
+   foo : String;
+Begin
+     prBusy := True;
+     // Need to turn it ON
+     // 23; = ON
+     prCommand := '23,' + IntToStr(prLateOffset) + ';';  // TX ON
+     prResponse := '';
+     if ask Then
+     Begin
+          foo := prResponse;
+          if prResponse='1,23,' + IntToStr(prLateOffset) + ';' Then
+          Begin
+               prTXState := True;
+               result := True;
+          end
+          else
+          Begin
+               prTXState := False;
+               Result := False;
+               prError := 'Rebel refuses command';
+          end;
+     end
+     else
+     begin
+          foo := prResponse;
+          prTXState := False;
+          result := False;
+          prError := 'Command timeout';
+     end;
+     // ALWAYS ALWAYS ALWAYS clear the late TX offset value after
+     // sending command.  I do not want this left at some offset
+     // and have it later cause troubles.
+     prLateOffset := 0;
+     prBusy := False;
+end;
+
 
 function TRebel.pttOn : Boolean;
 Begin
