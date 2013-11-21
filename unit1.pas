@@ -1,6 +1,5 @@
 { TODO :
 Think about having RX move to keep passband centered for Rebel
-Have macro free text entry reflect what's sent.
 
 Watch for any hint of reutrn to core dump after doing library encoded TX and returning to local encoded.
 
@@ -8,7 +7,7 @@ Less urgent
 Order fields in logging panel
 Shorthand decoder core dumped
 Begin to graft sound output code in
-Add macro edit/define
+Add macro edit/define Partially done
 Add qrg edit/define
 Add worked call tracking taking into consideration a call worked in one grid is not
 worked if in a new one.
@@ -80,6 +79,7 @@ type
     bReport: TButton;
     bRReport: TButton;
     bRRR: TButton;
+    bnSaveMacro: TButton;
     logEQSL: TButton;
     logClearComments: TButton;
     doLogQSO: TButton;
@@ -339,6 +339,8 @@ type
     tbWFGain: TTrackBar;
     Waterfall: TWaterfallControl1;
     procedure audioChange(Sender: TObject);
+    procedure bnSaveMacroClick(Sender: TObject);
+    procedure cbMultiOnChange(Sender: TObject);
     procedure doLogQSOClick(Sender: TObject);
     procedure buttonXferMacroClick(Sender: TObject);
     procedure cbNZLPFChange(Sender: TObject);
@@ -938,6 +940,72 @@ Begin
      end;
      comboMacroList.ItemIndex := 0;
      query.Active := False;
+     { TODO : Dump this at 0.902 - just want to rid DB of the 3 shorthand strings without forcing a clean start }
+     for i := 0 to comboMacroList.Items.Count-1 do
+     begin
+          if comboMacroList.Items.Strings[i] = 'RRR' Then
+          Begin
+               transaction.EndTransaction;
+               transaction.StartTransaction;
+               query.SQL.Clear;
+               query.SQL.Text := 'DELETE FROM macro where instance=:INSTANCE And text=:TEXT;';
+               // Defining the 3 shorthand types.
+               query.Params.ParamByName('INSTANCE').AsInteger :=1;
+               query.Params.ParamByName('TEXT').AsString := 'RRR';
+               query.ExecSQL;
+               transaction.Commit;
+               transaction.EndTransaction;
+               query.Active:=False;
+               query.SQL.Clear;
+          end;
+          if comboMacroList.Items.Strings[i] = '73' Then
+          Begin
+               transaction.EndTransaction;
+               transaction.StartTransaction;
+               query.SQL.Clear;
+               query.SQL.Text := 'DELETE FROM macro where instance=:INSTANCE And text=:TEXT;';
+               // Defining the 3 shorthand types.
+               query.Params.ParamByName('INSTANCE').AsInteger :=1;
+               query.Params.ParamByName('TEXT').AsString := '73';
+               query.ExecSQL;
+               transaction.Commit;
+               transaction.EndTransaction;
+               query.Active:=False;
+               query.SQL.Clear;
+          end;
+          if comboMacroList.Items.Strings[i] = 'RO' Then
+          Begin
+               transaction.EndTransaction;
+               transaction.StartTransaction;
+               query.SQL.Clear;
+               query.SQL.Text := 'DELETE FROM macro where instance=:INSTANCE And text=:TEXT;';
+               // Defining the 3 shorthand types.
+               query.Params.ParamByName('INSTANCE').AsInteger :=1;
+               query.Params.ParamByName('TEXT').AsString := 'RO';
+               query.ExecSQL;
+               transaction.Commit;
+               transaction.EndTransaction;
+               query.Active:=False;
+               query.SQL.Clear;
+          end;
+     end;
+     // Populate Macro list
+     comboMacroList.Clear;
+     query.SQL.Clear;
+     query.SQL.Add('SELECT text FROM macro WHERE instance = 1;');
+     query.Active := True;
+     comboMacroList.Items.Add('');
+     if query.RecordCount > 0 Then
+     Begin
+          query.First;
+          for i := 0 to query.RecordCount-1 do
+          begin
+               comboMacroList.Items.Add(query.Fields[0].AsString);
+               query.Next;
+          end;
+     end;
+     comboMacroList.ItemIndex := 0;
+     query.Active := False;
      // Lets read some config
      lastTXDF := '';
      inDev  := savedIADC;
@@ -978,6 +1046,7 @@ Begin
           // Set Rebel to last session QRG
           qsyQRG := StrToInt(edDialQRG.Text);
           setQRG := True;
+          editQRG.Text := fsc;
      end;
      //If TryStrToInt(TXLevel.Text,i) Then tbTXLevel.Position := i else tbTXLevel.Position := 16;
      if useDeciAmerican.Checked then
@@ -1010,13 +1079,7 @@ Begin
      readPTT   := False;
      setPTT    := False;
      pttState  := False;
-//     demodulate.dmfirstPass  := True;
-//     demodulate.dmhaveDecode := False;
-//     demodulate.dmdemodBusy  := False;
-//     demodulate.dmruntime    := 0.0;
      d65.dmruntime    := 0.0;
-//     demodulate.dmbw := 100;
-//     demodulate.dmbws := 100;
      d65.glbinspace := 100;
      d65.glDFTolerance := 100;
      If tbMultiBin.Position = 1 then d65.glbinspace := 20;
@@ -1029,7 +1092,6 @@ Begin
      If tbSingleBin.Position = 3 then d65.glDFTolerance := 100;
      If tbSingleBin.Position = 4 then d65.glDFTolerance := 200;
      Label87.Caption := 'Single ' + IntToStr(d65.glDFTolerance) + ' Hz';
-     //if inIcal >-1 then demodulate.dmical := inIcal else demodulate.dmical := 0;
      if inIcal >-1 then d65.glfftFWisdom := inIcal else d65.glfftFWisdom := 0;
      paActive := False;
      thisTXCall := '';
@@ -1354,16 +1416,6 @@ Begin
           //     end;
           //end;
      end;
-     // Moved routines to deal with QRG down so I can know if this is a Rebel setup or not and react properly
-     // Validate initial QRG
-     fs  := '';
-     ff  := 0.0;
-     fi  := 0;
-     fs  := edDialQRG.Text;
-     fsc := '';
-     mval.forceDecimalAmer := False;
-     mval.forceDecimalEuro := False;
-     if mval.evalQRG(fs,'STRICT',ff,fi,fsc) Then qrgValid := True else qrgValid := False;
      // Populate QRG list
      comboQRGList.Clear;
      query.Active := False;
@@ -1445,12 +1497,24 @@ Begin
                ShowMessage('Bad com port value - please check configuration.');
           end;
      end;
+
+     // Moved routines to deal with QRG down so I can know if this is a Rebel setup or not and react properly
+     // Validate initial QRG
+     fs  := '';
+     ff  := 0.0;
+     fi  := 0;
+     fs  := edDialQRG.Text;
+     fsc := '';
+     mval.forceDecimalAmer := False;
+     mval.forceDecimalEuro := False;
+     if mval.evalQRG(fs,'STRICT',ff,fi,fsc) Then qrgValid := True else qrgValid := False;
+
      // Read in defaults if Rebel is on
      if haveRebel Then
      Begin
           if clRebel.poll Then
           Begin
-               edDialQRG.Text:= IntToStr(Round(clRebel.qrg));
+               edDialQRG.Text := IntToStr(Round(clRebel.qrg));
           end;
           // Check to see if offset is different for RX/TX than defaults
           // hardwired in Rebel.  If so - update Rebel as we assume HFWST
@@ -1482,6 +1546,7 @@ Begin
                clRebel.poll;
           end;
      end;
+
      d65.glnz := cbNZLPF.Checked;
      readQRG   := True;
      firstTick := False;
@@ -1806,7 +1871,7 @@ Begin
                end
                else
                begin
-                    Memo1.Append('Rebel has message');
+                    //Memo1.Append('Rebel has message');
                end;
           end;
      end;
@@ -2300,6 +2365,8 @@ Begin
              //ListBox2.Items.Insert(0,'Exception in paint line (2)');
           end;
      end;
+
+     if cbMultiOn.Checked Then edRXDF.Text := '0';
 end;
 
 procedure TForm1.OncePerMinute;
@@ -4939,7 +5006,7 @@ end;
 
 procedure TForm1.edRXDFChange(Sender: TObject);
 begin
-     if cbTXeqRXDF.Checked Then edTXDF.Text := edRXDF.Text;
+     //if cbTXeqRXDF.Checked Then edTXDF.Text := edRXDF.Text;
 end;
 
 procedure TForm1.edRXDFDblClick(Sender: TObject);
@@ -4955,11 +5022,22 @@ begin
      i := 0;
      if tryStrToInt(edTXDF.Text,i) Then
      Begin
-          if isFText(edTXMsg.Text) or isSText(edTXMsg.Text) Then
+          if (i > 1050) or (i < -1050) Then
           Begin
-               thisTXMsg := edTXMsg.Text;
-               genTX(thisTXmsg, i+clRebel.txOffset);
-               edTXMsg.Text := thisTXmsg; // this double checks for valid message.
+               if i > 1050 Then i := 1050;
+               if i < -1050 Then i := -1050;
+               edTXDF.Text := IntToStr(i); // Hopefully this doesn't create a loop....
+               edTXMsg.Text := '';
+               thisTXMsg := '';
+          end
+          else
+          begin
+               if isFText(edTXMsg.Text) or isSText(edTXMsg.Text) Then
+               Begin
+                    thisTXMsg := edTXMsg.Text;
+                    genTX(thisTXmsg, i+clRebel.txOffset);
+                    edTXMsg.Text := thisTXmsg; // this double checks for valid message.
+               end;
           end;
      end;
 end;
@@ -5233,6 +5311,61 @@ begin
 
 end;
 
+procedure TForm1.bnSaveMacroClick(Sender: TObject);
+Var
+   foo : String;
+   i   : Integer;
+begin
+     // Saves text in free form slot and reloads macros
+     // Validate content then save
+     i := comboMacroList.ItemIndex;
+     if comboMacroList.ItemIndex = -1 Then
+     Begin
+          foo := comboMacroList.Text;
+          If Length(foo)>13 Then foo := foo[1..13];
+          ComboMacroList.Text := foo;
+          if isFText(comboMacroList.Text) or isSText(comboMacroList.Text) Then
+          Begin
+               //sqlite3.DatabaseName := cfgPath + 'hfwstI0';
+               transaction.EndTransaction;
+               transaction.StartTransaction;
+               query.SQL.Clear;
+               query.SQL.Text := 'INSERT INTO macro(instance, text) VALUES(:INSTANCE,:TEXT);';
+               // Defining the 3 shorthand types.
+               query.Params.ParamByName('INSTANCE').AsInteger :=1;
+               query.Params.ParamByName('TEXT').AsString := foo;
+               query.ExecSQL;
+               transaction.Commit;
+               transaction.EndTransaction;
+               query.Active:=False;
+               query.SQL.Clear;
+          end;
+          // Populate Macro list
+          comboMacroList.Clear;
+          query.SQL.Clear;
+          query.SQL.Add('SELECT text FROM macro WHERE instance = 1;');
+          query.Active := True;
+          comboMacroList.Items.Add('');
+          if query.RecordCount > 0 Then
+          Begin
+               query.First;
+               for i := 0 to query.RecordCount-1 do
+               begin
+                    comboMacroList.Items.Add(query.Fields[0].AsString);
+                    query.Next;
+               end;
+          end;
+          comboMacroList.ItemIndex := 0;
+          query.Active := False;
+          ComboMacroList.Text := foo;
+     end;
+end;
+
+procedure TForm1.cbMultiOnChange(Sender: TObject);
+begin
+     if cbMultiOn.Checked Then edRXDF.Text := '0' else edRXDF.Text := edTXDF.Text;
+end;
+
 procedure TForm1.comboQRGListChange(Sender: TObject);
 Var
    fs  : String;
@@ -5265,10 +5398,12 @@ begin
      if comboMacroList.ItemIndex > 0 Then
      Begin
           comboMacroList.ReadOnly := True;
+          bnSaveMacro.Visible := False;
      end
      else
      begin
           comboMacroList.ReadOnly := False;
+          bnSaveMacro.Visible := True;
      end;
 end;
 
@@ -5291,10 +5426,17 @@ begin
 end;
 
 procedure TForm1.buttonXferMacroClick(Sender: TObject);
+Var
+   foo : String;
 begin
      // Transfers contents of Macro buffer to TX Message buffer
      //function TForm1.isFText(c : String) : Boolean;
      //function TForm1.isSText(c : String) : Boolean;
+     foo := comboMacroList.Text;
+
+     if length(foo)>13 Then foo := foo[1..13];
+     comboMacroList.Text := foo;
+
      if isFText(comboMacroList.Text) or isSText(comboMacroList.Text) Then
      Begin
           thisTXMsg := comboMacroList.Text;
