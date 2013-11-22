@@ -39,6 +39,8 @@ Type
                  prTXState    : Boolean; // True = TX on False = TX off
                  prTXArray    : Array[0..127] Of CTypes.cuint; // Holds the 126 tuning words needed to TX a JT65 frame [See note 1 why it's 128]
                  prDebug      : String;
+                 prCWID       : String;
+                 prCWIDQRG    : CTypes.cuint;
                  function     ddsWord(const hz : double; const offset : CTypes.cint; const ref : CTypes.cint) : CTypes.cuint32;
 
            Public
@@ -58,6 +60,7 @@ Type
                  function    getData(Index: Integer): CTypes.cuint;
                  procedure   setData(Index: Integer; AValue: CTypes.cuint);
                  function    dumptx     : String;
+                 function    docwid     : Boolean;
 
                  property port      : String
                     read  prPort
@@ -111,6 +114,12 @@ Type
                     read  prBusy;
                  property debug     : String
                     read  prDebug;
+                 property cwid      : String
+                    read  prCWID
+                    write prCWID;
+                 property cwidqrg   : CTypes.cuint
+                    read  prCWIDQRG
+                    write prCWIDQRG;
     end;
 
 implementation
@@ -174,6 +183,31 @@ Begin
      // 14076000
      // 14076000 + 718 * (2^28/49999750) = 14076718 * 5.3687359636798183990919954599773 = 75574182.177179045895229476147381 = 75574182
      result := Round((hz+offset) * (268435456/ref));
+end;
+
+function TRebel.doCWID : Boolean;
+Begin
+     // Command 24,string_cwID,integer_TX-TUNING-WORD
+     prCommand := '24,' + prCWID + IntToStr(prCWIDQRG) + ';';  // TX CW Message (prCWID) at QRG prCWIDQRG (as DDS tuning word value)
+     prResponse := '';
+     if ask Then
+     Begin
+          if prResponse='1,' + prCWID + ',' + IntToStr(prCWIDQRG) + ';' Then
+          Begin
+               result := True;
+          end
+          else
+          Begin
+               Result := False;
+               prError := 'CW ID fails';
+          end;
+     end
+     else
+     begin
+          prTXState := False;
+          result := False;
+          prError := 'Command timeout CW ID';
+     end;
 end;
 
 function TRebel.ltx : Boolean;

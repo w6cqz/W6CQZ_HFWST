@@ -1,4 +1,6 @@
 { TODO :
+Spectrum speed selection is restoring but not applying - F I X
+
 Think about having RX move to keep passband centered for Rebel
 
 Watch for any hint of reutrn to core dump after doing library encoded TX and returning to local encoded.
@@ -27,7 +29,7 @@ uses
   sqlite3conn, sqldb, valobject, rebel, d65, LResources, blcksock;
 
 Const
-  JT_DLL = 'JT65v31.dll';
+  JT_DLL = 'JT65v32.dll';
   SYNC65 : array[0..125] of CTypes.cint =
         (1,0,0,1,1,0,0,0,1,1,1,1,1,1,0,1,0,1,0,0,0,1,0,1,1,0,0,1,0,0,0,1,1,1,0,0,1,1,1,1,0,1,1,0,1,1,1,1,0,0,0,1,1,0,1,0,1,0,1,1,
         0,0,1,1,0,1,0,1,0,1,0,0,1,0,0,0,0,0,0,1,1,0,0,0,0,0,0,0,1,1,0,1,0,0,1,0,1,1,0,1,0,1,0,1,0,0,1,1,0,0,1,0,0,1,0,0,0,0,1,1,
@@ -540,6 +542,8 @@ var
   mycall,myscall : String;  // Keeps this stations call and slashed call in order (Same if not a slashed call)
   kvdatdel       : Integer; // Tracing how many calls it takes to delete a stuck KV
   jtencode       : PChar; // To avoid heap error making this global
+  tx73,txFree    : Boolean; // Flags to determine if last message was a 73 or Free Text for CWID purposes
+  doCWID         : Boolean; // Set to fire CW ID TX
 implementation
 
 procedure rscode(Psyms : CTypes.pcint; Ptsyms : CTypes.pcint); cdecl; external JT_DLL name 'rs_encode_';
@@ -591,6 +595,7 @@ Var
 Begin
      // This runs on first timer interrupt once per run session
      timer1.Enabled:=False;
+
      // Trying to fix an ANNOYING corruption to my GUI layout
      TabSheet1.PageIndex := 0;
      TabSheet6.PageIndex := 1;
@@ -709,6 +714,9 @@ Begin
      dtrejects := 0;
      d65.glDecCount := 0;
      kvdatdel := 0;
+     tx73   := False;
+     txFree := False;
+     doCWID := False;
      // Mark TX content as clean so any changes will lead to update
      txDirty := False;
      txValid := False;
@@ -1121,7 +1129,6 @@ Begin
      Memo1.Clear;
      // Create and initialize TWaterfallControl
      Waterfall := TWaterfallControl1.Create(self);
-     Waterfall.init;
      Waterfall.Height := 180;
      Waterfall.Width  := 747;
      Waterfall.Top    := 47;
@@ -2016,11 +2023,29 @@ Begin
           if not clRebel.txStat And not d65.glinprog Then Image1.Picture.LoadFromLazarusResource('receive');
      end;
 
-     if (thisSecond>47) and clRebel.txStat and (not clRebel.busy) Then
+     if (thisSecond=48) and clRebel.txStat and (not clRebel.busy) Then
      Begin
           { TODO : This isn't precise - if CW ID is in play TX will exceed this time - fine for now since I have no CW ID yet }
+          txInProgress := False;
           clRebel.pttOff;
           transmitting := '';
+     end;
+
+     if (thisSecond = 49) and (lastSecond = 48) and doCWID and didTX and toggleTX.Checked Then
+     Begin
+          if StrToInt(clRebel.rebVer) > 100 Then
+          Begin
+               Memo3.Append('Did CW ID of DE ' + myscall);
+               if edCWID.Text = '' Then clRebel.cwid := myscall else clRebel.cwid := edCWID.Text;
+               // Compute TX QRG to set
+               // Tell rebel to pound brass
+               doCWID := False;
+          end
+          else
+          begin
+               Memo3.Append('No firmware for CWID - update.');
+               doCWID := False;
+          end;
      end;
 
      if rbOn.Checked then rbOn.Caption := 'RB Spots:  ' + IntToStr(rb.rbCount) else rbOn.Caption := 'RB Enable';
@@ -2176,7 +2201,8 @@ Begin
           end;
      end;
 
-     if thisSecond = 48 Then txInProgress := False;
+     // Overkill but lets be sure
+     if thisSecond = 48 then txInProgress := False;
 
      // Frame progress indicator
      if (thisSecond < 48) Then ProgressBar1.Position := thisSecond;
@@ -2309,7 +2335,7 @@ Begin
                setQRG := False;
                if clRebel.poll Then
                Begin
-                    edDialQRG.Text:= IntToStr(Round(clRebel.qrg));;
+                    edDialQRG.Text:= IntToStr(Round(clRebel.qrg));
                end;
           End
           else
@@ -2339,13 +2365,14 @@ Begin
           Try
              for i := 0 to 749 do
              Begin
-                  spectrum.specDisplayData[0][i].r := 255;
-                  spectrum.specDisplayData[0][i].g := 0;
-                  spectrum.specDisplayData[0][i].b := 0;
+                  spectrum.specPNG[0][i].r := 65535;
+                  spectrum.specPNG[0][i].g := 0;
+                  spectrum.specPNG[0][i].b := 0;
+                  spectrum.specPNG[0][i].a := 8192;
              end;
              // Probably will eventually remove the following line... here for PageControl for now.
           except
-             //ListBox2.Items.Insert(0,'Exception in paint line (2)');
+             ListBox2.Items.Insert(0,'Exception in paint line (2)');
           end;
      end;
 
@@ -2356,13 +2383,14 @@ Begin
           Try
              for i := 0 to 749 do
              Begin
-                  spectrum.specDisplayData[0][i].r := 0;
-                  spectrum.specDisplayData[0][i].g := 255;
-                  spectrum.specDisplayData[0][i].b := 0;
+                  spectrum.specPNG[0][i].r := 0;
+                  spectrum.specPNG[0][i].g := 65535;
+                  spectrum.specPNG[0][i].b := 0;
+                  spectrum.specPNG[0][i].a := 32768;
              end;
              // Probably will eventually remove the following line... here for PageControl for now.
           except
-             //ListBox2.Items.Insert(0,'Exception in paint line (2)');
+             ListBox2.Items.Insert(0,'Exception in paint line (2)');
           end;
      end;
 
@@ -4976,6 +5004,7 @@ begin
                     edTXMsg.Text := thisTXmsg;
                end;
           end;
+          if rbCWID73.Checked Then doCWID := True else doCWID := False;
      end;
      if length(thisTXmsg)>1 Then
      Begin
@@ -5442,6 +5471,7 @@ begin
           thisTXMsg := comboMacroList.Text;
           if isFText(thisTXmsg) or isSText(thisTXmsg) Then genTX(thisTXmsg, StrToInt(edTXDF.Text)+clRebel.txOffset) else thisTXmsg := '';
           edTXMsg.Text := thisTXmsg; // this double checks for valid message.
+          if rbCWIDFree.Checked Then doCWID := True else doCWID := False;
      end;
 end;
 

@@ -335,7 +335,7 @@ object Form1: TForm1
     Top = 2
     Width = 284
     Alignment = taRightJustify
-    Caption = 'HFWST by W6CQZ v0.900 - Phoenix'
+    Caption = 'HFWST by W6CQZ v0.901 - Phoenix'
     Font.Height = -17
     Font.Name = 'Arial'
     Font.Style = [fsBold]
@@ -1650,7 +1650,7 @@ object Form1: TForm1
   end
   object PageControl: TPageControl
     Left = 152
-    Height = 212
+    Height = 243
     Top = 20
     Width = 747
     ActivePage = TabSheet1
@@ -2449,13 +2449,13 @@ object Form1: TForm1
     end
     object TabSheet5: TTabSheet
       Caption = 'Macros'
-      ClientHeight = 214
+      ClientHeight = 183
       ClientWidth = 739
       TabVisible = False
       object Button10: TButton
-        Left = 636
+        Left = 604
         Height = 40
-        Top = 143
+        Top = 139
         Width = 129
         Caption = 'Save'
         Font.Height = -21
@@ -2467,10 +2467,10 @@ object Form1: TForm1
       end
       object Label89: TLabel
         Left = 4
-        Height = 33
+        Height = 17
         Top = 7
-        Width = 365
-        Caption = 'Macros may be up to 13 characters (but no more) consisting of'#13#10'the letters A to Z, digits 0 to 9 and characters Space . + - / ?'
+        Width = 718
+        Caption = 'Macros may be up to 13 characters (but no more) consisting of the letters A to Z, digits 0 to 9 and characters Space . + - / ?'
         ParentColor = False
       end
     end
@@ -2571,7 +2571,7 @@ object Form1: TForm1
     end
     object TabSheet1: TTabSheet
       Caption = 'Basic'
-      ClientHeight = 183
+      ClientHeight = 214
       ClientWidth = 739
       object Button4: TButton
         Left = 204

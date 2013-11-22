@@ -27,7 +27,7 @@ uses
   Classes, SysUtils, CTypes, math, Process, Types, StrUtils, FileUtil, DateUtils;
 
 Const
-  JT_DLL = 'jt65v31.dll';
+  JT_DLL = 'jt65v32.dll';
   WordDelimiter = [' '];
   CsvDelim = [','];
 
@@ -462,7 +462,6 @@ begin
               glf3Buffer[i] := glf3Buffer[i]-ave;
          End;
     End;
-    // Int16 converted to float, now resample if needed.
     // Copy f3Buffer to f1Buffer.
     for i := bStart to bEnd do glf1Buffer[i] := glf3Buffer[i];
     jz := bEnd;
@@ -478,8 +477,8 @@ begin
     avesq := sq/jz;
     basevb := db(avesq) - 44;
     //diagout.Form3.ListBox1.Items.Add('avesq = ' + floatToStr(avesq) + ' basevb = ' + floatToStr(basevb));
-    if (avesq <> 0.0) And (basevb > -16.0) And (basevb < 21.0) Then
-    Begin
+//    if (avesq <> 0.0) And (basevb > -16.0) And (basevb < 21.0) Then
+//    Begin
          ndec := 0;
          set65();
          // Run msync
@@ -1152,13 +1151,13 @@ begin
          begin
               //diagout.Form3.ListBox1.Items.Add('MSync found no sync points.');
          end;
-    End
-    Else
-    Begin
+    //End
+    //Else
+    //Begin
          //diagout.Form3.ListBox1.Items.Add('Average audio level too low or high.');
          //diagout.Form3.ListBox1.Items.Add('Decode cycle aborted.');
-         ndec := 0;
-    End;
+         //ndec := 0;
+    //End;
     // Fix up the decodes to display/rbc specs.
     if gldecOut.Count > 0 Then
     Begin
