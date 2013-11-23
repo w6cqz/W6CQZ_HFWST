@@ -186,12 +186,16 @@ Begin
 end;
 
 function TRebel.doCWID : Boolean;
+Var
+   foo : String;
 Begin
+     prBusy := True;
      // Command 24,string_cwID,integer_TX-TUNING-WORD
-     prCommand := '24,' + prCWID + IntToStr(prCWIDQRG) + ';';  // TX CW Message (prCWID) at QRG prCWIDQRG (as DDS tuning word value)
+     prCommand := '24,' + prCWID + ',' + IntToStr(prCWIDQRG) + ';';  // TX CW Message (prCWID) at QRG prCWIDQRG (as DDS tuning word value)
      prResponse := '';
      if ask Then
      Begin
+          foo := prResponse;
           if prResponse='1,' + prCWID + ',' + IntToStr(prCWIDQRG) + ';' Then
           Begin
                result := True;
@@ -208,6 +212,7 @@ Begin
           result := False;
           prError := 'Command timeout CW ID';
      end;
+     prBusy := False;
 end;
 
 function TRebel.ltx : Boolean;

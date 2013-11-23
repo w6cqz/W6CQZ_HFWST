@@ -80,8 +80,10 @@ Var
    dmwispath                     : String;
    dmTimeStamp                   : String;
    dmruntime,dmarun              : Double;
-   dmrcount                      : Integer;
-   glDTAvg                       : Double;
+   dmrcount,dmkvhangs            : Integer;
+   dmAveSQ, dmBaseVB             : CTypes.cfloat;
+   dmSynPoints, dmMerged         : Integer;
+   glDTAvg,dmKVWasted            : Double;
    glDecCount                    : CTypes.cuint32;
    glDemodCount                  : CTypes.cuint32;
    glSampOffset                  : Integer;
@@ -188,6 +190,7 @@ Var
    kvDat                   : Array[0..11] of CTypes.cint;
    kvFile                  : File Of CTypes.cint;
    kvfullname, foo         : String;
+   kvwaste1,kvwaste2       : TDateTime;
 Begin
      // Looking for a KV decode
      Result := false;
@@ -280,6 +283,7 @@ Begin
      except
         // No action required
      end;
+     kvWaste1      := Now;
      j := 0;
      if FileExists(dmtmpdir+'KVASD.DAT') Then
      Begin
@@ -292,6 +296,9 @@ Begin
                 inc(j);
           until (j>9) or not FileExists(dmtmpdir+'KVASD.DAT');
      end;
+     kvWaste2      := Now;
+     dmKVWasted := dmKVWasted + MilliSecondSpan(kvWaste1,kvWaste2);
+     if j>0 then dmKVHangs := dmKVHangs+j;
 end;
 
 procedure doDecode(bStart, bEnd : Integer);
@@ -321,6 +328,7 @@ Var
    bins                          : Array[0..100] Of CTypes.cint;
    passcount, passtest, binspace : CTypes.cint;
    dmenter,dmexit                : TDateTime;
+   kvwaste1,kvwaste2             : TDateTime;
 
 begin
      dmenter      := Now;
@@ -328,6 +336,11 @@ begin
      gld65HaveDecodes := False;
      // Hard coding this... it used to be variable in JT65-HF
      glNBlank := 0;
+
+     // Counts how many times KV would let me delete KVASD.DAT during this run
+     dmKVHangs := 0;
+     // Counts time wasted deleting locked KVASD.DAT file
+     dmKVWasted := 0.0;
 
      if glfftFWisdom > -1 Then
      Begin
@@ -451,7 +464,7 @@ begin
     ave := 0.0;
     for i := bStart to bEnd do
     Begin
-         glf3Buffer[i] := 0.1 * glinBuffer[i];
+         glf3Buffer[i] := 0.01 * glinBuffer[i]; { TODO : Maybe a bad idea and need to revert to * 0.1 }
          sum := sum + glf3Buffer[i];
     End;
     ave := sum/bEnd;
@@ -476,6 +489,8 @@ begin
     end;
     avesq := sq/jz;
     basevb := db(avesq) - 44;
+    dmAveSQ  := aveSQ;
+    dmBaseVB := baseVB;
     //diagout.Form3.ListBox1.Items.Add('avesq = ' + floatToStr(avesq) + ' basevb = ' + floatToStr(basevb));
 //    if (avesq <> 0.0) And (basevb > -16.0) And (basevb < 21.0) Then
 //    Begin
@@ -533,6 +548,7 @@ begin
          syncount := 0;
          msync(@glf3Buffer[0],@jz2,@syncount,@dtxa[0],@dfxa[0],@snrxa[0],@snrsynca[0],@lical,glwisfile);
          // Syncount is number of potential sync points.
+         dmSynPoints := syncount;
          if syncount > 0 Then
          Begin
               //diagout.Form3.ListBox1.Items.Add('MSync found ' + IntToStr(syncount) + ' probable sync points');
@@ -540,6 +556,7 @@ begin
               if glsteps = 1 Then
               Begin
                    binspace := glbinspace;  // Multiple decode resolution
+                   if glnz and (syncount > 29) and (binspace = 20) Then binspace := 50; { TODO : Probably best not to leave this around }
                    // Now... take the syncount list and place a 'tick' in each
                    // 'bin' where a sync detect has been found.
                    // 2000 Hz / 20 Hz = 100 bins. (101 actually)
@@ -759,19 +776,21 @@ begin
                    begin
                         if bins[i] > 0 then inc(passcount);
                    end;
+                   dmMerged := passcount;
                    //diagout.Form3.ListBox1.Items.Add('Merged ' + IntToStr(syncount) + ' points to ' + IntToStr(passcount) + ' bins.');
-                   if (syncount > (2000 div binspace) + 5) And (passcount > 20) Then
-                   Begin
+                   //if (syncount > (2000 div binspace) + 5) And (passcount > 20) Then
+                   //Begin
                         //diagout.Form3.ListBox3.Items.Add('Probable dirty signal detected');
                         //diagout.Form3.ListBox3.Items.Add('Too many sync detects. (' + IntToStr(passcount) + ')');
                         //diagout.Form3.ListBox3.Items.Add('Decode cycle aborted.');
                         //passcount := 0;
-                        passcount := passcount;
-                   End;
+                        //passcount := passcount;
+                   //End;
                    // Now... at this point I have some count of bins to do a 20/40/80Hz bw decode upon.
               End
               Else
               Begin
+                   dmSynPoints := 1;
                    // Single decode cycle @ glMouseDF, glDFTolerance
                    // find bin where glMouseDF might live.
                    passtest := glMouseDF;
@@ -1026,6 +1045,7 @@ begin
                              Begin
                                   glf3Buffer[j] := 0.0;
                              end;
+                             kvWaste1      := Now;
                              // Attempting to insure KVASD.DAT does not exist.
                              j := 0;
                              if FileExists(dmtmpdir+'KVASD.DAT') Then
@@ -1039,6 +1059,7 @@ begin
                                         inc(j);
                                   until (j>9) or not FileExists(dmtmpdir+'KVASD.DAT');
                              end;
+                             if j>0 Then dmKVHangs := dmKVHangs+j;
                              if FileExists(dmtmpdir+'KVASD.DAT') Then
                              Begin
                                   try
@@ -1052,6 +1073,9 @@ begin
                                      // No action required
                                   end;
                              end;
+                             kvWaste2      := Now;
+                             dmKVWasted := dmKVWasted + MilliSecondSpan(kvWaste1,kvWaste2);
+
                              // Call decoder
                              cqz65(@glf3Buffer[glSampOffset],@jz2,@bw,@afc,@MouseDF2,@idf,glmline,@lical,glwisfile,glkvfname);
                              ifoo := 0;
@@ -1113,6 +1137,8 @@ begin
                    end;
               end;
               j := 0;
+
+              kvWaste1      := Now;
               if FileExists(dmtmpdir+'KVASD.DAT') Then
               Begin
                    repeat
@@ -1124,6 +1150,7 @@ begin
                          inc(j);
                    until (j>9) or not FileExists(dmtmpdir+'KVASD.DAT');
               end;
+              if j>0 Then dmKVHangs := dmKVHangs+j;
               if FileExists(dmtmpdir+'KVASD.DAT') Then
               Begin
                    try
@@ -1137,6 +1164,9 @@ begin
                       // No action required
                    end;
               end;
+              kvWaste2      := Now;
+              dmKVWasted := dmKVWasted + MilliSecondSpan(kvWaste1,kvWaste2);
+
               if glrawOut.Count > 0 Then
               Begin
                    //diagout.Form3.ListBox2.Clear;

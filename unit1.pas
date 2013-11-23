@@ -1,5 +1,5 @@
 { TODO :
-Spectrum speed selection is restoring but not applying - F I X
+TX Marker isn't RIGHT - F I X
 
 Think about having RX move to keep passband centered for Rebel
 
@@ -396,15 +396,17 @@ type
     function  isFText(c : String) : Boolean;
     function  getLocalGrid : String;
     function  messageParser(const ex : String; var nc1t : String; var pfx : String; var sfx : String; var nc2t : String; var ng : String; var sh : String; var proto : String) : Boolean;
-    procedure decomposeDecode(const exchange    : String;
-                              const connectedTo : String;
-                              var isValid       : Boolean;
-                              var isBreakIn     : Boolean;
-                              var level         : Integer;
-                              var response      : String;
-                              var connectTo     : String;
-                              var fullCall      : String;
-                              var hisGrid       : String);
+
+    procedure v1DecomposeDecode(const exchange    : String;
+                                const connectedTo : String;
+                                  var isValid       : Boolean;
+                                  var isBreakIn     : Boolean;
+                                  var level         : Integer;
+                                  var response      : String;
+                                  var connectTo     : String;
+                                  var fullCall      : String;
+                                  var hisGrid       : String);
+
     procedure displayDecodes3;
     procedure specHeader;
 
@@ -438,6 +440,7 @@ type
     function valV1Suffix(const s : string) : Boolean;
     function isV1Call(const s : String) : Boolean;
     function lateTXOffset : Integer;
+    function isSlashedCall(const s : String) : Boolean;
 
   private
     { private declarations }
@@ -544,6 +547,8 @@ var
   jtencode       : PChar; // To avoid heap error making this global
   tx73,txFree    : Boolean; // Flags to determine if last message was a 73 or Free Text for CWID purposes
   doCWID         : Boolean; // Set to fire CW ID TX
+  mgendf         : String; // TX DF Message was last generated at
+  qsycount       : Integer; // Used to delay message regen as a new TX DF is manually entered.
 implementation
 
 procedure rscode(Psyms : CTypes.pcint; Ptsyms : CTypes.pcint); cdecl; external JT_DLL name 'rs_encode_';
@@ -711,12 +716,16 @@ Begin
        +#137#16'B'#8'!'#132#16'B'#204'p'#254#0#6#228'='#140')'#196'4'#153#0#0#0#0'IE'
        +'ND'#174'B`'#130
      ]);
+
      dtrejects := 0;
      d65.glDecCount := 0;
      kvdatdel := 0;
      tx73   := False;
      txFree := False;
      doCWID := False;
+     mgendf := '0';
+     qsycount := 0;
+
      // Mark TX content as clean so any changes will lead to update
      txDirty := False;
      txValid := False;
@@ -1126,7 +1135,6 @@ Begin
      txOn := False;
      ListBox1.Clear;
      ListBox2.Clear;
-     Memo1.Clear;
      // Create and initialize TWaterfallControl
      Waterfall := TWaterfallControl1.Create(self);
      Waterfall.Height := 180;
@@ -1569,10 +1577,35 @@ Var
    c1,c2,c3  : Array[0..125] of String;
    adjtime   : Boolean;
 Begin
+     // Disable timer while here.  It should be disabled already, but this is
+     // a double check for that.  :)
+     timer1.Enabled:=False;
+
      // Runs on each timer tick
      thisUTC     := utcTime;
      thisSecond  := thisUTC.Second;
      thisADCTick := adc.adcTick;
+
+     // Check to see if message needs regen due to TxDF change since last
+     if length(edTXMsg.Text)>0 Then
+     Begin
+          if mgendf <> edTXDF.Text then
+          Begin
+               inc(qsycount);
+               i := qsycount;
+          end;
+          if qsycount > 6 Then
+          Begin
+               // Mark message needing regeneration
+               genTX(edTXMsg.Text, StrToInt(edTXDF.Text)+clRebel.txOffset);
+               qsycount := 0;
+          end;
+     end
+     else
+     begin
+          qsycount := 0;
+     end;
+
      // This is a high priortiy item.
      if not toggleTX.Checked Then
      Begin
@@ -1870,7 +1903,7 @@ Begin
                if not valid then
                Begin
                     { TODO : Don't let this continue forever if it fails repeatedly. }
-                    Memo1.Append('Message upload and readback compare fails.');
+                    Memo2.Append('Message upload and readback compare fails.');
                     // Changing this to delete the TX buffer message so it doesn't go
                     // into an infinite loop should the Rebel be in distress for some
                     // reason.
@@ -2025,27 +2058,40 @@ Begin
 
      if (thisSecond=48) and clRebel.txStat and (not clRebel.busy) Then
      Begin
-          { TODO : This isn't precise - if CW ID is in play TX will exceed this time - fine for now since I have no CW ID yet }
-          txInProgress := False;
-          clRebel.pttOff;
-          transmitting := '';
-     end;
-
-     if (thisSecond = 49) and (lastSecond = 48) and doCWID and didTX and toggleTX.Checked Then
-     Begin
-          if StrToInt(clRebel.rebVer) > 100 Then
+          if doCWID Then
           Begin
-               Memo3.Append('Did CW ID of DE ' + myscall);
-               if edCWID.Text = '' Then clRebel.cwid := myscall else clRebel.cwid := edCWID.Text;
-               // Compute TX QRG to set
-               // Tell rebel to pound brass
+               clRebel.pttOff;
                doCWID := False;
-          end
-          else
-          begin
-               Memo3.Append('No firmware for CWID - update.');
+               if StrToInt(clRebel.rebVer) > 100 Then
+               Begin
+                    if edCWID.Text = '' Then clRebel.cwid := myscall else clRebel.cwid := edCWID.Text;
+                    // Compute TX QRG to set this should be dial QRG + offset + 1270.5
+                    // function TForm1.rebelTuning(const f : Double) : CTypes.cuint;
+                    i := 0;
+                    tryStrToInt(edTXDF.Text,i);
+                    fi := 0;
+                    tryStrToInt(edDialQRG.Text,fi);
+                    ff := i+fi+1270.5;
+                    if ((ff > 699999.5) and (ff < 7300000.5)) Or ((ff > 13999999.5) and (ff<14350000.5)) Then
+                    Begin
+                         clRebel.cwidqrg := rebelTuning(ff);
+                         Memo3.Append('Did CW ID of ' + myscall + ' at ' + FormatFloat('########.#',ff) + ' Hz');
+                         // Tell rebel to pound brass
+                         //clRebel.docwid;
+                    end
+                    else
+                    begin
+                         Memo3.Append('Bad QRG for CWID.');
+                    end;
+               end
+               else
+               begin
+                    Memo3.Append('No firmware for CWID - update.');
+               end;
                doCWID := False;
           end;
+          txInProgress := False;
+          transmitting := '';
      end;
 
      if rbOn.Checked then rbOn.Caption := 'RB Spots:  ' + IntToStr(rb.rbCount) else rbOn.Caption := 'RB Enable';
@@ -2245,8 +2291,8 @@ Begin
      if rigCommander.Checked Then catMethod := 'Commander';
      if rigRebel.Checked and haveRebel and (not setQRG) Then
      Begin
-          // Only read QRG every 5 seconds
-          if thisUTC.Second MOD 5 = 0 Then readQRG := True else readQRG := False;
+          // Only read QRG every 5 seconds except during 46 to 59
+          if (thisUTC.Second < 46) or (thisUTC.Second > 59) Then if thisUTC.Second MOD 5 = 0 Then readQRG := True else readQRG := False;
      end
      else
      begin
@@ -2526,35 +2572,11 @@ Begin
           PaintBox1.Canvas.Line(ii,1,ii,6);
           ii := ii+37;
      End;
-     // I now need to paint the RX and TX passbands.
-     // Have to change this to reflect that I can now have a different TX postion from RX position.
+
+     // I now need to paint the RX indicators
      If cbMultiOn.Checked Then
      Begin
-          // Multi-decode is checked so I need to compute the markers for multi
-          loBound := -1000;
-          hiBound := 1000;
-          // Now that I have a center, low and high points I can convert those to
-          // relative pixel position for the spectrum display.  0 df = 376 and 1
-          // pixel ~ 2.7027 hz.
-          lowF := loBound/2.7027;
-          hiF := hiBound/2.7027;
-          lowF := 376+lowF;
-          hiF := 376+hiF;
-          cfPix := 376;
-          hPix := Round(hiF);
-          lPix := Round(lowF);
-          if lPix < 1 Then lPix := 1;
-          if hPix > 751 Then hPix := 751;
-          PaintBox1.Canvas.Pen.Width := 3;
-          PaintBox1.Canvas.Pen.Color := clLime;
-          // Paint the RX passband, horizontal lime green line.
-          //PaintBox1.Canvas.Line(lPix,9,hPix,9);
-          //PaintBox1.Canvas.Line(lPix,1,lPix,9);
-          //PaintBox1.Canvas.Line(hPix,1,hPix,9);
-          // Paint 'bins'
-          // Bins define segments decoder will evaluate for a decode using a
-          // bandwidth of 20, 40, 80 or 160 Hz (+/- 10, +/- 20 etc) from a
-          // center point starting at -1000 Hz.  Spacing is defined in d65.glbinspace
+          // Paint the bin tick marks
           PaintBox1.Canvas.Pen.Width := 3;
           PaintBox1.Canvas.Pen.Color := clTeal;
           lobound := -1000 - (d65.glbinspace div 2);
@@ -2577,61 +2599,6 @@ Begin
                End;
                loBound := loBound + d65.glbinspace;
                hiBound := hiBound + d65.glbinspace;
-          End;
-
-          If cbTXeqRXDF.Checked Then
-          Begin
-               // Paint the TX passband, vertical red lines.
-               If TryStrToInt(edRXDF.Text,i) Then
-               Begin
-                    floatVar := i / 2.7027;
-                    floatVar := 376+floatVar;
-                    cfPix := Round(floatVar);
-                    txHpix := Round(floatVar+66.7);
-                    PaintBox1.Canvas.Pen.Color := clRed;
-                    PaintBox1.Canvas.Pen.Width := 3;
-                    PaintBox1.Canvas.Line(cfPix,1,cfPix,7);
-                    PaintBox1.Canvas.Line(txHpix,1,txHpix,7);
-                    PaintBox1.Canvas.Line(cfPix,1,txHpix,1);
-               End
-               Else
-               Begin
-                    // CF = 0hz so CF marker is at pixel 376
-                    cfPix := 376;
-                    txHpix := 376+67;
-                    PaintBox1.Canvas.Pen.Color := clRed;
-                    PaintBox1.Canvas.Pen.Width := 3;
-                    PaintBox1.Canvas.Line(cfPix,1,cfPix,7);
-                    PaintBox1.Canvas.Line(txHpix,1,txHpix,7);
-                    PaintBox1.Canvas.Line(cfPix,1,txHpix,1);
-               End;
-          End
-          Else
-          Begin
-               // Paint the TX passband, vertical red lines.
-               If TryStrToInt(edTXDF.Text,i) Then
-               Begin
-                    floatVar := i / 2.7027;
-                    floatVar := 376+floatVar;
-                    cfPix := Round(floatVar);
-                    txHpix := Round(floatVar+66.7);
-                    PaintBox1.Canvas.Pen.Color := clRed;
-                    PaintBox1.Canvas.Pen.Width := 3;
-                    PaintBox1.Canvas.Line(cfPix,1,cfPix,7);
-                    PaintBox1.Canvas.Line(txHpix,1,txHpix,7);
-                    PaintBox1.Canvas.Line(cfPix,1,txHpix,1);
-               End
-               Else
-               Begin
-                    // TXCF = 0hz so CF marker is at pixel 376
-                    cfPix := 376;
-                    txHpix := 376+67;
-                    PaintBox1.Canvas.Pen.Color := clRed;
-                    PaintBox1.Canvas.Pen.Width := 3;
-                    PaintBox1.Canvas.Line(cfPix,1,cfPix,7);
-                    PaintBox1.Canvas.Line(txHpix,1,txHpix,7);
-                    PaintBox1.Canvas.Line(cfPix,1,txHpix,1);
-               End;
           End;
      End
      Else
@@ -2664,63 +2631,36 @@ Begin
                PaintBox1.Canvas.Line(lPix,9,hPix,9);
                PaintBox1.Canvas.Line(lPix,1,lPix,9);
                PaintBox1.Canvas.Line(hPix,1,hPix,9);
-               If cbTXeqRXDF.Checked Then
-               Begin
-                    If TryStrToInt(edRXDF.Text,i) and (i <> 0) Then
-                    Begin
-                           floatVar := i / 2.7027;
-                           floatVar := 376+floatVar;
-                           cfPix := Round(floatVar);
-                           txHpix := Round(floatVar+66.7);
-                           PaintBox1.Canvas.Pen.Color := clRed;
-                           PaintBox1.Canvas.Pen.Width := 3;
-                           PaintBox1.Canvas.Line(cfPix,1,cfPix,9);
-                           PaintBox1.Canvas.Line(txHpix,1,txHpix,9);
-                           PaintBox1.Canvas.Line(cfPix,1,txHpix,1);
-                    End
-                    Else
-                    Begin
-                           // CF = 0hz so CF marker is at pixel 376
-                           cfPix := 376;
-                           txHpix := 376+67;
-                           PaintBox1.Canvas.Pen.Color := clRed;
-                           PaintBox1.Canvas.Pen.Width := 3;
-                           PaintBox1.Canvas.Line(cfPix,1,cfPix,9);
-                           PaintBox1.Canvas.Line(txHpix,1,txHpix,9);
-                           PaintBox1.Canvas.Line(cfPix,1,txHpix,1);
-                    End;
-               End
-               Else
-               Begin
-                    // Paint the TX passband, vertical red lines.
-                    If TryStrToInt(edTXDF.Text,i) and (i <> 0) Then
-                    Begin
-                           floatVar := i / 2.7027;
-                           floatVar := 376+floatVar;
-                           cfPix := Round(floatVar);
-                           txHpix := Round(floatVar+66.7);
-                           PaintBox1.Canvas.Pen.Color := clRed;
-                           PaintBox1.Canvas.Pen.Width := 3;
-                           PaintBox1.Canvas.Line(cfPix,1,cfPix,7);
-                           PaintBox1.Canvas.Line(txHpix,1,txHpix,7);
-                           PaintBox1.Canvas.Line(cfPix,1,txHpix,1);
-                    End
-                    Else
-                    Begin
-                           // TXCF = 0hz so CF marker is at pixel 376
-                           cfPix := 376;
-                           txHpix := 376+67;
-                           PaintBox1.Canvas.Pen.Color := clRed;
-                           PaintBox1.Canvas.Pen.Width := 3;
-                           PaintBox1.Canvas.Line(cfPix,1,cfPix,7);
-                           PaintBox1.Canvas.Line(txHpix,1,txHpix,7);
-                           PaintBox1.Canvas.Line(cfPix,1,txHpix,1);
-                    End;
-               End;
+          end;
+     End;
+     // Paint the TX marker
+     If TryStrToInt(edTXDF.Text,i) Then
+     Begin
+          if i <> 0 Then
+          Begin
+               floatVar := i / 2.7027;
+               floatVar := 376+floatVar;
+               cfPix := Round(floatVar);
+               txHpix := Round(floatVar+66.7);
+               PaintBox1.Canvas.Pen.Color := clRed;
+               PaintBox1.Canvas.Pen.Width := 3;
+               PaintBox1.Canvas.Line(cfPix,1,cfPix,7);
+               PaintBox1.Canvas.Line(txHpix,1,txHpix,7);
+               PaintBox1.Canvas.Line(cfPix,1,txHpix,1);
+          End
+          Else
+          Begin
+               // TXCF = 0hz so CF marker is at pixel 376
+               cfPix := 376;
+               txHpix := 376+67;
+               PaintBox1.Canvas.Pen.Color := clRed;
+               PaintBox1.Canvas.Pen.Width := 3;
+               PaintBox1.Canvas.Line(cfPix,1,cfPix,7);
+               PaintBox1.Canvas.Line(txHpix,1,txHpix,7);
+               PaintBox1.Canvas.Line(cfPix,1,txHpix,1);
           end;
      End;
 End;
-
 
 function TForm1.asBand(const qrg : Integer) : Integer;
 Begin
@@ -2751,6 +2691,12 @@ Var
 Begin
      k := 0;
      for i := 0 to 49 do if not d65.gld65decodes[i].dtProcessed Then inc(k);
+     if (d65.dmRunTime > 2500.0) or (d65.dmKVWasted > 10) Then memo1.Lines.Insert(1,PadRight(IntToStr(d65.dmSynPoints),4) + '  ' + PadRight(IntToStr(d65.dmMerged),6) + '  ' + PadRight(IntToStr(d65.dmKVHangs),5) + '  ' + PadRight(FormatFloat('##.#',d65.dmruntime/1000.0),4) + '  ' + FormatFloat('##.#',d65.dmKVWasted/1000.0));
+     d65.dmAveSQ := 0.0;
+     d65.dmBaseVB := 0.0;
+     d65.dmSynPoints := 0;
+     d65.dmMerged := 0;
+     d65.dmkvhangs := 0;
      If k>0 Then
      Begin
           if cbDivideDecodes.Checked Then ListBox1.Items.Insert(0,'------------------------------------------------------------');
@@ -3528,7 +3474,7 @@ Begin
                if wc = 5 Then toParse := exchange.nc1  + ' ' + exchange.nc2;
                if wc = 6 Then toParse := exchange.nc1  + ' ' + exchange.nc2 + ' ' + exchange.ng;
                if wc = 7 Then toParse := exchange.nc1  + ' ' + exchange.nc1s + ' ' + exchange.nc2 + ' ' + exchange.ng;
-               decomposeDecode(toParse,inQSOWith,isValid,isBreakIn,level,response,connectTo,fullCall,hisGrid);
+               v1DecomposeDecode(toParse,inQSOWith,isValid,isBreakIn,level,response,connectTo,fullCall,hisGrid);
                //sdb := exchange.db;
                sdf := exchange.df;
                // compute TX period
@@ -3541,7 +3487,14 @@ Begin
      end;
 end;
 
-procedure TForm1.decomposeDecode(const exchange    : String;
+function TForm1.isSlashedCall(const s : String) : Boolean;
+begin
+     if ansicontainstext(s,'/') Then result := true else result := false;
+end;
+
+{ TODO : Validate this }
+
+procedure TForm1.v1DecomposeDecode(const exchange    : String;
                                  const connectedTo : String;
                                  var isValid       : Boolean;
                                  var isBreakIn     : Boolean;
@@ -3552,472 +3505,416 @@ procedure TForm1.decomposeDecode(const exchange    : String;
                                  var hisGrid       : String);
 Var
    wc,i         : Integer;
-   isSlashed    : Boolean;
    nc1,nc2,ng   : String;
-   s1,s2        : String;
    myGrid4      : String;
    siglevel     : String;
 Begin
-     // Takes decoded exchange and attempts to evaluate it as a structured message.
-     // First is to see how many words in exchange - needs to be 2, 3 or 4.
+     // Handles message parsing and response generation for strict JT65V1 compliance }
+     isValid   := False;
+     isBreakin := True;
+     level     := 1;
+     response  := '';
 
      wc := WordCount(exchange,[' ']);
      nc1 := '';
      nc2 := '';
      ng  := '';
-     nc1 := ExtractWord(1,exchange,[' ']);
-     nc2 := ExtractWord(2,exchange,[' ']);
-     ng  := ExtractWord(3,exchange,[' ']);
-
-     isValid := False;
-     isBreakin := False;
-     level := 0;
-     response := '';
-     connectTo := '';
-     fullcall := '';
-     hisGrid := '';
-
-     // TX Callsign is evaluated as (in order of precedence)
-     // edPrefix.Text/edCall.Text
-     // edCall.Text/edSuffix.Text
-     // edCall.Text
-     // myscall is this stations, as in my callsign, with prefix/suffix
-     // mycall is just my base callsign
-     siglevel := TrimLeft(TrimRight(edTXReport.Text));
-     if tryStrToInt(siglevel,i) Then
+     if (wc=2) or (wc=3) Then
      Begin
-          if i > -10 Then
+          // Break out the first call (nc1), second call (nc2) and [maybe] grid (ng) if 3 words - if 2 it's just nc1 and nc2
+          if wc=3 Then
           Begin
-               siglevel := '-0' + IntToStr(Abs(i));
+               nc1 := ExtractWord(1,exchange,[' ']);
+               nc2 := ExtractWord(2,exchange,[' ']);
+               ng  := ExtractWord(3,exchange,[' ']);
           end
           else
           begin
-               siglevel := siglevel;
+               nc1 := ExtractWord(1,exchange,[' ']);
+               nc2 := ExtractWord(2,exchange,[' ']);
+               ng  := '';
+          end;
+          // Get local info needed to build response
+          siglevel := TrimLeft(TrimRight(edTXReport.Text));
+          if tryStrToInt(siglevel,i) Then
+          Begin
+               if i > -10 Then
+               Begin
+                    siglevel := '-0' + IntToStr(Abs(i));
+               end
+               else
+               begin
+                    siglevel := siglevel;
+               end;
+          end
+          else
+          begin
+               // Signal level did not parse to integer.. bad
+               wc:=0;
+               Memo2.Append('Signal report did not parse to integer. No response.');
+          end;
+          myGrid4 := TrimLeft(TrimRight(UpCase(edGrid.Text)));
+          if Length(myGrid4)>4 Then myGrid4 := myGrid4[1..4];
+          if not isGrid(myGrid4) Then
+          Begin
+               // Stopping the no grid set nonsense once and for all
+               // It *should* have been caught before now, but, will do
+               // this as a final check.
+               isValid   := False;
+               connectTo := TrimLeft(TrimRight(UpCase(nc2)));
+               fullCall  := connectTo;
+               hisGrid   := ng;
+               isBreakIn := False;
+               response  := '';
+               ListBox1.Items.Insert(0,'Notice: Setup your Grid');
+               wc := 0;
+          end;
+
+          // Start figuring out what we have 2 word types first.
+          if wc=2 Then
+          Begin
+               // 2 Word types for V1
+               // CQ PREFIX/CALL
+               // CQ CALL/SUFFIX
+               // CQ CALL (Technically invalid, but will handle)
+
+               // QRZ PREFIX/CALL
+               // QRZ CALL/SUFFIX
+               // QRZ CALL (Technically invalid, but will handle)
+
+               // CALL PREFIX/CALL
+               // CALL CALL/SUFFIX
+               // PREFIX/CALL CALL
+               // CALL/SUFFIX CALL
+               // CALL CALL (Technically invalid, but will handle)
+
+               // CALL CONTROL (Where control is -##, R-##, RRR or 73)
+               // PREFIX/CALL CONTROL
+               // CALL/SUFFIX CONTROL
+
+               if ((nc1='CQ') or (nc1='QRZ')) And isV1Call(nc2) Then
+               Begin
+                    // Now - I CAN NOT have both the remote and local call have / - JT65 doesn't allow this.
+                    if isSlashedCall(nc2) and isSlashedCall(myscall) Then
+                    Begin
+                         response  := '';
+                         isValid   := False;
+                         fullCall  := '';
+                         connectTo := '';
+                         ListBox1.Items.Insert(0,'Notice: both calls to have /');
+                         ListBox1.Items.Insert(0,'Notice: JT65V1 does not allow');
+                    end
+                    else
+                    begin
+                         isValid   := True;
+                         connectTo := TrimLeft(TrimRight(UpCase(nc2)));
+                         fullCall  := connectTo;
+                         logGrid.Text := '';
+
+                         response  := connectTo + ' ' + TrimLeft(TrimRight(UpCase(myscall)));
+                         isBreakIn := False;
+                    end;
+               end;
+
+               if isV1Call(nc1) and isV1Call(nc2) Then
+               Begin
+                    // Here we have a pair of calls - if one is mine then I have one response
+                    // his call + signal report.  If my call isn't in here then I can setup
+                    // for a tail end reply.
+                    if isSlashedCall(nc2) and isSlashedCall(myscall) Then
+                    Begin
+                         response  := '';
+                         isValid   := False;
+                         fullCall  := '';
+                         connectTo := '';
+                         ListBox1.Items.Insert(0,'Notice: both calls to have /');
+                         ListBox1.Items.Insert(0,'Notice: JT65V1 does not allow');
+                    end
+                    else
+                    begin
+                         if (nc1 = mycall) or (nc1 = myscall) Then
+                         Begin
+                              isValid   := True;
+                              connectTo := TrimLeft(TrimRight(UpCase(nc2)));
+                              fullCall  := connectTo;
+                              response  := connectTo + ' ' + siglevel;
+                              isBreakIn := False;
+                              logGrid.Text := '';
+                         end
+                         else
+                         begin
+                              isValid   := True;
+                              connectTo := TrimLeft(TrimRight(UpCase(nc2)));
+                              fullCall  := connectTo;
+                              response  := connectTo + ' ' + siglevel;
+                              isBreakIn := True;
+                              logGrid.Text := '';
+                         end;
+                    end;
+               end;
+
+               if isV1Call(nc1) and isControl(nc2) Then
+               Begin
+                    // Now this one gets tricky.  Only 1 valid case and that is
+                    // nc1 = mycall or myscall - but the response must be to connectTo
+                    // which had to be found earlier.
+                    // I don't have to worry about the double slashed calls check here
+                    if ((nc1=mycall) or (nc1=myscall)) And (Length(connectedTo)>0) Then
+                    Begin
+                         // Ok - it has mycall and connectedTo is set.
+                         // Now - I need to see;
+                         // MYCALL CONTROL (Where control is -##, R-##, RRR or 73)
+                         // Two simple ones first.
+                         if (nc2='RRR') or (nc2='73') Then
+                         Begin
+                              // Response is MYCALL 73
+                              isValid   := True;
+                              isBreakIn := False;
+                              // Trying something cute here
+                              if Length('DE ' + TrimLeft(TrimRight(UpCase(myscall))) + ' 73') < 14 Then
+                              Begin
+                                   response := 'DE ' + TrimLeft(TrimRight(UpCase(myscall))) + ' 73';  // This is a *CHANGE* from former way where it was HISCALL 73
+                              end
+                              else
+                              begin
+                                   response := TrimLeft(TrimRight(UpCase(myscall))) + ' 73';  // This is a *CHANGE* from former way where it was HISCALL 73
+                              end;
+                         end
+                         else if nc2[1] = '-' Then
+                         begin
+                              // Has to be -##
+                              // Response is HISCALL R-##
+                              isValid   := True;
+                              isBreakIn := False;
+                              response := connectedTo + ' R' + sigLevel;
+                              logMySig.Text := nc2;
+                         end
+                         else if nc2[1..2] = 'R-' Then
+                         Begin
+                              // Has to be R-##
+                              // Response is HISCALL RRR
+                              isValid   := True;
+                              isBreakIn := False;
+                              response := connectedTo + ' RRR';
+                              logMySig.Text := nc2[2..Length(nc2)];
+                         end
+                         else
+                         begin
+                              response  := '';
+                              isValid   := False;
+                              ListBox1.Items.Insert(0,'Notice: No response calculated');
+                         end;
+                    end
+                    else
+                    begin
+                         response  := '';
+                         isValid   := False;
+                         fullCall  := '';
+                         connectTo := '';
+                         ListBox1.Items.Insert(0,'Notice: No response calculated');
+                    end;
+               end;
+          end;
+          // Now 3 Word Types
+          // CQ CALL GRID
+          // QRZ CALL GRID
+          // CALL CALL GRID
+          // CALL CALL CONTROL
+          if ((nc1='CQ') or (nc1='QRZ')) and isV1Call(nc2) and isGrid(ng) Then
+          Begin
+               // Ok this is a good one - only constraint is if myscall is slashed
+               if isSlashedCall(nc2) and isSlashedCall(myscall) Then
+               Begin
+                    // This shouldn't be able to happen here... but.  :)
+                    response  := '';
+                    isValid   := False;
+                    fullCall  := '';
+                    connectTo := '';
+                    logGrid.Text := '';
+                    ListBox1.Items.Insert(0,'Notice: both calls to have /');
+                    ListBox1.Items.Insert(0,'Notice: JT65V1 does not allow');
+               end
+               else
+               begin
+                    isValid   := True;
+                    connectTo := TrimLeft(TrimRight(UpCase(nc2)));
+                    fullCall  := connectTo;
+                    hisGrid   := ng;
+                    isBreakIn := False;
+                    logGrid.Text := ng;
+
+                    if isSlashedCall(myscall) Then
+                    Begin
+                         response  := connectTo + ' ' + TrimLeft(TrimRight(UpCase(myscall)));
+                    end
+                    else
+                    begin
+                         response := connectTo + ' ' + TrimLeft(TrimRight(UpCase(myscall))) + ' ' + mygrid4;
+                    end;
+               end;
+          end;
+
+          if isV1Call(nc1) and isV1Call(nc2) and isGrid(ng) Then
+          Begin
+               // This one has to be to myscall in nc1 or it will be treated as a break in type.
+               if isSlashedCall(nc2) and isSlashedCall(myscall) Then
+               Begin
+                    response  := '';
+                    isValid   := False;
+                    fullCall  := '';
+                    connectTo := '';
+                    ListBox1.Items.Insert(0,'Notice: both calls to have /');
+                    ListBox1.Items.Insert(0,'Notice: JT65V1 does not allow');
+               end
+               else
+               begin
+                    if nc1=myscall Then
+                    Begin
+                         // Response to this is his_call my_call -##
+                         isValid   := True;
+                         connectTo := TrimLeft(TrimRight(UpCase(nc2)));
+                         fullCall  := connectTo;
+                         hisGrid   := ng;
+                         isBreakIn := False;
+                         logGrid.Text := ng;
+
+                         if isSlashedCall(myscall) Then
+                         Begin
+                              response  := connectTo + ' ' + TrimLeft(TrimRight(UpCase(myscall)));
+                         end
+                         else
+                         begin
+                              response := connectTo + ' ' + TrimLeft(TrimRight(UpCase(myscall))) + ' ' + siglevel;
+                         end;
+                    end
+                    else
+                    begin
+                         // Response to this is his_call my_call -## but is a break in
+                         isValid   := True;
+                         connectTo := TrimLeft(TrimRight(UpCase(nc2)));
+                         fullCall  := connectTo;
+                         hisGrid   := ng;
+                         isBreakIn := True;
+                         logGrid.Text := ng;
+
+                         if isSlashedCall(myscall) Then
+                         Begin
+                              response  := connectTo + ' ' + TrimLeft(TrimRight(UpCase(myscall)));
+                         end
+                         else
+                         begin
+                              response := connectTo + ' ' + TrimLeft(TrimRight(UpCase(myscall))) + ' ' + mygrid4;
+                         end;
+                    end;
+               end;
+          end;
+
+          if isV1Call(nc1) and isV1Call(nc2) and isControl(ng) Then
+          Begin
+               // This one has to be to myscall in nc1 or it will be treated as a break in type.
+               if isSlashedCall(nc2) and isSlashedCall(myscall) Then
+               Begin
+                    response  := '';
+                    isValid   := False;
+                    fullCall  := '';
+                    connectTo := '';
+                    ListBox1.Items.Insert(0,'Notice: both calls to have /');
+                    ListBox1.Items.Insert(0,'Notice: JT65V1 does not allow');
+               end
+               else
+               begin
+                    if nc1=myscall Then
+                    Begin
+                         // Need to see mycall hiscall -## or R-## or RRR or 73
+                         if (ng='RRR') or (ng='73') Then
+                         Begin
+                              // Response is 73
+                              if isSlashedCall(myscall) Then
+                              Begin
+                                   // Trying something cute here
+                                   if Length('DE ' + TrimLeft(TrimRight(UpCase(myscall))) + ' 73') < 14 Then
+                                   Begin
+                                        response := 'DE ' + TrimLeft(TrimRight(UpCase(myscall))) + ' 73';  // This is a *CHANGE* from former way where it was HISCALL 73
+                                   end
+                                   else
+                                   begin
+                                        response := TrimLeft(TrimRight(UpCase(myscall))) + ' 73';  // This is a *CHANGE* from former way where it was HISCALL 73
+                                   end;
+                              end
+                              else
+                              begin
+                                   response := connectTo + ' ' + TrimLeft(TrimRight(UpCase(myscall))) + ' 73';
+                              end;
+                         end
+                         else if ng[1]='-' Then
+                         Begin
+                              // Grab this for logging signal report :)
+                              // Response is R-##
+                              isValid   := True;
+                              connectTo := TrimLeft(TrimRight(UpCase(nc2)));
+                              fullCall  := connectTo;
+                              isBreakIn := False;
+                              logMySig.Text := ng;
+
+                              if isSlashedCall(myscall) Then
+                              Begin
+                                   response  := connectTo + ' R' + sigLevel;
+                              end
+                              else
+                              begin
+                                   response := connectTo + ' ' + TrimLeft(TrimRight(UpCase(myscall))) + ' R' + siglevel;
+                              end;
+                         end
+                         else if ng[1..2]='R-' Then
+                         Begin
+                              // Response is RRR
+                              // Grab this for logging signal report :)
+                              isValid   := True;
+                              connectTo := TrimLeft(TrimRight(UpCase(nc2)));
+                              fullCall  := connectTo;
+                              isBreakIn := False;
+                              logMySig.Text := ng[2..Length(ng)];
+
+                              if isSlashedCall(myscall) Then
+                              Begin
+                                   response  := connectTo + ' RRR';
+                              end
+                              else
+                              begin
+                                   response := connectTo + ' ' + TrimLeft(TrimRight(UpCase(myscall))) + ' RRR';
+                              end;
+                         end;
+                    end
+                    else
+                    begin
+                         // Break in type
+                         // Only one response hiscall mycall GRID or hiscall my/call break in type
+                         isValid   := True;
+                         connectTo := TrimLeft(TrimRight(UpCase(nc2)));
+                         fullCall  := connectTo;
+                         isBreakIn := True;
+
+                         if isSlashedCall(myscall) Then
+                         Begin
+                              response  := connectTo + ' ' + TrimLeft(TrimRight(UpCase(myscall)));
+                         end
+                         else
+                         begin
+                              response := connectTo + ' ' + TrimLeft(TrimRight(UpCase(myscall))) + ' ' + mygrid4;
+                         end;
+                    end;
+               end;
           end;
      end
      else
      begin
-          // Signal level did not parse to integer.. bad
-          wc:=0;
-          Memo2.Append('Signal report did not parse to integer. No response.');
-     end;
-     myGrid4 := TrimLeft(TrimRight(UpCase(edGrid.Text)));
-     if Length(myGrid4)>4 Then myGrid4 := myGrid4[1..4];
-
-     if wc = 2 Then
-     Begin
-          // 2 Word types:
-          //   Exchange                                 Protocol Level
-          //   ------------------------------------     --------------
-          //   CQ  Call (Technically not valid)          1
-          //   QRZ Call                                  1
-          //   CQ  Prefix/Call                           1
-          //   CQ  Call/Suffix                           1
-          //   QRZ Prefix/Call                           1
-          //   QRZ Call/Suffix                           1
-          level := 1;
-          if (nc1 = 'CQ') or (nc1 = 'QRZ') Then
-          Begin
-               // Handler for CQ or QRZ [Call or Prefix/Call or Call/Suffix] types.
-               level   := 1;
-               if AnsiContainsText(nc2,'/') Then isSlashed := True else isSlashed := False;
-               isValid := True;
-               connectTo := TrimLeft(TrimRight(UpCase(nc2)));
-               fullCall := connectTo;
-               if isSlashed Then response := connectTo + ' ' + mycall;
-               if not isSlashed Then response := connectTo + ' ' + mySCall;
-               // Response is like PFX/Call MYCALL
-               //                  Call/SFX MYCALL
-               //                  Call PFX/MYCALL
-               //                  Call MYCALL/SFX
-               //                  Call MYCALL
-          end
-          else
-          begin
-               // 2 Word types:
-               //   Exchange                                 Protocol Level
-               //   ------------------------------------     --------------
-               //   Prefix/Call Call                          1
-               //   Call/Suffix Call                          1
-               //   Call Prefix/Call                          1
-               //   Call Call/Suffix                          1
-               //   Call Call                                 1/2 Technically invalid - but I'll work with it as long as it's too "me"
-
-               // 2 Word types:
-               //   Exchange                                 Protocol Level
-               //   ------------------------------------     --------------
-               //   Call -##                                  1
-               //   Call R-##                                 1
-               //   Call RO                                   1
-               //   Call RRR                                  1
-               //   Call 73                                   1
-               //   Prefix/Call -##                           1
-               //   Prefix/Call R-##                          1
-               //   Prefix/Call RO                            1
-               //   Prefix/Call RRR                           1
-               //   Prefix/Call 73                            1
-               //   Call/Suffix -##                           1
-               //   Call/Suffix R-##                          1
-               //   Call/Suffix RO                            1
-               //   Call/Suffix RRR                           1
-               //   Call/Suffix 73                            1
-
-               // Two sub-forms to handle here.  Pair of calls or call and control field
-               // If pair of calls I can look to see if it's to me or not to determing breakin
-               // status.  If second word is control then I ONLY respond when word1 is mycall
-               // AND connectedTo variable is set.
-
-               if isControl(nc2) Then
-               Begin
-                    // The ONLY form of these I respond to is if nc1 contains my Call
-                    // and connectedTo is set.
-                    if ((nc1 = myCall) or (nc1 = mysCall)) Then
-                    Begin
-
-                         // Now look at nc2 to determine response.
-                         response := '';
-                         isValid := True;
-                         isBreakin := False;
-                         if nc2 = 'RO'  Then response := connectedTo + ' RRR';
-                         if nc2 = 'RRR' Then response := connectedTo + ' 73';
-                         if nc2 = '73'  Then response := connectedTo + ' 73';
-
-                         If (Length(nc2)=3) And (nc2[1]='-') Then
-                         Begin
-                              response := connectedTo + ' R-' + sigLevel;
-                              // Grab the signal report for log
-                              logMySig.Text := nc2;
-                         end;
-                         If (Length(nc2)=4) And (nc2[1..2]='R-') Then
-                         Begin
-                              response := connectedTo + ' RRR';
-                              logMySig.Text := nc2;
-                         end;
-                    End;
-               end
-               else
-               begin
-                    // If word1 is mycall then there's only one response and that's hiscall -## report.
-                    // If word1 != mycall then I can setup for a breakin to word2 but it only makes
-                    // sense to do so if word2 is slashed.  Think about it.  :)
-                    if ((nc1 = myCall) or (nc1 = mysCall)) Then
-                    Begin
-                         if AnsiContainsText(nc2,'/') Then
-                         Begin
-                              s1 := ExtractWord(1,nc2,['/']);
-                              s2 := ExtractWord(2,nc2,['/']);
-                              if isCallSign(s1) or isCallSign(s2) Then isValid := True else isValid := False;
-                              isSlashed := True;
-                         End
-                         Else
-                         Begin
-                              if isCallSign(nc2) Then isValid := True else isValid := False;
-                              isSlashed := False;
-                         End;
-                         if isValid Then
-                         Begin
-                              isValid := True;
-                              isBreakin := False;
-                              connectTo := nc2;
-                              fullCall := connectTo;
-                              response := connectTo + ' ' + sigLevel;
-                         End
-                         Else
-                         Begin
-                              isValid := False;
-                              isBreakin := False;
-                              response := '';
-                              connectTo := '';
-                              fullCall := connectTo;
-                         End;
-                         // Have now setup for anwering a Call to my Call
-                    end
-                    else
-                    begin
-                         if AnsiContainsText(nc2,'/') Then
-                         Begin
-                              s1 := ExtractWord(1,nc2,['/']);
-                              s2 := ExtractWord(2,nc2,['/']);
-                              if isCallSign(s1) or isCallSign(s2) Then isValid := True else isValid := False;
-                              isSlashed := True;
-                         End
-                         Else
-                         Begin
-                              if isCallSign(nc2) Then isValid := True else isValid := False;
-                         end;
-                         If isValid and isSlashed Then
-                         Begin
-                              isBreakin := True;
-                              isValid   := True;
-                              connectTo := nc2;
-                              fullCall := connectTo;
-                              response  := connectTo + ' ' + myscall;
-                              // Have now setup for a breakin type
-                         end;
-                         If isValid and (not isSlashed) Then
-                         Begin
-                              isBreakin := True;
-                              isValid   := True;
-                              connectTo := nc2;
-                              fullCall  := nc2;
-                              response  := connectTo + ' ' + myCall;
-                         end;
-                    end;
-               end;
-          end;
-     end;
-
-     if wc = 3 Then
-     Begin
-          // 3 Word types:
-          //   ------------------------------------     --------------
-          //   CQ  Call Grid                            1
-          //   QRZ Call Grid                            1
-          //   DE  Call Grid                            2
-          //   CQ  Prefix/Call Grid                     2
-          //   QRZ Prefix/Call Grid                     2
-          //   DE  Prefix/Call Grid                     2
-          //   CQ  Call/Suffix Grid                     2
-          //   QRZ Call/Suffix Grid                     2
-          //   DE  Call/Suffix Grid                     2
-          //
-
-          // Handling all the CQ/QRZ/DE Forms first.
-
-          if ((nc1='CQ') or (nc1='QRZ') or (nc1='DE')) And isGrid(ng) Then
-          Begin
-               // Check for Prefix/Suffix Call
-               logGrid.Text := ng;
-               If AnsiContainsText(nc2,'/') Then isSlashed := true else isSlashed := false;
-               If isSlashed then level := 2 else level := 1;
-               If isSlashed then
-               Begin
-                    s1 := ExtractWord(1,nc2,['/']);
-                    s2 := ExtractWord(2,nc2,['/']);
-                    if isCallsign(s1) or isCallsign(s2) Then isValid := True else isValid := False;
-               end
-               else
-               begin
-                    if isCallsign(nc2) Then isValid := True else isValid := False;
-               end;
-               If isValid Then
-               Begin
-                    if isSlashed then
-                    begin
-                         if isCallSign(s1) And isCallSign(s2) then connectTo := s2;
-                         if isCallSign(s1) And (not isCallSign(s2)) then connectTo := s1;
-                         if (not isCallSign(s1)) And isCallSign(s2) then connectTo := s2;
-                         fullCall := nc2;
-                    end
-                    else
-                    begin
-                         connectTo := nc2;
-                         fullCall  := nc2;
-                    end;
-               End;
-               if isValid Then
-               Begin
-                    if isGrid(ng) Then hisGrid := ng else hisGrid := '';
-                    response := connectTo + ' ' + myscall + ' ' + myGrid4;
-                    isBreakin := False;
-                    isValid := True;
-               End
-               Else
-               Begin
-                    response := '';
-                    isBreakin := False;
-                    isValid := False;
-                    connectTo := '';
-                    fullCall  := '';
-               End;
-               // Have now handled all the CQ/QRZ/DE Call Grid with response of Call MYCALL Grid
-          End;
-
-          //   DE Call 73                               2
-          //   DE Prefix/Call 73                        2
-          //   DE Call/Suffix 73                        2
-          if ((nc1='CQ') or (nc1='QRZ') or (nc1='DE')) And (not isGrid(ng)) Then
-          Begin
-               // Check for Prefix/Suffix Call
-               If AnsiContainsText(nc2,'/') Then isSlashed := true else isSlashed := false;
-               If isSlashed then level := 2 else level := 1;
-               If isSlashed then
-               Begin
-                    s1 := ExtractWord(1,nc2,['/']);
-                    s2 := ExtractWord(2,nc2,['/']);
-                    if isCallsign(s1) or isCallsign(s2) Then isValid := True else isValid := False;
-               end
-               else
-               begin
-                    if isCallsign(nc2) Then isValid := True else isValid := False;
-               end;
-               If isValid Then
-               Begin
-                    if isSlashed then
-                    begin
-                         if isCallSign(s1) And isCallSign(s2) then connectTo := s2;
-                         if isCallSign(s1) And (not isCallSign(s2)) then connectTo := s1;
-                         if (not isCallSign(s1)) And isCallSign(s2) then connectTo := s2;
-                         fullCall := nc2;
-                    end
-                    else
-                    begin
-                         connectTo := nc2;
-                         fullCall  := nc2;
-                    end;
-               End;
-               if isValid Then
-               Begin
-                    if isGrid(ng) Then hisGrid := ng else hisGrid := '';
-                    response := connectTo + ' ' + myscall + ' ' + myGrid4;
-                    if ng='73' Then isBreakin := True else isBreakin := False;
-                    isValid := True;
-               End
-               Else
-               Begin
-                    response := '';
-                    isBreakin := False;
-                    isValid := False;
-                    connectTo := '';
-                    fullCall  := '';
-               End;
-               // Have now handled all the CQ/QRZ/DE Call not Grid with response of Call MYCALL Grid
-               // This covers something like a breakin for DE Call 73 or not a brakin for CQ Call .5W
-          End;
-
-          //   Call Call Grid                           1
-          //   Call Call -##                            1
-          //   Call Call R-##                           1
-          //   Call Call RO (Deprecated on HF)          1
-          //   Call Call RRR                            1
-          //   Call Call 73                             1
-
-          // An oddity I'm seeing is something like
-          // callsign 73 none where none is a grid that's not defined.
-          // I'm thinking this is likely a bug in the message generator
-          // for JT65-HF (old) or WJST[x] where it's a free text entry
-          // being formed such that it mutates to a structured message
-          // type with no grid info.
-          // Adding dealing with this to TODO but it's relatively low priority.
-
-          if isCallsign(nc1) and isCallsign(nc2) Then
-          Begin
-               if isGrid(ng) Then
-               Begin
-                    // Need to see nc1 = myscall to not have a breakin response
-                    if nc1 = myscall Then
-                    Begin
-                         // Only 1 response to this. HISCALL MYCALL -##
-                         connectTo := nc2;
-                         fullCall  := nc2;
-                         hisGrid   := ng;
-                         response := connectTo + ' ' + myscall + ' ' + sigLevel;
-                         logGrid.Text := ng;
-                         isBreakin := False;
-                         isValid := True;
-                    End
-                    Else
-                    Begin
-                         // Only 1 response to this. HISCALL MYCALL MYGRID4
-                         connectTo := nc2;
-                         fullCall  := nc2;
-                         hisGrid   := ng;
-                         response := connectTo + ' ' + myscall + ' ' + myGrid4;
-                         isBreakin := True;
-                         isValid := True;
-                    End;
-               End;
-
-               if isControl(ng) Then
-               Begin
-                    // Need to see nc1 = myscall to not have a breakin response
-                    if nc1 = myscall Then
-                    Begin
-                         // Determine response form
-                         connectTo := nc2;
-                         fullcall := nc2;
-                         hisgrid := '';
-                         isBreakin := False;
-
-                         response := '';
-                         if ng = 'RO'  Then response := connectTo + ' ' + myscall + ' RRR';
-                         if ng = 'RRR' Then response := connectTo + ' ' + myscall + ' 73';
-                         if ng = '73'  Then response := connectTo + ' ' + myscall + ' 73';
-                         if ng = 'NONE'  Then response := connectTo + ' ' + myscall + ' ' + myGrid4;
-
-                         if (length(ng)=3) and (ng[1]='-') Then
-                         Begin
-                              response := '';
-                              response := connectTo + ' ' + myscall + ' R' + ng;
-                              logMySig.Text := ng;
-                         end;
-
-                         if (length(ng)=4) and (ng[1..2]='R-') Then
-                         Begin
-                              response := '';
-                              response := connectTo + ' ' + myscall + ' RRR';
-                              logMySig.Text := ng[2..4];
-                         end;
-
-                         if Length(response)>0 Then
-                         Begin
-                              connectTo := nc2;
-                              fullcall := nc2;
-                              hisgrid := '';
-                              isBreakin := False;
-                              isValid := True;
-                         End
-                         Else
-                         Begin
-                              connectTo := '';
-                              fullCall  := '';
-                              hisGrid   := '';
-                              isBreakin := False;
-                              isValid := False;
-                              response := '';
-                         End;
-                    End
-                    Else
-                    Begin
-                         // Only 1 response to this. HISCALL MYCALL MYGRID4
-                         connectTo := nc2;
-                         fullCall  := nc2;
-                         hisGrid   := ng;
-                         response := connectTo + ' ' + myscall + ' ' + myGrid4;
-                         isBreakin := True;
-                         isValid := True;
-                    End;
-               End;
-          End;
-
-          //   [Not supported in JT65-HF]
-          //   CQ  ### Prefix/Call                       1
-          //   CQ  ### Call/Suffix                       1
-          //   QRZ ### Prefix/Call                       1
-          //   QRZ ### Call/Suffix                       1
-          //
-          if ((nc1='CQ') or (nc1='QRZ')) And (not isCallSign(nc2)) Then
-          Begin
-               response := '';
-               isBreakin := False;
-               isValid := False;
-               connectTo := '';
-               fullCall  := '';
-          End;
-     end;
-
-     if wc = 4 Then
-     Begin
-          // 4 Word types:
-          //   ------------------------------------     --------------
-          //   [Not supported in JT65-HF]
-          //   CQ ### Call Grid                         1
-          //
-          level     := 1;
-          isValid   := False;
-          response  := '';
+          response := '';
+          isValid  := False;
+          fullCall  := '';
           connectTo := '';
+          ListBox1.Items.Insert(0,'Notice: No response calculated');
      end;
+
 end;
 
 function TForm1.txControl : Boolean;
@@ -4102,7 +3999,6 @@ begin
           // Get the decode to parse
           foo := Form1.ListBox1.Items[i];
           foo := DelSpace1(foo);
-          //foo := StringReplace(foo,' ',',',[rfReplaceAll,rfIgnoreCase]);
           tvalid    := False;
           hisGrid   := '';
           fullCall  := '';
@@ -4144,7 +4040,6 @@ begin
 
                if isFText(response) or isSText(response) Then
                Begin
-                    Memo2.Append('Generating message:  ' + response + ' at TXDF ' + sdf);
                     genTX(response, StrToInt(sdf)+clRebel.txOffset);
                     if txp=0 then rbTxEven.Checked := True else rbTxOdd.Checked := True;
                     if not isBreakin then toggleTX.State := cbChecked else toggleTX.State := cbUnchecked;
@@ -4153,6 +4048,7 @@ begin
                else
                begin
                     // This shouldn't happen, but, message is invalid.
+                    Memo2.Append('Odd - message did not self resolve.');
                     edTXMsg.Text := '';
                     edTXToCall.Text := '';
                     edTXReport.Text := '';
@@ -4742,45 +4638,12 @@ begin
                     doit := true;
                End;
           end;
-          // Generate FSK values
-          if doit Then
-          Begin
-               // tsyms holds the 63 TX symbols - will need to look at TXDF and current dial
-               // RX QRG to compute the true RF TX QRG list.  TXDF 0 = 1270.5 Hz so if dial
-               // is 14076.0 and TXDF = 0 then first tone (sync) will be at 14,077,270.5 Hz
-               // Then call rebelTuning(double f in hz) to get back an UINT32 tuning word
-               // for the AD9834.
-               //isyms         : Array[0..62] Of CTypes.cint;
-               //ssyms         : Array[0..62] Of String;
-               // So.... tone 0 (sync) = Dial QRG + 1270.5 + TXDF
-               baseTX   := 1270.5;
-               baseTX   := baseTX + StrToInt(edDialQRG.Text) + txdf;  // This is the floating point value in Hz of the sync carrier (base frequency - data goes up from this)
-               k := rebelTuning(baseTX); // Base sync tone as RF tuning word
-               // For this we clear the whole 128 and it's 128 because of way I pass FSK values to Rebel - it only uses 126 :)
-               for i := 0 to 127 do qrgset[i] := '0';
-               j := 0;
-               // Two passes - stuff sync then stuff data.
-               // Once I debug and am sure can try rolling it into one pass.
-               // Stuff the values - sync where SYNC65[i]=1 data where SYNC65[i]=0;
-               // NOTE for this it's 125 on qrgset - DONT'T bork this and do 127 :)
-               for i := 0 to 125 do if SYNC65[i]=1 Then qrgset[i] := IntToStr(k);
-               for i := 0 to 125 do
-               begin
-                    if SYNC65[i]=0 Then
-                    Begin
-                         qrgset[i] := IntToStr(rebelTuning(baseTX + (2.6917 * (tsyms[j]+2))));
-                         inc(j); // Not to self - yes it generates nice 2 tone FSK if you leave this line out.
-                    end;
-               end;
-               txDirty := True;  // Flag to force an update to the FSK TX
-               txValid := True;
-               Memo2.Append('Message to send:  ' + thisTXMSg + ' at TXDF ' + edTXDF.Text);
-          end;
      end;
 
      //If ft this is free text
      if ft then
      begin
+          doit := False;
           memo3.Append('Using free text encoder');
           nc1 := 0;
           nc2 := 0;
@@ -4796,37 +4659,45 @@ begin
                dir := 1;
                cnt := 63;
                graycode(CTypes.pcint(@tsyms[0]),CTypes.pcint(@cnt),CTypes.pcint(@dir));
-               // tsyms holds the 63 TX symbols - will need to look at TXDF and current dial
-               // RX QRG to compute the true RF TX QRG list.  TXDF 0 = 1270.5 Hz so if dial
-               // is 14076.0 and TXDF = 0 then first tone (sync) will be at 14,077,270.5 Hz
-               // Then call rebelTuning(double f in hz) to get back an UINT32 tuning word
-               // for the AD9834.
-               //isyms         : Array[0..62] Of CTypes.cint;
-               //ssyms         : Array[0..62] Of String;
-               // So.... tone 0 (sync) = Dial QRG + 1270.5 + TXDF
-               baseTX   := 1270.5;
-               baseTX   := baseTX + StrToInt(edDialQRG.Text) + txdf;  // This is the floating point value in Hz of the sync carrier (base frequency - data goes up from this)
-               k := rebelTuning(baseTX); // Base sync tone as RF tuning word
-               // For this we clear the whole 128
-               for i := 0 to 127 do qrgset[i] := '0';
-               j := 0;
-               // Two passes - stuff sync then stuff data.
-               // Once I debug and am sure can try rolling it into one pass.
-               // Stuff the values - sync where SYNC65[i]=1 data where SYNC65[i]=0;
-               // NOTE for this it's 125 on qrgset - DONT'T bork this and do 127 :)
-               for i := 0 to 125 do if SYNC65[i]=1 Then qrgset[i] := IntToStr(k);
-               for i := 0 to 125 do
-               begin
-                    if SYNC65[i]=0 Then
-                    Begin
-                         qrgset[i] := IntToStr(rebelTuning(baseTX + (2.6917 * (tsyms[j]+2))));
-                         inc(j); // Not to self - yes it generates nice 2 tone FSK if you leave this line out.
-                    end;
-               end;
-               txDirty := True;  // Flag to force an update to the FSK TX
-               txValid := True;
-               Memo2.Append('Message to send:  ' + thisTXMSg + ' at TXDF ' + edTXDF.Text);
+               doit := True;
           end;
+     end;
+     // Generate FSK values
+     if doit Then
+     Begin
+          // tsyms holds the 63 TX symbols - will need to look at TXDF and current dial
+          // RX QRG to compute the true RF TX QRG list.  TXDF 0 = 1270.5 Hz so if dial
+          // is 14076.0 and TXDF = 0 then first tone (sync) will be at 14,077,270.5 Hz
+          // Then call rebelTuning(double f in hz) to get back an UINT32 tuning word
+          // for the AD9834.
+          //isyms         : Array[0..62] Of CTypes.cint;
+          //ssyms         : Array[0..62] Of String;
+          // So.... tone 0 (sync) = Dial QRG + 1270.5 + TXDF
+          baseTX   := 1270.5;
+          baseTX   := baseTX + StrToInt(edDialQRG.Text) + txdf;  // This is the floating point value in Hz of the sync carrier (base frequency - data goes up from this)
+          k := rebelTuning(baseTX); // Base sync tone as RF tuning word
+          // For this we clear the whole 128 and it's 128 because of way I pass FSK values to Rebel - it only uses 126 :)
+          for i := 0 to 127 do qrgset[i] := '0';
+          j := 0;
+          // Two passes - stuff sync then stuff data.
+          // Once I debug and am sure can try rolling it into one pass.
+          // Stuff the values - sync where SYNC65[i]=1 data where SYNC65[i]=0;
+          // NOTE for this it's 125 on qrgset - DONT'T bork this and do 127 :)
+          for i := 0 to 125 do if SYNC65[i]=1 Then qrgset[i] := IntToStr(k);
+          for i := 0 to 125 do
+          begin
+               if SYNC65[i]=0 Then
+               Begin
+                    qrgset[i] := IntToStr(rebelTuning(baseTX + (2.6917 * (tsyms[j]+2))));
+                    inc(j); // Not to self - yes it generates nice 2 tone FSK if you leave this line out.
+               end;
+          end;
+          txDirty := True;  // Flag to force an update to the FSK TX
+          txValid := True;
+          mgendf := IntToStr(txdf-clRebel.txOffset);
+          if edTXDF.Text <> mgendf Then edTXDF.Text := mgendf;
+          Memo2.Append('Message to send:  ' + foo + ' at TXDF ' + edTXDF.Text);
+
      end;
 end;
 
@@ -5064,7 +4935,7 @@ begin
                if isFText(edTXMsg.Text) or isSText(edTXMsg.Text) Then
                Begin
                     thisTXMsg := edTXMsg.Text;
-                    genTX(thisTXmsg, i+clRebel.txOffset);
+                    //genTX(thisTXmsg, i+clRebel.txOffset);
                     edTXMsg.Text := thisTXmsg; // this double checks for valid message.
                end;
           end;
@@ -5260,6 +5131,7 @@ end;
 procedure TForm1.Memo1DblClick(Sender: TObject);
 begin
      Memo1.Clear;
+     Memo1.Lines.Add('Sync  Mashed  Hangs  Time  Waste');
 end;
 
 procedure TForm1.Memo2DblClick(Sender: TObject);
