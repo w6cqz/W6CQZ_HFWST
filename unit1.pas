@@ -1,5 +1,4 @@
 { TODO :
-TX Marker isn't RIGHT - F I X
 
 Think about having RX move to keep passband centered for Rebel
 
@@ -441,6 +440,7 @@ type
     function isV1Call(const s : String) : Boolean;
     function lateTXOffset : Integer;
     function isSlashedCall(const s : String) : Boolean;
+    function genSigRep(var s : String) : Boolean;
 
   private
     { private declarations }
@@ -2691,7 +2691,9 @@ Var
 Begin
      k := 0;
      for i := 0 to 49 do if not d65.gld65decodes[i].dtProcessed Then inc(k);
-     if (d65.dmRunTime > 2500.0) or (d65.dmKVWasted > 10) Then memo1.Lines.Insert(1,PadRight(IntToStr(d65.dmSynPoints),4) + '  ' + PadRight(IntToStr(d65.dmMerged),6) + '  ' + PadRight(IntToStr(d65.dmKVHangs),5) + '  ' + PadRight(FormatFloat('##.#',d65.dmruntime/1000.0),4) + '  ' + FormatFloat('##.#',d65.dmKVWasted/1000.0));
+     if thisUTC.Hour < 10 Then afoo := '0'+IntToStr(thisUTC.Hour) else afoo := intToStr(thisUTC.Hour);
+     if thisUTC.Minute < 10 then afoo := afoo + ':0' + intToStr(thisUTC.Minute) else afoo := afoo + ':' + intToStr(thisUTC.Minute);
+     if (d65.dmRunTime > 2500.0) or (d65.dmKVWasted > 10) Then memo1.Lines.Insert(1,afoo + '  ' + PadRight(IntToStr(d65.dmSynPoints),4) + '  ' + PadRight(IntToStr(d65.dmMerged),6) + '  ' + PadRight(IntToStr(d65.dmKVHangs),5) + '  ' + PadRight(FormatFloat('##.#',d65.dmruntime/1000.0),4) + '  ' + FormatFloat('#.###',d65.dmKVWasted/1000.0));
      d65.dmAveSQ := 0.0;
      d65.dmBaseVB := 0.0;
      d65.dmSynPoints := 0;
@@ -4701,6 +4703,35 @@ begin
      end;
 end;
 
+function TForm1.genSigRep(var s : String) : Boolean;
+Var
+   i : Integer;
+Begin
+     result := False;
+     if tryStrToInt(s,i) Then
+     Begin
+          // It has to be < 0
+          if i < 0 then
+          Begin
+               if i > -10 Then
+               begin
+                    // Double check it has leading 0
+                    s := '-0' + IntToStr(abs(i));
+               end;
+          end
+          else
+          begin
+               s := '-01';
+          end;
+          Result := True;
+     end
+     else
+     begin
+          Result := False;
+          s := '';
+     end;
+end;
+
 procedure TForm1.mgenClick(Sender: TObject);
 Var
    foo : String;
@@ -4709,182 +4740,247 @@ begin
      lastTXMsg := '';
      sameTXCount := 0;
      thisTXmsg := '';
+     foo := edTXReport.Text;
 
-     if Sender = bCQ Then
+     if not isV1Call(myscall) Then
      Begin
-          if (edPrefix.Text = '') And (edSuffix.Text = '') Then thisTXmsg := 'CQ ' + thisTXCall + ' ' + thisTXgrid else thisTXmsg := 'CQ ' + thisTXCall;
-          edTXMsg.Text := thisTXmsg;
-          // Not sure this is best idea... but when calling CQ one should not move.
-          cbTXeqRXDF.Checked := False;
-          edRXDF.Text := edTXDF.Text;
-     end;
-
-     if Sender = bQRZ Then
+          ShowMessage('Setup your Call to a valid setting.');
+          thisTXMsg := '';
+          edTXMsg.Text :='';
+     end
+     else if not isGrid(getLocalGrid) Then
      Begin
-          if (edPrefix.Text = '') And (edSuffix.Text = '') Then thisTXmsg := 'QRZ ' + thisTXCall + ' ' + thisTXgrid else thisTXmsg := 'QRZ ' + thisTXCall;
-          edTXMsg.Text := thisTXmsg;
-     end;
-
-     if Sender = bACQ Then
-     Begin
-          if ansiContainsText(edTXtoCall.Text,'/') Then
-          Begin
-               // Working with V1 slashed
-               // Executive decision here.  A locally slashed call can't send its slashed call to another slashed call
-               // Sooooo... we drop the local
-               { TODO : Warn and make this a choice }
-               thisTXmsg := TrimLeft(TrimRight(UpCase(edTXtoCall.Text))) + ' ' + TrimLeft(TrimRight(UpCase(edCall.Text)));
-               edTXMsg.Text := thisTXmsg;
-          end
-          else
-          begin
-               if (edPrefix.Text = '') And (edSuffix.Text = '') Then
-               Begin
-                    foo := getLocalGrid;
-                    if length(foo)>4 then foo := foo[1..4];
-                    thisTXmsg := TrimLeft(TrimRight(UpCase(edTXtoCall.Text))) + ' ' + TrimLeft(TrimRight(UpCase(edCall.Text))) + ' ' + TrimLeft(TrimRight(UpCase(foo)));
-                    edTXMsg.Text := thisTXmsg;
-               end
-               else
-               begin
-                    thisTXmsg := TrimLeft(TrimRight(UpCase(edTXtoCall.Text))) + ' ' + TrimLeft(TrimRight(UpCase(myscall)));
-                    edTXMsg.Text := thisTXmsg;
-               end;
-          end;
-     end;
-
-     if Sender = bReport Then
-     Begin
-          // Need to double check that report field contains valid data - that is a -## and it matters that -1 is not same as -01 :)
-          if tryStrToInt(edTXReport.Text,i) Then
-          Begin
-               // It has to be < 0
-               if i < 0 then
-               Begin
-                    if i > -10 Then
-                    begin
-                         // Double check it has leading 0
-                         edTXReport.Text := '-0' + IntToStr(abs(i));
-                    end;
-               end
-               else
-               begin
-                    edTXReport.Text := '-01';
-               end;
-          end;
-          // For this one if the remote call is slashed then it's easy mode as I'm not sending the local call to begin with
-          // so none of the worry introduced in answering a CQ method for slashed.
-          if ansiContainsText(edTXtoCall.Text,'/') Then
-          Begin
-               thisTXmsg := TrimLeft(TrimRight(UpCase(edTXtoCall.Text))) + ' ' + TrimLeft(TrimRight(UpCase(edTXReport.Text)));
-               edTXMsg.Text := thisTXmsg;
-          end
-          else
-          begin
-               if (edPrefix.Text = '') And (edSuffix.Text = '') Then
-               Begin
-                    thisTXmsg := TrimLeft(TrimRight(UpCase(edTXtoCall.Text))) + ' ' + TrimLeft(TrimRight(UpCase(edCall.Text))) + ' ' + TrimLeft(TrimRight(UpCase(edTXReport.Text)));
-                    edTXMsg.Text := thisTXmsg;
-               end
-               else
-               begin
-                    thisTXmsg := TrimLeft(TrimRight(UpCase(edTXtoCall.Text))) + ' ' + TrimLeft(TrimRight(UpCase(edTXReport.Text)));
-                    edTXMsg.Text := thisTXmsg;
-               end;
-          end;
-     end;
-
-     if Sender = bRReport Then
-     Begin
-          // Need to double check that report field contains valid data - that is a -## and it matters that -1 is not same as -01 :)
-          if tryStrToInt(edTXReport.Text,i) Then
-          Begin
-               // It has to be < 0
-               if i < 0 then
-               Begin
-                    if i > -10 Then
-                    begin
-                         // Double check it has leading 0
-                         edTXReport.Text := '-0' + IntToStr(abs(i));
-                    end;
-               end
-               else
-               begin
-                    edTXReport.Text := '-01';
-               end;
-          end;
-          if ansiContainsText(edTXtoCall.Text,'/') Then
-          Begin
-               thisTXmsg := TrimLeft(TrimRight(UpCase(edTXtoCall.Text))) + ' R' + TrimLeft(TrimRight(UpCase(edTXReport.Text)));
-               edTXMsg.Text := thisTXmsg;
-          end
-          else
-          begin
-               if (edPrefix.Text = '') And (edSuffix.Text = '') Then
-               Begin
-                    thisTXmsg := TrimLeft(TrimRight(UpCase(edTXtoCall.Text))) + ' ' + TrimLeft(TrimRight(UpCase(edCall.Text))) + ' R' + TrimLeft(TrimRight(UpCase(edTXReport.Text)));
-                    edTXMsg.Text := thisTXmsg;
-               end
-               else
-               begin
-                    thisTXmsg := TrimLeft(TrimRight(UpCase(edTXtoCall.Text))) + ' R' + TrimLeft(TrimRight(UpCase(edTXReport.Text)));
-                    edTXMsg.Text := thisTXmsg;
-               end;
-          end;
-     end;
-
-     if Sender = bRRR Then
-     Begin
-          if ansiContainsText(edTXtoCall.Text,'/') Then
-          Begin
-               thisTXmsg := TrimLeft(TrimRight(UpCase(edTXtoCall.Text))) + ' RRR';
-               edTXMsg.Text := thisTXmsg;
-          end
-          else
-          begin
-               if (edPrefix.Text = '') And (edSuffix.Text = '') Then
-               Begin
-                    thisTXmsg := TrimLeft(TrimRight(UpCase(edTXtoCall.Text))) + ' ' + TrimLeft(TrimRight(UpCase(edCall.Text))) + ' RRR';
-                    edTXMsg.Text := thisTXmsg;
-               end
-               else
-               begin
-                    thisTXmsg := TrimLeft(TrimRight(UpCase(edTXtoCall.Text))) + ' RRR';
-                    edTXMsg.Text := thisTXmsg;
-               end;
-          end;
-     end;
-
-     if Sender = b73 Then
-     Begin
-          if ansiContainsText(edTXtoCall.Text,'/') Then
-          Begin
-               thisTXmsg := TrimLeft(TrimRight(UpCase(edTXtoCall.Text))) + ' 73';
-               edTXMsg.Text := thisTXmsg;
-          end
-          else
-          begin
-               if (edPrefix.Text = '') And (edSuffix.Text = '') Then
-               Begin
-                    thisTXmsg := TrimLeft(TrimRight(UpCase(edTXtoCall.Text))) + ' ' + TrimLeft(TrimRight(UpCase(edCall.Text))) + ' 73';
-                    edTXMsg.Text := thisTXmsg;
-               end
-               else
-               begin
-                    thisTXmsg := TrimLeft(TrimRight(UpCase(edTXtoCall.Text))) + ' 73';
-                    edTXMsg.Text := thisTXmsg;
-               end;
-          end;
-          if rbCWID73.Checked Then doCWID := True else doCWID := False;
-     end;
-     if length(thisTXmsg)>1 Then
-     Begin
-          if isFText(thisTXmsg) or isSText(thisTXmsg) Then genTX(thisTXmsg, StrToInt(edTXDF.Text)+clRebel.txOffset) else thisTXmsg := '';
-          edTXMsg.Text := thisTXmsg; // this double checks for valid message.
+          ShowMessage('Setup your Grid to a valid setting.');
+          thisTXMsg := '';
+          edTXMsg.Text :='';
      end
      else
      begin
-          Memo2.Append('Error.. odd... no message from a button?  Please tell W6CQZ');
+          if Sender = bCQ Then
+          Begin
+               if isSlashedCall(myscall) Then thisTXmsg := 'CQ ' + thisTXCall else thisTXmsg := 'CQ ' + thisTXCall + ' ' + getLocalGrid;
+               edTXMsg.Text := thisTXmsg;
+               // Not sure this is best idea... but when calling CQ one should not move.
+               cbTXeqRXDF.Checked := False;
+               edRXDF.Text := edTXDF.Text;
+          end;
+
+          if Sender = bQRZ Then
+          Begin
+               if isSlashedCall(myscall) Then thisTXmsg := 'QRZ ' + thisTXCall else thisTXmsg := 'QRZ ' + thisTXCall + ' ' + getLocalGrid;
+               edTXMsg.Text := thisTXmsg;
+               // Not sure this is best idea... but when calling CQ/QRZ one should not move.
+               cbTXeqRXDF.Checked := False;
+               edRXDF.Text := edTXDF.Text;
+          end;
+
+          if Sender = bACQ Then
+          Begin
+               if isSlashedCall(edTXtoCall.Text) or isSlashedCall(myscall) Then
+               Begin
+                    // Working with V1 slashed
+                    // A locally slashed call can't send its slashed call to another slashed call
+                    if isSlashedCall(edTXtoCall.Text) And isSlashedCall(myscall) Then
+                    Begin
+                         ListBox1.Items.Insert(0,'Notice: both calls to have /');
+                         ListBox1.Items.Insert(0,'Notice: JT65V1 does not allow');
+                         thisTXMsg := '';
+                         edTXMSg.Text := '';
+                    end
+                    else
+                    begin
+                         if isV1Call(edTXToCall.Text) Then
+                         Begin
+                              thisTXmsg := TrimLeft(TrimRight(UpCase(edTXtoCall.Text))) + ' ' + TrimLeft(TrimRight(UpCase(myscall)));
+                              edTXMsg.Text := thisTXmsg;
+                         end
+                         else
+                         begin
+                              ListBox1.Items.Insert(0,'Notice: TX to Call does not compute');
+                              thisTXmsg := '';
+                              edTXMsg.Text := '';
+                         end;
+                    end;
+               end
+               else
+               begin
+                    // No slashes here
+                    if isV1Call(edTXToCall.Text) Then
+                    begin
+                         thisTXmsg := TrimLeft(TrimRight(UpCase(edTXtoCall.Text))) + ' ' + TrimLeft(TrimRight(UpCase(myscall))) + ' ' + getLocalGrid;
+                         edTXMsg.Text := thisTXmsg;
+                    end
+                    else
+                    begin
+                         thisTXmsg := '';
+                         edTXMsg.Text := '';
+                         ListBox1.Items.Insert(0,'Notice: TX to Call does not compute');
+                    end;
+               end;
+          end;
+
+          if Sender = bReport Then
+          Begin
+               // For this one if the remote call is slashed then it's easy mode as I'm not sending the local call to begin with
+               // so none of the worry introduced in answering a CQ method for slashed.
+               foo := edTXReport.Text;
+               if not genSigRep(foo) Then
+               begin
+                    thisTXmsg := '';
+                    edTXMsg.Text := '';
+                    ListBox1.Items.Insert(0,'Notice: Signal report does not compute');
+               end
+               else
+               begin
+                    edTXReport.Text := foo;  // This set signal report to properly formatted value
+                    if isSlashedCall(edTXtoCall.Text) or isSlashedCall(myscall) Then
+                    Begin
+                         if isV1Call(edTXToCall.Text) Then
+                         begin
+                              thisTXmsg := TrimLeft(TrimRight(UpCase(edTXtoCall.Text))) + ' ' + TrimLeft(TrimRight(UpCase(edTXReport.Text)));
+                              edTXMsg.Text := thisTXmsg;
+                         end
+                         else
+                         begin
+                              thisTXmsg := '';
+                              edTXMsg.Text := '';
+                              ListBox1.Items.Insert(0,'Notice: TX to Call does not compute');
+                         end;
+                    end
+                    else
+                    begin
+                         // No slashes here
+                         if isV1Call(edTXToCall.Text) Then
+                         begin
+                              thisTXmsg := TrimLeft(TrimRight(UpCase(edTXtoCall.Text))) + ' ' + TrimLeft(TrimRight(UpCase(myscall))) + ' ' + TrimLeft(TrimRight(UpCase(edTXReport.Text)));
+                              edTXMsg.Text := thisTXmsg;
+                         end
+                         else
+                         begin
+                              thisTXmsg := '';
+                              edTXMsg.Text := '';
+                              ListBox1.Items.Insert(0,'Notice: TX to Call does not compute');
+                         end;
+                    end;
+               end;
+          end;
+
+          if Sender = bRReport Then
+          Begin
+               foo := edTXReport.Text;
+               if not genSigRep(foo) Then
+               begin
+                    thisTXmsg := '';
+                    edTXMsg.Text := '';
+                    ListBox1.Items.Insert(0,'Notice: Signal report does not compute');
+               end
+               else
+               begin
+                    edTXReport.Text := foo;  // This set signal report to properly formatted value
+                    if isSlashedCall(edTXtoCall.Text) or isSlashedCall(myscall) Then
+                    Begin
+                         if isV1Call(edTXToCall.Text) Then
+                         begin
+                              thisTXmsg := TrimLeft(TrimRight(UpCase(edTXtoCall.Text))) + ' R' + TrimLeft(TrimRight(UpCase(edTXReport.Text)));
+                              edTXMsg.Text := thisTXmsg;
+                         end
+                         else
+                         begin
+                              thisTXmsg := '';
+                              edTXMsg.Text := '';
+                              ListBox1.Items.Insert(0,'Notice: TX to Call does not compute');
+                         end;
+                    end
+                    else
+                    begin
+                         // No slash here
+                         if isV1Call(edTXToCall.Text) Then
+                         begin
+                              thisTXmsg := TrimLeft(TrimRight(UpCase(edTXtoCall.Text))) + ' ' + TrimLeft(TrimRight(UpCase(myscall))) + ' R' + TrimLeft(TrimRight(UpCase(edTXReport.Text)));
+                              edTXMsg.Text := thisTXmsg;
+                         end
+                         else
+                         begin
+                              thisTXmsg := '';
+                              edTXMsg.Text := '';
+                              ListBox1.Items.Insert(0,'Notice: TX to Call does not compute');
+                         end;
+                    end;
+               end;
+          end;
+
+          if Sender = bRRR Then
+          Begin
+               if isSlashedCall(edTXtoCall.Text) or isSlashedCall(myscall) Then
+               Begin
+                    if isV1Call(edTXToCall.Text) Then
+                    begin
+                         thisTXmsg := TrimLeft(TrimRight(UpCase(edTXtoCall.Text))) + ' RRR';
+                         edTXMsg.Text := thisTXmsg;
+                    end
+                    else
+                    begin
+                         thisTXmsg := '';
+                         edTXMsg.Text := '';
+                         ListBox1.Items.Insert(0,'Notice: TX to Call does not compute');
+                    end;
+               end
+               else
+               begin
+                    // No slash here
+                    if isV1Call(edTXToCall.Text) Then
+                    begin
+                         thisTXmsg := TrimLeft(TrimRight(UpCase(edTXtoCall.Text))) + ' ' + TrimLeft(TrimRight(UpCase(edCall.Text))) + ' RRR';
+                         edTXMsg.Text := thisTXmsg;
+                    end
+                    else
+                    begin
+                         thisTXmsg := '';
+                         edTXMsg.Text := '';
+                         ListBox1.Items.Insert(0,'Notice: TX to Call does not compute');
+                    end;
+               end;
+          end;
+
+          if Sender = b73 Then
+          Begin
+               if isSlashedCall(edTXtoCall.Text) or isSlashedCall(myscall) Then
+               Begin
+                    // Trying something cute here
+                    if Length('DE ' + TrimLeft(TrimRight(UpCase(myscall))) + ' 73') < 14 Then
+                    Begin
+                         thisTXmsg := 'DE ' + TrimLeft(TrimRight(UpCase(myscall))) + ' 73';  // This is a *CHANGE* from former way where it was HISCALL 73
+                    end
+                    else
+                    begin
+                         thisTXmsg := TrimLeft(TrimRight(UpCase(myscall))) + ' 73';  // This is a *CHANGE* from former way where it was HISCALL 73
+                    end;
+                    edTXMsg.Text := thisTXmsg;
+               end
+               else
+               begin
+                    // No slash here
+                    if isV1Call(edTXToCall.Text) Then
+                    begin
+                         thisTXmsg := TrimLeft(TrimRight(UpCase(edTXtoCall.Text))) + ' ' + TrimLeft(TrimRight(UpCase(myscall))) + ' 73';
+                         edTXMsg.Text := thisTXmsg;
+                    end
+                    else
+                    begin
+                         thisTXmsg := '';
+                         edTXMsg.Text := '';
+                         ListBox1.Items.Insert(0,'Notice: TX to Call does not compute');
+                    end;
+               end;
+               if rbCWID73.Checked Then doCWID := True else doCWID := False;
+          end;
+          // Final QC check
+          if length(thisTXmsg)>1 Then
+          Begin
+               if isFText(thisTXmsg) or isSText(thisTXmsg) Then genTX(thisTXmsg, StrToInt(edTXDF.Text)+clRebel.txOffset) else thisTXmsg := '';
+               edTXMsg.Text := thisTXmsg; // this double checks for valid message.
+               if thisTXMsg = '' Then ShowMessage('Error.. odd... no message from a button?  Please tell W6CQZ');
+          end;
      end;
 end;
 
@@ -5131,7 +5227,7 @@ end;
 procedure TForm1.Memo1DblClick(Sender: TObject);
 begin
      Memo1.Clear;
-     Memo1.Lines.Add('Sync  Mashed  Hangs  Time  Waste');
+     Memo1.Lines.Add('UTC    Sync  Mashed  Hangs  Time  Waste');
 end;
 
 procedure TForm1.Memo2DblClick(Sender: TObject);
