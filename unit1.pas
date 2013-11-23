@@ -2075,7 +2075,7 @@ Begin
                     if ((ff > 699999.5) and (ff < 7300000.5)) Or ((ff > 13999999.5) and (ff<14350000.5)) Then
                     Begin
                          clRebel.cwidqrg := rebelTuning(ff);
-                         Memo3.Append('Did CW ID of ' + myscall + ' at ' + FormatFloat('########.#',ff) + ' Hz');
+                         Memo3.Append('Would CW ID ' + myscall + ' at ' + FormatFloat('########.#',ff) + ' Hz');
                          // Tell rebel to pound brass
                          //clRebel.docwid;
                     end
