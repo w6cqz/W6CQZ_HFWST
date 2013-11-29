@@ -189,6 +189,7 @@ function TRebel.doCWID : Boolean;
 Var
    foo : String;
 Begin
+     // WARNING - this command blocks return until CWID is completed.
      prBusy := True;
      // Command 24,string_cwID,integer_TX-TUNING-WORD
      prCommand := '24,' + prCWID + ',' + IntToStr(prCWIDQRG) + ';';  // TX CW Message (prCWID) at QRG prCWIDQRG (as DDS tuning word value)
@@ -198,6 +199,7 @@ Begin
           foo := prResponse;
           if prResponse='1,' + prCWID + ',' + IntToStr(prCWIDQRG) + ';' Then
           Begin
+               prTXState := False;
                result := True;
           end
           else

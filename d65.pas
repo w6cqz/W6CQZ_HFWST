@@ -24,10 +24,11 @@ unit d65;
 interface
 
 uses
-  Classes, SysUtils, CTypes, math, Process, Types, StrUtils, FileUtil, DateUtils;
+  Classes, SysUtils, CTypes, math, Process, Types, StrUtils, FileUtil, DateUtils,
+  jt65demod;
 
 Const
-  JT_DLL = 'jt65v32.dll';
+  JT_DLL = 'jt65v34.dll';
   WordDelimiter = [' '];
   CsvDelim = [','];
 
@@ -62,7 +63,7 @@ Var
    glmyline, glwisfile, glkvs    : PChar;
    glmcall, glmline, glkvfname   : PChar;
    gld65timestamp                : String;
-   gldecOut, glrawOut, glsort1   : TStringList;
+   gldecOut, glsort1             : TStringList;
    glnd65firstrun, glinprog      : Boolean;
    gld65HaveDecodes              : Boolean;
    gldecoderPass                 : CTypes.cint;
@@ -117,6 +118,18 @@ procedure  msync(dat,
                  wisfile : Pointer
                 ); cdecl; external JT_DLL name 'msync65_';
 
+procedure  msync2(dat,
+                 jz,
+                 syncount,
+                 dtxa,
+                 dfxa,
+                 snrxa,
+                 snrsynca,
+                 flipa,
+                 ical,
+                 wisfile : Pointer
+                ); cdecl; external JT_DLL name 'msync65v2_';
+
 procedure  shdec(dat,
                  jz,
                  MouseDF,
@@ -148,6 +161,17 @@ procedure cqz65(dat,
                 wisfile,
                 kvfile : Pointer
                ); cdecl; external JT_DLL name 'cqz65_';
+
+procedure cqz65v2(dat,
+                  npts,
+                  dtx,
+                  dfx,
+                  flip,
+                  ical,
+                  wisfile,
+                  kvfile,
+                  mline : Pointer
+               ); cdecl; external JT_DLL name 'cqz65v2_';
 
 procedure  lpf1(dat,
                 jz,
@@ -189,7 +213,7 @@ Var
    kvProc                  : TProcess;
    kvDat                   : Array[0..11] of CTypes.cint;
    kvFile                  : File Of CTypes.cint;
-   kvfullname, foo         : String;
+   kvfullname              : String;
    kvwaste1,kvwaste2       : TDateTime;
 Begin
      // Looking for a KV decode
@@ -283,53 +307,42 @@ Begin
      except
         // No action required
      end;
-     kvWaste1      := Now;
      j := 0;
-     if FileExists(dmtmpdir+'KVASD.DAT') Then
+     if FileExists(kvfullname) Then
      Begin
+          kvWaste1      := Now;
           repeat
                 try
-                   FileUtil.DeleteFileUTF8(dmtmpdir+'KVASD.DAT');
+                   FileUtil.DeleteFileUTF8(kvfullname);
                 except
                    // No action required
                 end;
                 inc(j);
-          until (j>9) or not FileExists(dmtmpdir+'KVASD.DAT');
+          until (j>9) or not FileExists(kvfullname);
+          kvWaste2      := Now;
+          dmKVWasted := dmKVWasted + MilliSecondSpan(kvWaste1,kvWaste2);
      end;
-     kvWaste2      := Now;
-     dmKVWasted := dmKVWasted + MilliSecondSpan(kvWaste1,kvWaste2);
      if j>0 then dmKVHangs := dmKVHangs+j;
 end;
 
 procedure doDecode(bStart, bEnd : Integer);
 
 Var
-   i, k, n, iderrsh, idriftsh    : CTypes.cint;
-   jz, nave, idfsh, nwsh         : CTypes.cint;
-   ifoo, ndec                    : CTypes.cint;
-   foo, kdec                     : String;
-   nspecial                      : CTypes.cint;
-   allEqual, haveDupe            : Boolean;
-   sum, ave, avg, threshold      : CTypes.cfloat;
-   xmag, avesq, basevb, sq       : CTypes.cfloat;
-   ffoo, snrsh, dfsh             : CTypes.cfloat;
-   lical, idf                    : CTypes.cint;
-   bw, afc                       : CTypes.cint;
-   lmousedf, mousedf2, jz2, j    : CTypes.cint;
-   decArray                      : Array[0..99] Of String;
-   wcount, strongest, nstest     : CTypes.cint;
-   dupeFoo                       : String;
-   decode                        : decodeRec;
-   syncount                      : CTypes.cint;
-   dfxa                          : Array[0..254] Of CTypes.cfloat;
-   snrsynca                      : Array[0..254] Of CTypes.cfloat;
-   snrxa                         : Array[0..254] Of CTypes.cfloat;
-   dtxa                          : Array[0..254] Of CTypes.cfloat;
-   bins                          : Array[0..100] Of CTypes.cint;
-   passcount, passtest, binspace : CTypes.cint;
-   dmenter,dmexit                : TDateTime;
-   kvwaste1,kvwaste2             : TDateTime;
-
+   i,k,n,jz,nave,ifoo,ndec,lical    : CTypes.cint;
+   idf,bw,afc,lmousedf,mousedf2     : CTypes.cint;
+   jz2,j,wcount,strongest,syncount  : CTypes.cint;
+   passcount,passtest,binspace      : CTypes.cint;
+   allEqual,haveDupe                : Boolean;
+   sum,ave,avg,threshold,xmag,sq    : CTypes.cfloat;
+   avesq,basevb,ffoo                : CTypes.cfloat;
+   dfx,dtx,flip,snrx,snrsync        : CTypes.cfloat;
+   dfxa,snrsynca,snrxa,dtxa,flipa   : Array[0..254] Of CTypes.cfloat;
+   picks                            : Array[0..254] of CTypes.cint;
+   bins                             : Array[0..100] Of CTypes.cint;
+   decArray                         : Array[0..99] Of String;
+   foo,kdec,dupeFoo                 : String;
+   decode                           : decodeRec;
+   dmenter,dmexit,kvwaste1,kvwaste2 : TDateTime;
 begin
      dmenter      := Now;
      glinprog := True;
@@ -376,13 +389,13 @@ begin
          StrPCopy(glkvfname,PadRight(dmtmpdir+'KVASD.DAT',255));
 
          gldecOut := TStringList.Create;
-         glrawOut := TStringList.Create;
+         //glrawOut := TStringList.Create;
          gldecOut.CaseSensitive := False;
          gldecOut.Sorted := True;
          gldecOut.Duplicates := Types.dupIgnore;
-         glrawOut.CaseSensitive := False;
-         glrawOut.Sorted := False;
-         glrawOut.Duplicates := Types.dupIgnore;
+         //glrawOut.CaseSensitive := False;
+         //glrawOut.Sorted := False;
+         //glrawOut.Duplicates := Types.dupIgnore;
          glsort1 := TStringList.Create;
          glsort1.CaseSensitive := False;
          glsort1.Sorted := False;
@@ -464,7 +477,7 @@ begin
     ave := 0.0;
     for i := bStart to bEnd do
     Begin
-         glf3Buffer[i] := 0.01 * glinBuffer[i]; { TODO : Maybe a bad idea and need to revert to * 0.1 }
+         glf3Buffer[i] := 0.01 * glinBuffer[i]; { TODO : Maybe a bad idea and need to revert to * 0.1 [Actually it seems to be a good thing :)] }
          sum := sum + glf3Buffer[i];
     End;
     ave := sum/bEnd;
@@ -539,7 +552,20 @@ begin
               dfxa[i]     := 0.0;
               snrxa[i]    := 0.0;
               snrsynca[i] := 0.0;
+              flipa[i]    := 0.0;
+              picks[i]    := -1;
          end;
+
+         // Going to start testing ported (or semi-ported demod routines here)
+         dtx := 0.0;
+         dfx := 0.0;
+         snrx := 0.0;
+         snrsync := 0.0;
+         flip := 0.0;
+
+         jt65demod.jl_sync65(glf3Buffer,jz2,0.0,2500.0,dtx,dfx,snrx,snrsync,flip);
+
+
          // Clear the bins
          for i := 0 to 100 do
          begin
@@ -547,8 +573,123 @@ begin
          end;
          syncount := 0;
          msync(@glf3Buffer[0],@jz2,@syncount,@dtxa[0],@dfxa[0],@snrxa[0],@snrsynca[0],@lical,glwisfile);
+         //msync2(@glf3Buffer[0],@jz2,@syncount,@dtxa[0],@dfxa[0],@snrxa[0],@snrsynca[0],@flipa[0],@lical,glwisfile);
+         // Time to start USING the data I'm getting from msync.
+         // 1 - If snrx < -29.5 kill it.
+         // 2 - if dtx > 7 or < -7 kill it.
+         // snrsync not needed
+         // 3 - if dfx < -1100 or > 1100 kill it.
+         // Just set dfx to -9999 then populate bins will ignore it.
+         k := 0;
+         for i := 0 to 254 do
+         begin
+              if snrxa[i] < -29.5 Then
+              Begin
+                   dfxa[i] := -9999.0;
+              end
+              else if dtxa[i] < -7.0 Then
+              Begin
+                   dfxa[i] := -9999.0;
+              end
+              else if dtxa[i] > 7.0 Then
+              Begin
+                   dfxa[i] := -9999.0;
+              end
+              else if dfxa[i] < -1100.0 Then
+              Begin
+                   dfxa[i] := -9999.0;
+              end
+              else if dfxa[i] > 1100.0 Then
+              Begin
+                   dfxa[i] := -9999.0;
+              end
+              else if round(snrsynca[i]-3.0) < 1 Then
+              Begin
+                   ffoo := snrsynca[i];
+                   dfxa[i] := -9999.0;
+              end;
+         end;
+
+         // Ok - now the "complex of arrays" above contains all the possible decode
+         // attempt markers if, and only if, dfxa[x] > -9999.0
+         // So now I kind of need to.... scrunch those down to a set of reasonable values
+         // where I don't end up doing even more work than I have to.
+         //
+         // Currently I'm doing this on a manual bin spacing of 20, 50, 100 or 200 Hz width
+         // condensing the sync points into one decode attempt at a given bin's center F point.
+         // Lets see if I can come at this another way achieving basically the same result.
+         //
+         // Keeping to a 20 Hz resolution.  Look at dfxa[x] and snrxa[x] leaving the ONE signal
+         // in a 20Hz window that is best candidate.
+
+         // Now - in theory I have points to look at where dfxa[i] > -9999
+         // so I'd call cqz65v2 for each
+
+         //for i := 0 to 254 do
+         //begin
+         //     if dfxa[i] > -9999.0 then
+         //     Begin
+         //          // Do a decode attempt here
+         //          // Copy lpfM to f3Buffer
+         //          for j := 0 to jz2 do
+         //          Begin
+         //               glf3Buffer[j] := gllpfM[j];
+         //          end;
+         //          dfx  := dfxa[i];
+         //          dtx  := dtxa[i];
+         //          flip := flipa[i];
+         //          // Call decoder
+         //          glmline := '';
+         //          cqz65v2(@glf3Buffer[glSampOffset],@jz2,@dtx,@dfx,@flip,@lical,glwisfile,glkvfname,glmline);
+         //          foo := '';
+         //          foo := StrPas(glmline);
+         //          if foo <> '' Then
+         //          Begin
+         //               foo := foo;
+         //          end;
+         //     end;
+         //end;
+         //
+         //k := 0;
+         //for i := 0 to 254 do
+         //begin
+         //     if dfxa[i] > -1100.0 Then inc(k);
+         //end;
+         //
+         //if k < 1 Then
+         //Begin
+         //     syncount := 0;
+         //end
+         //else
+         //begin
+         //     syncount := k;
+         //end;
+         //
+         //// WSJT bases its valid to attempt decode upon;
+         ////
+         //// MinSigDB=1
+         //// nsnrlim=-32
+         ////
+         //// nsync=nint(snrsync-3.0)
+         //// nsnr=nint(snrx)
+         ////
+         //// So for me to get "nsync" I need to do;
+         //// nsync := round(snrsynca[i]-3.0);
+         //// nsnr := round(snrxa[i]);
+         ////
+         //// if(nsnr.lt.-30 .or. nsync.lt.0) nsync=0
+         ////
+         //// if snrxa[i] < -29 Then nsync := 0;
+         ////
+         //// if(nsync.lt.MinSigdB .or. nsnr.lt.nsnrlim) go to 200 (This is a goto bail out, no decode)
+         ////
+         //// if (nsync < 1) or (nsnr < -32) Then kill this sync point
+
+
+
          // Syncount is number of potential sync points.
          dmSynPoints := syncount;
+
          if syncount > 0 Then
          Begin
               //diagout.Form3.ListBox1.Items.Add('MSync found ' + IntToStr(syncount) + ' probable sync points');
@@ -556,7 +697,16 @@ begin
               if glsteps = 1 Then
               Begin
                    binspace := glbinspace;  // Multiple decode resolution
-                   if glnz and (syncount > 29) and (binspace = 20) Then binspace := 50; { TODO : Probably best not to leave this around }
+                   { TODO : Probably best not to leave this around }
+                   if glnz and (syncount > 49) and (binspace = 20) Then
+                   Begin
+                        binspace := 100;
+                   end
+                   else if glnz and (syncount > 29) and (binspace = 20) Then
+                   Begin
+                        binspace := 50;
+                   end;
+
                    // Now... take the syncount list and place a 'tick' in each
                    // 'bin' where a sync detect has been found.
                    // 2000 Hz / 20 Hz = 100 bins. (101 actually)
@@ -1004,7 +1154,7 @@ begin
                    //if (passcount > 1) or (passcount < 1) Then diagout.Form3.ListBox3.Items.Add('PASSCOUNT WRONG.  ' + IntToStr(passcount));
               End;
               ndec := 0;
-              glrawOut.Clear;
+              //glrawOut.Clear;
               gldecOut.Clear;
               glsort1.Clear;
               // Process bins
@@ -1041,15 +1191,17 @@ begin
                              Begin
                                   glf3Buffer[j] := gllpfM[j];
                              end;
+
                              for j := jz2+1 to 661503 do
                              Begin
                                   glf3Buffer[j] := 0.0;
                              end;
-                             kvWaste1      := Now;
+
                              // Attempting to insure KVASD.DAT does not exist.
                              j := 0;
                              if FileExists(dmtmpdir+'KVASD.DAT') Then
                              Begin
+                                  kvWaste1      := Now;
                                   repeat
                                         try
                                            FileUtil.DeleteFileUTF8(dmtmpdir+'KVASD.DAT');
@@ -1058,10 +1210,13 @@ begin
                                         end;
                                         inc(j);
                                   until (j>9) or not FileExists(dmtmpdir+'KVASD.DAT');
+                                  kvWaste2      := Now;
+                                  dmKVWasted := dmKVWasted + MilliSecondSpan(kvWaste1,kvWaste2);
                              end;
                              if j>0 Then dmKVHangs := dmKVHangs+j;
                              if FileExists(dmtmpdir+'KVASD.DAT') Then
                              Begin
+                                  kvWaste1      := Now;
                                   try
                                      FileUtil.DeleteFileUTF8(dmtmpdir+'KVASD.DAT');
                                   except
@@ -1072,9 +1227,9 @@ begin
                                   except
                                      // No action required
                                   end;
+                                  kvWaste2      := Now;
+                                  dmKVWasted := dmKVWasted + MilliSecondSpan(kvWaste1,kvWaste2);
                              end;
-                             kvWaste2      := Now;
-                             dmKVWasted := dmKVWasted + MilliSecondSpan(kvWaste1,kvWaste2);
 
                              // Call decoder
                              cqz65(@glf3Buffer[glSampOffset],@jz2,@bw,@afc,@MouseDF2,@idf,glmline,@lical,glwisfile,glkvfname);
@@ -1082,7 +1237,7 @@ begin
                              foo := '';
                              foo := StrPas(glmline);
                              if i < 10 then foo := '0' + IntToStr(i) + ',' + foo else foo := IntToStr(i) + ',' + foo;
-                             glrawOut.Add(TrimLeft(TrimRight(foo)));
+                             //glrawOut.Add(TrimLeft(TrimRight(foo)));
                              if tryStrToInt(ExtractWord(3,foo,CsvDelim),ifoo) Then
                              Begin
                                   if ifoo > 0 Then
@@ -1138,9 +1293,9 @@ begin
               end;
               j := 0;
 
-              kvWaste1      := Now;
               if FileExists(dmtmpdir+'KVASD.DAT') Then
               Begin
+                   kvWaste1      := Now;
                    repeat
                          try
                             FileUtil.DeleteFileUTF8(dmtmpdir+'KVASD.DAT');
@@ -1149,10 +1304,13 @@ begin
                          end;
                          inc(j);
                    until (j>9) or not FileExists(dmtmpdir+'KVASD.DAT');
+                   kvWaste2      := Now;
+                   dmKVWasted := dmKVWasted + MilliSecondSpan(kvWaste1,kvWaste2);
               end;
               if j>0 Then dmKVHangs := dmKVHangs+j;
               if FileExists(dmtmpdir+'KVASD.DAT') Then
               Begin
+                   kvWaste1      := Now;
                    try
                       FileUtil.DeleteFileUTF8(dmtmpdir+'KVASD.DAT');
                    except
@@ -1163,19 +1321,19 @@ begin
                    except
                       // No action required
                    end;
+                   kvWaste2      := Now;
+                   dmKVWasted := dmKVWasted + MilliSecondSpan(kvWaste1,kvWaste2);
               end;
-              kvWaste2      := Now;
-              dmKVWasted := dmKVWasted + MilliSecondSpan(kvWaste1,kvWaste2);
 
-              if glrawOut.Count > 0 Then
-              Begin
+              //if glrawOut.Count > 0 Then
+              //Begin
                    //diagout.Form3.ListBox2.Clear;
-                   for i := 0 to glrawOut.Count-1 do
-                   Begin
+                   //for i := 0 to glrawOut.Count-1 do
+                   //Begin
                         //diagout.Form3.ListBox2.Items.Add(glrawOut.Strings[i]);
-                   End;
-                   glrawOut.Clear;
-              End;
+                   //End;
+                   //glrawOut.Clear;
+              //End;
          End
          else
          begin
@@ -1429,58 +1587,6 @@ begin
     begin
          //diagout.Form3.ListBox1.Items.Add('No decodes.');
     end;
-    { TODO : Fix SH decoder - it's core dumping.  Seems I had this before in JT65-HF }
-    //if (gldecOut.Count = 0) And (glSteps = 0) Then
-    //Begin
-    //     // This was a single decode pass with no decode.  Run the shorthand
-    //     // decoder just in case.  Remember.. shdec wants the float samples
-    //     // BEFORE LPF application!  This data just happens to be still sitting
-    //     // in glf1Buffer[x]
-    //     nspecial := 0;
-    //     nstest := 0;
-    //     dfsh := 0;
-    //     iderrsh := 0;
-    //     idriftsh := 0;
-    //     snrsh := 0;
-    //     nwsh := 0;
-    //     idfsh := 0;
-    //     //diagout.Form3.ListBox1.Items.Add('Attempting SH Decode.');
-    //     shdec(@glf1Buffer[0],@bEnd,@glMouseDF,@glDFTolerance,@nspecial,@nstest,@dfsh,@iderrsh,@idriftsh,@snrsh,@nwsh,@idfsh,@lical,glwisfile);
-    //     if nspecial > 0 Then
-    //     Begin
-    //          foo := '';
-    //          if nspecial = 1 Then foo := 'ATT';
-    //          if nspecial = 2 Then foo := 'RO';
-    //          if nspecial = 3 Then foo := 'RRR';
-    //          if nspecial = 4 Then foo := '73';
-    //          //diagout.Form3.ListBox1.Items.Add('nspecial = ' + IntToStr(nspecial) + ' which is:  ' + foo);
-    //          //diagout.Form3.ListBox1.Items.Add('nstest: ' + IntToStr(nstest) + ' dfsh: ' + FloatToStr(dfsh) + ' iderrsh: ' + IntToStr(iderrsh));
-    //          //diagout.Form3.ListBox1.Items.Add('idriftsh: ' + IntToStr(idriftsh) + ' snrsh: ' + FloatToStr(snrsh) + ' nwsh: ' + IntToStr(nwsh));
-    //          //diagout.Form3.ListBox1.Items.Add('idfsh: ' + IntToStr(idfsh));
-    //          for j := 0 to 49 do
-    //          begin
-    //               if gld65decodes[j].dtProcessed Then
-    //               begin
-    //                    gld65decodes[j].dtTimeStamp := gld65timestamp;
-    //                    gld65decodes[j].dtSigLevel := IntToStr(Round(snrsh));
-    //                    gld65decodes[j].dtNumSync := '0';
-    //                    gld65decodes[j].dtDeltaTime := '0.0';
-    //                    gld65decodes[j].dtDeltaFreq := IntToStr(idfsh);
-    //                    gld65decodes[j].dtSigW := ' ';
-    //                    gld65decodes[j].dtCharSync := ' ';
-    //                    gld65decodes[j].dtDecoded := foo;
-    //                    gld65decodes[j].dtProcessed := False;
-    //                    gld65decodes[j].dtType := 'S';
-    //                    break;
-    //               end;
-    //          end;
-    //          gld65HaveDecodes := True;
-    //     End
-    //     Else
-    //     Begin
-    //          //diagout.Form3.ListBox1.Items.Add('No SH message found.');
-    //     End;
-    //End;
     gld65HaveDecodes := False;
     for i := 0 to length(gld65decodes)-1 do
     begin
@@ -1491,7 +1597,7 @@ begin
          end;
     end;
     gldecOut.Clear;
-    glrawOut.Clear;
+    //glrawOut.Clear;
     glsort1.Clear;
     glinprog := False;
     glnd65FirstRun := False;

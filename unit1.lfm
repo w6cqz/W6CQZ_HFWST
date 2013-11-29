@@ -1256,7 +1256,7 @@ object Form1: TForm1
   object Label15: TLabel
     Left = 8
     Height = 38
-    Top = 216
+    Top = 176
     Width = 133
     Alignment = taCenter
     AutoSize = False
@@ -1275,7 +1275,7 @@ object Form1: TForm1
     Width = 747
   end
   object Label16: TLabel
-    Left = 536
+    Left = 525
     Height = 34
     Top = 231
     Width = 312
@@ -1288,25 +1288,10 @@ object Form1: TForm1
     ParentFont = False
     OptimalFill = True
   end
-  object Label108: TLabel
-    Left = 8
-    Height = 23
-    Top = 20
-    Width = 133
-    Alignment = taCenter
-    AutoSize = False
-    Caption = '-20'
-    Font.Height = 23
-    Font.Name = 'Arial'
-    Font.Style = [fsBold]
-    ParentColor = False
-    ParentFont = False
-    OptimalFill = True
-  end
   object comboQRGList: TComboBox
     Left = 8
     Height = 30
-    Top = 120
+    Top = 80
     Width = 133
     Font.Height = -19
     Font.Name = 'Arial'
@@ -1317,14 +1302,15 @@ object Form1: TForm1
     TabOrder = 9
   end
   object ListBox2: TListBox
+    AnchorSideTop.Control = Memo2
+    AnchorSideTop.Side = asrBottom
     AnchorSideBottom.Control = Owner
     AnchorSideBottom.Side = asrBottom
     Left = 1000
-    Height = 41
-    Top = 504
-    Width = 224
-    Anchors = [akTop, akLeft, akBottom]
-    BorderSpacing.Bottom = 5
+    Height = 350
+    Top = 240
+    Width = 240
+    BorderSpacing.Top = 5
     Font.Height = -11
     Font.Name = 'Arial'
     ItemHeight = 0
@@ -1338,7 +1324,7 @@ object Form1: TForm1
     Top = 2
     Width = 275
     Alignment = taRightJustify
-    Caption = 'HFWST by W6CQZ v0.91 - Phoenix'
+    Caption = 'HFWST by W6CQZ v0.93 - Phoenix'
     Font.Height = -17
     Font.Name = 'Arial'
     Font.Style = [fsBold]
@@ -1357,7 +1343,7 @@ object Form1: TForm1
   object Label3: TLabel
     Left = 8
     Height = 20
-    Top = 2
+    Top = 224
     Width = 133
     Alignment = taCenter
     AutoSize = False
@@ -1413,7 +1399,7 @@ object Form1: TForm1
   object Label27: TLabel
     Left = 8
     Height = 53
-    Top = 45
+    Top = 5
     Width = 133
     Alignment = taCenter
     AutoSize = False
@@ -1455,7 +1441,7 @@ object Form1: TForm1
     Left = 8
     Height = 30
     Hint = 'Enter as Hertz, KHz or MHz'
-    Top = 152
+    Top = 112
     Width = 133
     Font.Height = -19
     Font.Name = 'Arial'
@@ -1467,7 +1453,7 @@ object Form1: TForm1
   object btnsetQRG: TButton
     Left = 8
     Height = 24
-    Top = 184
+    Top = 144
     Width = 133
     Caption = 'Set QRG'
     Font.Height = -13
@@ -1480,7 +1466,7 @@ object Form1: TForm1
   object Label91: TLabel
     Left = 8
     Height = 20
-    Top = 96
+    Top = 56
     Width = 133
     Alignment = taCenter
     AutoSize = False
@@ -1718,21 +1704,24 @@ object Form1: TForm1
     ParentFont = False
   end
   object Memo1: TMemo
+    AnchorSideTop.Control = Memo2
+    AnchorSideTop.Side = asrBottom
     AnchorSideRight.Control = Owner
     AnchorSideRight.Side = asrBottom
     AnchorSideBottom.Control = Owner
     AnchorSideBottom.Side = asrBottom
-    Left = 1232
-    Height = 41
-    Top = 504
+    Left = 1245
+    Height = 350
+    Top = 240
     Width = 0
-    Anchors = [akTop, akLeft, akRight, akBottom]
+    Anchors = [akTop, akLeft, akRight]
+    BorderSpacing.Top = 5
     BorderSpacing.Right = 5
     BorderSpacing.Bottom = 5
     Font.Height = -13
     Font.Name = 'Courier New'
     Lines.Strings = (
-      'UTC    Sync  Mashed  Hangs  Time  Waste'
+      ''
     )
     OnDblClick = Memo1DblClick
     ParentFont = False
@@ -2450,12 +2439,11 @@ object Form1: TForm1
     AnchorSideTop.Control = Owner
     AnchorSideRight.Control = Owner
     AnchorSideRight.Side = asrBottom
-    AnchorSideBottom.Control = Memo3
     Left = 1000
-    Height = 271
+    Height = 230
     Top = 5
     Width = 0
-    Anchors = [akTop, akLeft, akRight, akBottom]
+    Anchors = [akTop, akLeft, akRight]
     BorderSpacing.Top = 5
     BorderSpacing.Right = 5
     BorderSpacing.Bottom = 5
@@ -2463,23 +2451,6 @@ object Form1: TForm1
     OnDblClick = Memo2DblClick
     ScrollBars = ssAutoBoth
     TabOrder = 16
-  end
-  object Memo3: TMemo
-    AnchorSideRight.Control = Owner
-    AnchorSideRight.Side = asrBottom
-    AnchorSideBottom.Control = ListBox2
-    Left = 1000
-    Height = 218
-    Top = 281
-    Width = 0
-    Anchors = [akLeft, akRight, akBottom]
-    BorderSpacing.Right = 5
-    BorderSpacing.Bottom = 5
-    Font.Height = -11
-    Font.Name = 'Arial'
-    OnDblClick = Memo3DblClick
-    ParentFont = False
-    TabOrder = 17
   end
   object ProgressBar1: TProgressBar
     Left = 903
@@ -2490,7 +2461,7 @@ object Form1: TForm1
     Orientation = pbVertical
     Smooth = True
     Step = 1
-    TabOrder = 18
+    TabOrder = 17
   end
   object Label53: TLabel
     Left = 536
@@ -2509,7 +2480,7 @@ object Form1: TForm1
     Checked = True
     OnChange = cbNZLPFChange
     State = cbChecked
-    TabOrder = 19
+    TabOrder = 18
   end
   object cbWFTX: TCheckBox
     Left = 536
@@ -2517,7 +2488,7 @@ object Form1: TForm1
     Top = 752
     Width = 100
     Caption = 'WF During TX'
-    TabOrder = 20
+    TabOrder = 19
   end
   object Image1: TImage
     Left = 928
@@ -2566,7 +2537,7 @@ object Form1: TForm1
     Top = 232
     Width = 155
     Caption = 'Extra Smooth Waterfall'
-    TabOrder = 21
+    TabOrder = 20
   end
   object Label55: TLabel
     Left = 152
@@ -2667,7 +2638,7 @@ object Form1: TForm1
     Font.Style = [fsBold]
     OnClick = bnSaveMacroClick
     ParentFont = False
-    TabOrder = 22
+    TabOrder = 21
   end
   object groupLogQSO: TGroupBox
     Left = 152
@@ -2901,6 +2872,46 @@ object Form1: TForm1
       ParentFont = False
       TabOrder = 15
       Visible = False
+    end
+  end
+  object Chart1: TChart
+    AnchorSideTop.Control = Memo1
+    AnchorSideTop.Side = asrBottom
+    AnchorSideRight.Control = Owner
+    AnchorSideRight.Side = asrBottom
+    AnchorSideBottom.Control = Owner
+    AnchorSideBottom.Side = asrBottom
+    Left = 1000
+    Height = 0
+    Top = 595
+    Width = 0
+    AxisList = <    
+      item
+        Minors = <>
+        Range.Min = -33
+        Range.UseMax = True
+        Range.UseMin = True
+        Title.LabelFont.Orientation = 900
+      end    
+      item
+        Alignment = calBottom
+        Minors = <>
+      end>
+    Foot.Brush.Color = clBtnFace
+    Foot.Font.Color = clBlue
+    Title.Brush.Color = clBtnFace
+    Title.Font.Color = clBlue
+    Title.Text.Strings = (
+      'TAChart'
+    )
+    Anchors = [akTop, akLeft, akRight, akBottom]
+    BorderSpacing.Top = 5
+    BorderSpacing.Right = 5
+    BorderSpacing.Bottom = 5
+    ParentColor = False
+    object Chart1BarSeries1: TBarSeries
+      BarBrush.Color = clRed
+      ZeroLevel = -33
     end
   end
   object Timer1: TTimer

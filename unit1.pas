@@ -1,8 +1,8 @@
 { TODO :
+Check band setting and act accordingly N O W
 
 Think about having RX move to keep passband centered for Rebel
 
-Watch for any hint of reutrn to core dump after doing library encoded TX and returning to local encoded.
 
 Less urgent
 Order fields in logging panel
@@ -23,9 +23,10 @@ interface
 
 uses
   Classes, SysUtils, FileUtil, Forms, Controls, Graphics, Dialogs, StdCtrls,
-  ExtCtrls, Math, StrUtils, CTypes, Windows, lconvencoding, ComCtrls, EditBtn,
-  DbCtrls, Types, portaudio, adc, spectrum, waterfall1, spot, BufDataset,
-  sqlite3conn, sqldb, valobject, rebel, d65, LResources, blcksock;
+  ExtCtrls, Math, StrUtils, CTypes, Windows, lconvencoding, TAGraph,
+  TASeries, ComCtrls, EditBtn, DbCtrls, Types, portaudio, adc, spectrum,
+  waterfall1, spot, jt65demod, BufDataset, sqlite3conn, sqldb, valobject, rebel,
+  d65, LResources, blcksock;
 
 Const
   JT_DLL = 'JT65v32.dll';
@@ -81,6 +82,8 @@ type
     bRReport: TButton;
     bRRR: TButton;
     bnSaveMacro: TButton;
+    Chart1: TChart;
+    Chart1BarSeries1: TBarSeries;
     logEQSL: TButton;
     logClearComments: TButton;
     doLogQSO: TButton;
@@ -117,7 +120,6 @@ type
     Label63: TLabel;
     Label64: TLabel;
     Label65: TLabel;
-    Memo3: TMemo;
     PaintBox1: TPaintBox;
     ProgressBar1: TProgressBar;
     rbRebBaud9600: TRadioButton;
@@ -184,7 +186,6 @@ type
     version: TEdit;
     comboQRGList: TComboBox;
     GroupBox16: TGroupBox;
-    Label108: TLabel;
     Label121: TLabel;
     Label122: TLabel;
     Label24: TLabel;
@@ -361,7 +362,6 @@ type
     procedure LogQSOClick(Sender: TObject);
     procedure Memo1DblClick(Sender: TObject);
     procedure Memo2DblClick(Sender: TObject);
-    procedure Memo3DblClick(Sender: TObject);
     procedure edTXMsgDblClick(Sender: TObject);
     procedure ListBox1DrawItem(Control: TWinControl; Index: Integer; ARect: TRect; State: TOwnerDrawState);
     procedure mgenClick(Sender: TObject);
@@ -515,7 +515,6 @@ var
   qsyQRG         : Integer;
   readPTT,setPTT : Boolean;
   pttState       : Boolean;
-  cfgDir         : String;
   savedTADC      : String;
   savedIADC      : Integer;
   txperiod       : Integer; // 1 = Odd 0 = Even
@@ -545,10 +544,13 @@ var
   mycall,myscall : String;  // Keeps this stations call and slashed call in order (Same if not a slashed call)
   kvdatdel       : Integer; // Tracing how many calls it takes to delete a stuck KV
   jtencode       : PChar; // To avoid heap error making this global
-  tx73,txFree    : Boolean; // Flags to determine if last message was a 73 or Free Text for CWID purposes
-  doCWID         : Boolean; // Set to fire CW ID TX
+  //tx73,txFree    : Boolean; // Flags to determine if last message was a 73 or Free Text for CWID purposes
+  //doCWID         : Boolean; // Set to fire CW ID TX
   mgendf         : String; // TX DF Message was last generated at
   qsycount       : Integer; // Used to delay message regen as a new TX DF is manually entered.
+  instance       : Integer; // Allows multiple copies (eventually) to run = 1..4
+  psAcc          : Array[0..1023] Of CTypes.cfloat;
+  psTick         : Integer = 1;
 implementation
 
 procedure rscode(Psyms : CTypes.pcint; Ptsyms : CTypes.pcint); cdecl; external JT_DLL name 'rs_encode_';
@@ -720,9 +722,9 @@ Begin
      dtrejects := 0;
      d65.glDecCount := 0;
      kvdatdel := 0;
-     tx73   := False;
-     txFree := False;
-     doCWID := False;
+     //tx73   := False;
+     //txFree := False;
+     //doCWID := False;
      mgendf := '0';
      qsycount := 0;
 
@@ -730,45 +732,98 @@ Begin
      txDirty := False;
      txValid := False;
      didTX := False;
+
      // Let adc know it is on first run so it can do its init
      adc.adcFirst := True;
+
      // Setup rebel object and the serial port support so we use this rebel or not.
      clRebel := rebel.TRebel.create;
+
      // Setup serial port list
      comboTTYPorts.Clear;
      comboTTYPorts.Items := clRebel.ports;
      comboTTYPorts.Items.Insert(0,'None');
-     // Begin overly protective :)
+
+     // Begin overly protective clearing the Rebel FSK values holder :)
      for i := 0 to 127 do qrgset[i] := '0';
-     // Setup configuration and data directories
-     d65.glnd65firstrun := True;
-     homedir := getUserDir;
-//     demodulate.dmtmpdir := homedir+'hfwst\';
-     d65.dmtmpdir := homedir+'hfwst\';
-     if not DirectoryExists(homedir+'hfwst') Then
+
+     // Check instance is 1..4
+     if (instance<1) or (instance>4) Then
      Begin
-          if not createDir(homedir+'hfwst') Then
+          showmessage('Invalid instance number (' + IntToStr(instance) + ')' + sLineBreak + 'Program must halt.');
+          halt;
+     end;
+
+     // Setup configuration and data directories
+     homedir := getUserDir;
+     if not (homeDir[length(homedir)] = pathDelim) Then homeDir := homeDir + PathDelim;
+
+     if not DirectoryExists(homedir + 'hfwst') Then
+     Begin
+          if not createDir(homedir + 'hfwst') Then
           Begin
                showmessage('Could not create data directory' + sLineBreak + 'Program must halt.');
                halt;
           end;
      end;
-     homedir := homedir+'hfwst\';
-     if not FileExists(homedir+'kvasd.exe') Then
+
+     // Breaking this down to allow more than one instance
+     if not DirectoryExists(homedir + 'hfwst' + PathDelim + 'I1') Then
      Begin
-          if not FileUtil.CopyFile('kvasd.exe',homedir+'kvasd.exe') Then showmessage('Need kvasd.exe in data directory.') else showmessage('kvasd.exe copied to its processing location');
+          if not createDir(homedir + 'hfwst' + PathDelim + 'I1') Then
+          Begin
+               showmessage('Could not create Instance 1 data directory' + sLineBreak + 'Program must halt.');
+               halt;
+          end;
      end;
-     if FileExists(homedir+'KVASD.DAT') Then
+     if not DirectoryExists(homedir + 'hfwst' + PathDelim + 'I2') Then
+     Begin
+          if not createDir(homedir + 'hfwst' + PathDelim + 'I2') Then
+          Begin
+               showmessage('Could not create Instance 2 data directory' + sLineBreak + 'Program must halt.');
+               halt;
+          end;
+     end;
+     if not DirectoryExists(homedir + 'hfwst' + PathDelim + 'I3') Then
+     Begin
+          if not createDir(homedir + 'hfwst' + PathDelim + 'I3') Then
+          Begin
+               showmessage('Could not create Instance 3 data directory' + sLineBreak + 'Program must halt.');
+               halt;
+          end;
+     end;
+     if not DirectoryExists(homedir + 'hfwst' + PathDelim + 'I4') Then
+     Begin
+          if not createDir(homedir + 'hfwst' + PathDelim + 'I4') Then
+          Begin
+               showmessage('Could not create Instance 4 data directory' + sLineBreak + 'Program must halt.');
+               halt;
+          end;
+     end;
+
+     homedir := homedir + 'hfwst' + PathDelim + 'I' + intToStr(instance) + pathDelim;
+     homedir := TrimFilename(homedir);
+
+     foo := homedir;
+
+     if not FileExists(homedir + 'kvasd.exe') Then
+     Begin
+          if not FileUtil.CopyFile('kvasd.exe',homedir + 'kvasd.exe') Then showmessage('Need kvasd.exe in data directory.') else showmessage('kvasd.exe copied to its processing location');
+     end;
+     if FileExists(homedir + 'KVASD.DAT') Then
      Begin
           // kill kill kill kill and kill it again
           try
-             FileUtil.DeleteFileUTF8(homedir+'KVASD.DAT');
+             FileUtil.DeleteFileUTF8(homedir + 'KVASD.DAT');
           except
              ShowMessage('Debug - could not remove orphaned kvasd.dat' + sLineBreak + 'Please notify W6CQZ');
           end;
      end;
+
      basedir := GetAppConfigDir(false);
      basedir := TrimFilename(basedir);
+     foo := basedir;
+
      if not DirectoryExists(basedir) Then
      Begin
           if not createDir(basedir) Then
@@ -777,22 +832,18 @@ Begin
                halt;
           end;
      end;
+
      if basedir[Length(basedir)] = PathDelim Then
      Begin
-          cfgpath := basedir + 'I1' + PathDelim;
+          cfgpath := basedir + 'I' + IntToStr(instance) + PathDelim;
      end
      else
      begin
-          cfgpath := basedir + PathDelim + cfgpath + 'I1' + PathDelim;
+          cfgpath := basedir + PathDelim + cfgpath + 'I' + IntToStr(instance) + PathDelim;
      end;
-     if not DirectoryExists(cfgpath) Then
-     Begin
-          if not createDir(cfgpath) Then
-          begin
-               ShowMessage('Could not create instance configuration directory' + sLineBreak + 'Program must halt.');
-               halt;
-          end;
-     end;
+
+     cfgpath := TrimFilename(cfgpath);
+
      // Check that path length won't be a problem.  It needs to be < 256 charcters in length with either kvasd.dat or wisdom3.dat appended
      // So actual length + 11 < 256 is OK.
      if Length(cfgpath)+11 > 255 then
@@ -800,36 +851,57 @@ Begin
           ShowMessage('Path length too long [ ' + IntToStr(Length(cfgpath)+11) + ' ]' + 'Program must halt.');
           halt;
      end;
+
+     if not DirectoryExists(cfgpath) Then
+     Begin
+          if not createDir(cfgpath) Then
+          begin
+               ShowMessage('Could not create instance configuration directory (' + IntToStr(instance) + ')' + sLineBreak + 'Program must halt.');
+               halt;
+          end;
+     end;
+
      // Create sqlite3 store, if necessary
+
+     foo := cfgpath;
+
      // Changing this as of 10.21.2013 to force an update to DB
-     if not fileExists(cfgPath + 'hfwstI0') Then setupDB(cfgPath);
+     if not fileExists(cfgPath + 'hfwstI' + IntToStr(instance)) Then
+     Begin
+          setupDB(cfgPath);
+     end;
+
      // Housekeeping items here
-     cfgdir := cfgPath;
-     d65.dmwispath := TrimFilename(cfgDir+'wisdom3.dat');
+     d65.glnd65firstrun := True;
+     d65.dmtmpdir := homedir;
+     foo := d65.dmtmpdir;
+     d65.dmwispath := TrimFilename(cfgPath+'wisdom3.dat');
+     foo := d65.dmwispath;
      SetExceptionMask([exInvalidOp, exDenormalized, exZeroDivide, exOverflow, exUnderflow, exPrecision]); // This is a big one - must be set or BAD BAD things happen.
+
      // Query db for configuration with instance id = 1 and if it exists
      // read config, if not set to defaults and prompt for config update
-     sqlite3.DatabaseName := cfgPath + 'hfwstI0';
+     sqlite3.DatabaseName := cfgPath + 'hfwstI' + IntToStr(instance);
      query.Active := False;
      query.SQL.Clear;
-     query.SQL.Add('SELECT * FROM config WHERE instance = 1;');
+     query.SQL.Add('SELECT * FROM config WHERE instance = ' + IntToStr(instance) + ';'); // This uses the 1..4 instance!
      query.Active := True;
      if query.RecordCount = 0 then
      begin
           // Instance 1 not in place - fix that.
           query.Active := False;
           query.SQL.Clear;
-          query.SQL.Add('INSERT INTO config(needcfg) VALUES(1);');
+          query.SQL.Add('INSERT INTO config(needcfg) VALUES(' + IntToStr(instance) + ');');
           query.ExecSQL;
           transaction.Commit;
      end;
      query.Active := False;
      query.SQL.Clear;
-     query.SQL.Add('SELECT needcfg FROM config WHERE instance = 1;');
+     query.SQL.Add('SELECT needcfg FROM config WHERE instance = ' + IntToStr(instance) + ';');
      query.Active := True;
      if query.RecordCount = 0 then
      begin
-          ShowMessage('Error - no instance data. This is a fatal error please notify Joe w6cqz@w6cqz.org');
+          ShowMessage('Error - no instance data (' + IntToStr(instance) + '. This is a fatal error please notify Joe w6cqz@w6cqz.org');
           halt;
      end
      else
@@ -849,7 +921,7 @@ Begin
      // Read the data from config
      query.Active := False;
      query.SQL.Clear;
-     query.SQL.Add('SELECT * FROM config WHERE instance=1;');
+     query.SQL.Add('SELECT * FROM config WHERE instance=' + IntToStr(instance) + ';');
      query.Active := True;
      edPrefix.Text := query.FieldByName('prefix').AsString;
      edCall.Text   := query.FieldByName('call').AsString;
@@ -943,7 +1015,7 @@ Begin
      // Populate Macro list
      comboMacroList.Clear;
      query.SQL.Clear;
-     query.SQL.Add('SELECT text FROM macro WHERE instance = 1;');
+     query.SQL.Add('SELECT text FROM macro WHERE instance = ' + IntToStr(instance) + ';');
      query.Active := True;
      comboMacroList.Items.Add('');
      if query.RecordCount > 0 Then
@@ -957,7 +1029,7 @@ Begin
      end;
      comboMacroList.ItemIndex := 0;
      query.Active := False;
-     { TODO : Dump this at 0.902 - just want to rid DB of the 3 shorthand strings without forcing a clean start }
+     { TODO : Dump this at V1.0 - just want to rid DB of the 3 shorthand strings without forcing a clean start }
      for i := 0 to comboMacroList.Items.Count-1 do
      begin
           if comboMacroList.Items.Strings[i] = 'RRR' Then
@@ -967,7 +1039,7 @@ Begin
                query.SQL.Clear;
                query.SQL.Text := 'DELETE FROM macro where instance=:INSTANCE And text=:TEXT;';
                // Defining the 3 shorthand types.
-               query.Params.ParamByName('INSTANCE').AsInteger :=1;
+               query.Params.ParamByName('INSTANCE').AsInteger := instance;
                query.Params.ParamByName('TEXT').AsString := 'RRR';
                query.ExecSQL;
                transaction.Commit;
@@ -982,7 +1054,7 @@ Begin
                query.SQL.Clear;
                query.SQL.Text := 'DELETE FROM macro where instance=:INSTANCE And text=:TEXT;';
                // Defining the 3 shorthand types.
-               query.Params.ParamByName('INSTANCE').AsInteger :=1;
+               query.Params.ParamByName('INSTANCE').AsInteger := instance;
                query.Params.ParamByName('TEXT').AsString := '73';
                query.ExecSQL;
                transaction.Commit;
@@ -997,7 +1069,7 @@ Begin
                query.SQL.Clear;
                query.SQL.Text := 'DELETE FROM macro where instance=:INSTANCE And text=:TEXT;';
                // Defining the 3 shorthand types.
-               query.Params.ParamByName('INSTANCE').AsInteger :=1;
+               query.Params.ParamByName('INSTANCE').AsInteger := instance;
                query.Params.ParamByName('TEXT').AsString := 'RO';
                query.ExecSQL;
                transaction.Commit;
@@ -1009,7 +1081,7 @@ Begin
      // Populate Macro list
      comboMacroList.Clear;
      query.SQL.Clear;
-     query.SQL.Add('SELECT text FROM macro WHERE instance = 1;');
+     query.SQL.Add('SELECT text FROM macro WHERE instance = ' + IntToStr(instance) + ';');
      query.Active := True;
      comboMacroList.Items.Add('');
      if query.RecordCount > 0 Then
@@ -1435,8 +1507,9 @@ Begin
      comboQRGList.Clear;
      query.Active := False;
      query.SQL.Clear;
+     { TODO : Limit even more with Rebel based on band selected by jumpers }
      // Limit QRG list to 40/20M ranges for now if Rebel is on
-     if not rigRebel.Checked Then query.SQL.Add('SELECT fqrg FROM qrg WHERE instance = 1 ORDER BY fqrg DESC;') else query.SQL.Add('SELECT fqrg FROM qrg WHERE instance = 1 AND fqrg > 6999999.9 AND fqrg < 14350000.1 ORDER BY fqrg DESC;');
+     if not rigRebel.Checked Then query.SQL.Add('SELECT fqrg FROM qrg WHERE instance = ' + IntToStr(instance) + ' ORDER BY fqrg DESC;') else query.SQL.Add('SELECT fqrg FROM qrg WHERE instance = ' + IntToStr(instance) + ' AND fqrg > 6999999.9 AND fqrg < 14350000.1 ORDER BY fqrg DESC;');
      query.Active := True;
      if query.RecordCount > 0 Then
      Begin
@@ -1460,7 +1533,8 @@ Begin
           end;
      end;
      query.Active := False;
-
+     // For multiple instances I need to work out a lock mechanism such the multiple instances don't
+     // attemp to attach to same Rebel.
      if rigRebel.Checked Then
      Begin
           // put class clRebel to work
@@ -1556,6 +1630,9 @@ Begin
           end;
           if clRebel.band = 40 Then
           Begin
+               { TODO : Remove this hack once 40M is supported on Rebel }
+               ShowMessage('Rebel is currently only supported for 20M!' + sLineBreak + 'Program must halt.');
+               halt;
                clRebel.qrg := 7076000.0;
                clRebel.setQRG;
                clRebel.poll;
@@ -1864,7 +1941,6 @@ Begin
           Begin
                for i := 0 to 127 do clRebel.setData(i,StrToInt(qrgset[i]));
                if clRebel.ltx then txDirty := False else txDirty := True;
-               //if not txDirty then Memo1.Append(clRebel.debug) else Memo1.Append('0: Failed to upload FSK array');
                //
                // clRebel.debug holds the symbols sent
                // clRebel.dumptx holds the symbols read back
@@ -1903,25 +1979,15 @@ Begin
                if not valid then
                Begin
                     { TODO : Don't let this continue forever if it fails repeatedly. }
-                    Memo2.Append('Message upload and readback compare fails.');
+                    ListBox1.Items.Insert(0,'WARNING: Rebel refused message');
                     // Changing this to delete the TX buffer message so it doesn't go
                     // into an infinite loop should the Rebel be in distress for some
                     // reason.
                     edTXMsg.Text := '';
-               end
-               else
-               begin
-                    //Memo1.Append('Rebel has message');
+                    thisTXMsg := '';
                end;
           end;
      end;
-     // It is time to rethink TX control.  When can/would I TX?
-     // If Station info Pfx/Call or Call or Call/Sfx And Grid is valid
-     // If a valid message is in buffer.
-     // If a message has been generated and ready to TX
-     // If TX is enabled
-     // If this minute matches even/odd choice
-     // If this second >=1 and <=15
 
      If not clRebel.txStat And not clRebel.busy And txControl And txInprogress Then
      Begin
@@ -2058,38 +2124,7 @@ Begin
 
      if (thisSecond=48) and clRebel.txStat and (not clRebel.busy) Then
      Begin
-          if doCWID Then
-          Begin
-               clRebel.pttOff;
-               doCWID := False;
-               if StrToInt(clRebel.rebVer) > 100 Then
-               Begin
-                    if edCWID.Text = '' Then clRebel.cwid := myscall else clRebel.cwid := edCWID.Text;
-                    // Compute TX QRG to set this should be dial QRG + offset + 1270.5
-                    // function TForm1.rebelTuning(const f : Double) : CTypes.cuint;
-                    i := 0;
-                    tryStrToInt(edTXDF.Text,i);
-                    fi := 0;
-                    tryStrToInt(edDialQRG.Text,fi);
-                    ff := i+fi+1270.5;
-                    if ((ff > 699999.5) and (ff < 7300000.5)) Or ((ff > 13999999.5) and (ff<14350000.5)) Then
-                    Begin
-                         clRebel.cwidqrg := rebelTuning(ff);
-                         Memo3.Append('Would CW ID ' + myscall + ' at ' + FormatFloat('########.#',ff) + ' Hz');
-                         // Tell rebel to pound brass
-                         //clRebel.docwid;
-                    end
-                    else
-                    begin
-                         Memo3.Append('Bad QRG for CWID.');
-                    end;
-               end
-               else
-               begin
-                    Memo3.Append('No firmware for CWID - update.');
-               end;
-               doCWID := False;
-          end;
+          clRebel.pttOff;
           txInProgress := False;
           transmitting := '';
      end;
@@ -2449,6 +2484,9 @@ Var
   i         : Integer;
   //paResult  : TPaError;
 Begin
+     for i := 0 to 1023 do psAcc[i] := 0.0;
+     pstick := 1;
+     Chart1BarSeries1.Clear;
      // Items that run once per minute at new minute start
      SetExceptionMask([exInvalidOp, exDenormalized, exZeroDivide, exOverflow, exUnderflow, exPrecision]);
      // RX to index = 0
@@ -2489,10 +2527,48 @@ Begin
 end;
 
 procedure TForm1.adcdacTick;
+Var
+  psTempI  : Array[0..2047] of CTypes.cfloat;
+  psTempO  : Array[0..1023] of CTypes.cfloat;
+  i,j      : Integer;
+  f,g,fave : CTypes.cfloat;
 Begin
      // Events triggered from ADC/DAC callback counter change
      // Compute spectrum and audio levels.
      if adc.haveSpec Then specHeader;  // Update spectrum display header
+     if thisUTC.Second < 49 Then
+     Begin
+          Chart1BarSeries1.Clear;
+          j:=0;
+          for i := 0 to 4095 do
+          Begin
+               if odd(i) then
+               Begin
+                    if j<2048 then psTempI[j] := adc.adclast4k1[i];
+                    inc(j);
+               end;
+          end;
+
+          fave := 0.0;
+          for i := 0 to length(psTempI)-1 do fave := fave + psTempI[i];
+          fave := fave/(length(psTempI));
+          for i := 0 to length(psTempI)-1 do psTempI[i] := 0.1*(psTempI[i]-fave);
+
+          for i := 0 to length(psTempO)-1 do psTempO[i] := 0.0;
+
+          jt65demod.jl_ps(psTempI,length(psTempI),psTempO);
+
+          for i := 0 to length(psTempO)-1 Do
+          Begin
+               psAcc[i] := psAcc[i] + psTempO[i];
+               f := (i*2.691650390625)-(472*2.691650390625);
+               g := db(((psAcc[i]-1.0)/pstick)*(5512.5/2048.0)/2756.25);
+               if g<-33.0 Then g := -33.0;
+               Chart1BarSeries1.AddXY(f,g);
+          end;
+          inc(pstick);
+     end;
+
      if cbWFTX.Checked Then
      Begin
           If adc.haveSpec And (not d65.glinprog) Then
@@ -2522,23 +2598,25 @@ Begin
      if adc.haveAU And (not d65.glinprog) And (not clRebel.txStat) Then
      Begin
           // Compute/display audio level(s)
-          if adc.adcMono Then
+          aulevel := spectrum.computeAudio(adc.adclast2k1);
+          if (aulevel*0.4)-20.0 < -7.0 Then
           Begin
-               aulevel := spectrum.computeAudio(adc.adclast2k1);
-               Label108.Caption := IntToStr(Trunc((aulevel*0.4)-20)) + 'dB';
+               Label3.Caption := 'Audio Low';
+               Label3.Font.Color := clRed;
+          end
+          else if (aulevel*0.4)-20.0 > 7.0 Then
+          Begin
+               Label3.Caption := 'Audio High';
+               Label3.Font.Color := clRed;
           end
           else
           begin
-               aulevel1 := spectrum.computeAudio(adc.adclast2k1);
-               Label108.Caption := IntToStr(Trunc((aulevel1*0.4)-20)) + 'dB';
+               Label3.Caption := 'Audio OK';
+               Label3.Font.Color := clBlack;
           end;
           // sLevel = 50 = 0dB sLevel 0 = -20dB sLevel 100 = 20dB
           // 1 sLevel = .4dB
           // db = (sLevel*0.4)-20
-          adc.haveAU := False;
-     end
-     else
-     begin
           adc.haveAU := False;
      end;
 end;
@@ -2693,7 +2771,7 @@ Begin
      for i := 0 to 49 do if not d65.gld65decodes[i].dtProcessed Then inc(k);
      if thisUTC.Hour < 10 Then afoo := '0'+IntToStr(thisUTC.Hour) else afoo := intToStr(thisUTC.Hour);
      if thisUTC.Minute < 10 then afoo := afoo + ':0' + intToStr(thisUTC.Minute) else afoo := afoo + ':' + intToStr(thisUTC.Minute);
-     if (d65.dmRunTime > 2500.0) or (d65.dmKVWasted > 10) Then memo1.Lines.Insert(1,afoo + '  ' + PadRight(IntToStr(d65.dmSynPoints),4) + '  ' + PadRight(IntToStr(d65.dmMerged),6) + '  ' + PadRight(IntToStr(d65.dmKVHangs),5) + '  ' + PadRight(FormatFloat('##.#',d65.dmruntime/1000.0),4) + '  ' + FormatFloat('#.###',d65.dmKVWasted/1000.0));
+     //if (d65.dmRunTime > 2500.0) or (d65.dmKVWasted > 10) Then memo1.Lines.Insert(1,afoo + '  ' + PadRight(IntToStr(d65.dmSynPoints),4) + '  ' + PadRight(IntToStr(d65.dmMerged),6) + '  ' + PadRight(IntToStr(d65.dmKVHangs),5) + '  ' + PadRight(FormatFloat('##.#',d65.dmruntime/1000.0),4) + '  ' + FormatFloat('#.###',d65.dmKVWasted/1000.0));
      d65.dmAveSQ := 0.0;
      d65.dmBaseVB := 0.0;
      d65.dmSynPoints := 0;
@@ -4087,11 +4165,38 @@ begin
      if Index > -1 Then
      Begin
           foo := Form1.ListBox1.Items[Index];
-          if IsWordPresent('WARNING:', foo, [' ']) Then lineWarn := True else lineWarn := False;
-          if IsWordPresent('Notice:', foo, [' ']) Then lineWarn := True else lineWarn := False;
-          if IsWordPresent('CQ', foo, [' ']) Then lineCQ := True;
-          if IsWordPresent('QRZ', foo, [' ']) Then lineCQ := True;
-          if IsWordPresent(TrimLeft(TrimRight(UpCase(edCall.Text))), foo, [' ']) Then lineMyCall := True else lineMyCall := False;
+          if IsWordPresent('WARNING:', foo, [' ']) Then
+          Begin
+               lineWarn := True;
+          end
+          else if IsWordPresent('Notice:', foo, [' ']) Then
+          Begin
+               lineWarn := True;
+          end
+          else
+          begin
+               lineWarn := False;
+          end;
+
+          if (IsWordPresent('CQ', foo, [' '])) or IsWordPresent('QRZ', foo, [' ']) Then lineCQ := True;
+
+          if IsWordPresent(TrimLeft(TrimRight(UpCase(mycall))), foo, [' ']) Then
+          Begin
+               lineMyCall := True;
+          end
+          else if IsWordPresent(TrimLeft(TrimRight(UpCase(myscall))), foo, [' ']) Then
+          begin
+               lineMyCall := True;
+          end
+          else if ansicontainstext(foo,edCall.Text) then
+          begin
+               lineMyCall := True;
+          end
+          else
+          begin
+               lineMyCall := False;
+          end;
+
           myBrush := TBrush.Create;
           with (Control as TListBox).Canvas do
           begin
@@ -4587,7 +4692,7 @@ begin
           doit := False;
           if proto = 'JT' Then
           Begin
-               memo3.Append('Using libJT65 SM encoder');
+               memo2.Append('Using libJT65 SM encoder');
                // It's a slashed call form so use the tried and true V1 encoder from libJT65
                strpcopy(jtencode,PadRight(foo,22));
                for i := 0 to 11 do syms[i] := 0;
@@ -4603,7 +4708,7 @@ begin
           end
           else
           begin
-               memo3.Append('Using local SM encoder');
+               memo2.Append('Using local SM encoder');
                // Use local code encoder and by my current rule set there will be no slashed calls here
                nc1 := 0;
                If (nc1t = 'CQ') or (nc1t = 'QRZ') or (nc1t = 'DE') Then
@@ -4646,7 +4751,7 @@ begin
      if ft then
      begin
           doit := False;
-          memo3.Append('Using free text encoder');
+          memo2.Append('Using free text encoder');
           nc1 := 0;
           nc2 := 0;
           ng  := 0;
@@ -4735,7 +4840,6 @@ end;
 procedure TForm1.mgenClick(Sender: TObject);
 Var
    foo : String;
-   i   : Integer;
 begin
      lastTXMsg := '';
      sameTXCount := 0;
@@ -4972,7 +5076,7 @@ begin
                          ListBox1.Items.Insert(0,'Notice: TX to Call does not compute');
                     end;
                end;
-               if rbCWID73.Checked Then doCWID := True else doCWID := False;
+               //if rbCWID73.Checked Then doCWID := True else doCWID := False;
           end;
           // Final QC check
           if length(thisTXmsg)>1 Then
@@ -5184,7 +5288,7 @@ begin
           // needing to be done.
           // ADIF Path is defined in edADIFPath file name is hfwst_log.adif
           try
-             fname := edADIFPath.Text + '\hfwst_log.adif';
+             fname := edADIFPath.Text + PathDelim + 'hfwst_log.adif';
              // Parm has the ADIF string
              if fileExists(fname) Then
              Begin
@@ -5227,17 +5331,12 @@ end;
 procedure TForm1.Memo1DblClick(Sender: TObject);
 begin
      Memo1.Clear;
-     Memo1.Lines.Add('UTC    Sync  Mashed  Hangs  Time  Waste');
+     //Memo1.Lines.Add('UTC    Sync  Mashed  Hangs  Time  Waste');
 end;
 
 procedure TForm1.Memo2DblClick(Sender: TObject);
 begin
      memo2.Clear;
-end;
-
-procedure TForm1.Memo3DblClick(Sender: TObject);
-begin
-     Memo3.Clear;
 end;
 
 procedure TForm1.btnClearDecodesClick(Sender: TObject);
@@ -5323,13 +5422,12 @@ begin
           ComboMacroList.Text := foo;
           if isFText(comboMacroList.Text) or isSText(comboMacroList.Text) Then
           Begin
-               //sqlite3.DatabaseName := cfgPath + 'hfwstI0';
                transaction.EndTransaction;
                transaction.StartTransaction;
                query.SQL.Clear;
                query.SQL.Text := 'INSERT INTO macro(instance, text) VALUES(:INSTANCE,:TEXT);';
                // Defining the 3 shorthand types.
-               query.Params.ParamByName('INSTANCE').AsInteger :=1;
+               query.Params.ParamByName('INSTANCE').AsInteger := instance;
                query.Params.ParamByName('TEXT').AsString := foo;
                query.ExecSQL;
                transaction.Commit;
@@ -5340,7 +5438,7 @@ begin
           // Populate Macro list
           comboMacroList.Clear;
           query.SQL.Clear;
-          query.SQL.Add('SELECT text FROM macro WHERE instance = 1;');
+          query.SQL.Add('SELECT text FROM macro WHERE instance = ' + IntToStr(instance) + ';');
           query.Active := True;
           comboMacroList.Items.Add('');
           if query.RecordCount > 0 Then
@@ -5439,7 +5537,7 @@ begin
           thisTXMsg := comboMacroList.Text;
           if isFText(thisTXmsg) or isSText(thisTXmsg) Then genTX(thisTXmsg, StrToInt(edTXDF.Text)+clRebel.txOffset) else thisTXmsg := '';
           edTXMsg.Text := thisTXmsg; // this double checks for valid message.
-          if rbCWIDFree.Checked Then doCWID := True else doCWID := False;
+          //if rbCWIDFree.Checked Then doCWID := True else doCWID := False;
      end;
 end;
 
@@ -5568,6 +5666,8 @@ end;
 
 procedure TForm1.FormCreate(Sender: TObject);
 begin
+     // Need to eventually get instance from commnad line
+     instance   := 2; // Range 1..4
      srun       := 0.0;
      lrun       := 0.0;
      d65.dmarun := 0.0;
@@ -5860,7 +5960,7 @@ begin
      Query.Params.ParamByName('MON').AsBoolean    := cbMultiOn.Checked;
      Query.Params.ParamByName('TXEQRX').AsBoolean := cbTXEqRXDF.Checked;
      Query.Params.ParamByName('NEEDCFG').AsBoolean := False;
-     Query.Params.ParamByName('INSTANCE').AsInteger := 1;
+     Query.Params.ParamByName('INSTANCE').AsInteger := instance;
      Query.Params.ParamByName('RXOFFSET').AsString := t(edRebRXOffset.Text);
      Query.Params.ParamByName('TXOFFSET').AsString := t(edRebTXOffset.Text);
      transaction.StartTransaction;
@@ -5874,7 +5974,7 @@ procedure TForm1.setupDB(const cfgPath : String);
 Var
    foo : String;
 Begin
-     sqlite3.DatabaseName := cfgPath + 'hfwstI0';
+     sqlite3.DatabaseName := cfgPath + 'hfwstI' + IntToStr(instance);
      query.SQL.Clear;
      query.SQL.Add('CREATE TABLE ngdb(id integer primary key, xlate string(5))');
      query.ExecSQL;
@@ -5885,7 +5985,7 @@ Begin
      query.ExecSQL;
      query.SQL.Clear;
      query.SQL.Text := 'INSERT INTO qrg(instance, fqrg) VALUES(:INSTANCE,:QRG);';
-     query.Params.ParamByName('INSTANCE').AsInteger :=1;
+     query.Params.ParamByName('INSTANCE').AsInteger := instance;
      query.Params.ParamByName('QRG').AsFloat := 1836000.0;
      query.ExecSQL;
      query.Params.ParamByName('QRG').AsFloat := 3576000.0;
@@ -5932,15 +6032,15 @@ Begin
      query.SQL.Add('CREATE TABLE macro(id integer primary key, instance integer, text string(13))');
      query.ExecSQL;
      query.SQL.Clear;
-     query.SQL.Text := 'INSERT INTO macro(instance, text) VALUES(:INSTANCE,:TEXT);';
+     // query.SQL.Text := 'INSERT INTO macro(instance, text) VALUES(:INSTANCE,:TEXT);';
      // Defining the 3 shorthand types.
-     query.Params.ParamByName('INSTANCE').AsInteger :=1;
-     query.Params.ParamByName('TEXT').AsString := 'RRR';
-     query.ExecSQL;
-     query.Params.ParamByName('TEXT').AsString := 'RO';
-     query.ExecSQL;
-     query.Params.ParamByName('TEXT').AsString := '73';
-     query.ExecSQL;
+     //query.Params.ParamByName('INSTANCE').AsInteger := instance;
+     //query.Params.ParamByName('TEXT').AsString := 'RRR';
+     //query.ExecSQL;
+     //query.Params.ParamByName('TEXT').AsString := 'RO';
+     //query.ExecSQL;
+     //query.Params.ParamByName('TEXT').AsString := '73';
+     //query.ExecSQL;
      transaction.Commit;
      // Configuration
      foo :='CREATE TABLE config(';
