@@ -24,11 +24,10 @@ unit d65;
 interface
 
 uses
-  Classes, SysUtils, CTypes, math, Process, Types, StrUtils, FileUtil, DateUtils,
-  jt65demod;
+  Classes, SysUtils, CTypes, math, Process, Types, StrUtils, FileUtil, DateUtils;
 
 Const
-  JT_DLL = 'jt65v34.dll';
+  JT_DLL = 'jt65v36.dll';
   WordDelimiter = [' '];
   CsvDelim = [','];
 
@@ -46,7 +45,7 @@ Type
       timeStamp : String;
    end;
 
-    d65Result = Record
+   d65Result = Record
       dtTimeStamp : String;
       dtNumSync   : String;
       dtSigLevel  : String;
@@ -57,7 +56,20 @@ Type
       dtDecoded   : String;
       dtProcessed : Boolean;
       dtType      : String;
-    end;
+   end;
+
+   decTrace = Record
+      trDTX       : CTypes.cfloat;
+      trDFX       : CTypes.cfloat;
+      trSNR       : CTypes.cfloat;
+      trBIN       : CTypes.cint;
+      trDEC       : String;
+      trRES       : Boolean;
+      trDIS       : Boolean;
+      trTIM       : Double;
+   end;
+
+
 
 Var
    glmyline, glwisfile, glkvs    : PChar;
@@ -90,6 +102,9 @@ Var
    glSampOffset                  : Integer;
    glnz                          : Boolean;
    glRunCount                    : CTypes.cuint32;
+   dmPlotAvgSq                   : CTypes.cfloat;
+   dmPlotCount                   : CTypes.cint;
+   glDecTrace                    : Array[0..100] of decTrace;
 
 procedure doDecode(bStart, bEnd : Integer);
 
@@ -329,24 +344,26 @@ procedure doDecode(bStart, bEnd : Integer);
 
 Var
    i,k,n,jz,nave,ifoo,ndec,lical    : CTypes.cint;
-   idf,bw,afc,lmousedf,mousedf2     : CTypes.cint;
+   idf,bw,afc,lmousedf,mousedf2,idx : CTypes.cint;
    jz2,j,wcount,strongest,syncount  : CTypes.cint;
    passcount,passtest,binspace      : CTypes.cint;
+   blow,bhigh,btest                 : CTypes.cint;
    allEqual,haveDupe                : Boolean;
-   sum,ave,avg,threshold,xmag,sq    : CTypes.cfloat;
-   avesq,basevb,ffoo                : CTypes.cfloat;
-   dfx,dtx,flip,snrx,snrsync        : CTypes.cfloat;
+   avesq,basevb,ffoo,scale,sum,ave  : CTypes.cfloat;
+   sq,maxsnr                        : CTypes.cfloat;
    dfxa,snrsynca,snrxa,dtxa,flipa   : Array[0..254] Of CTypes.cfloat;
-   picks                            : Array[0..254] of CTypes.cint;
+   dfx,snrsync,snrx,dtx,flip        : CTypes.cfloat;
    bins                             : Array[0..100] Of CTypes.cint;
    decArray                         : Array[0..99] Of String;
-   foo,kdec,dupeFoo                 : String;
+   foo,kdec,dupeFoo,foo3            : String;
    decode                           : decodeRec;
    dmenter,dmexit,kvwaste1,kvwaste2 : TDateTime;
+   dectime                          : Double;
 begin
      dmenter      := Now;
      glinprog := True;
      gld65HaveDecodes := False;
+     jz := bEnd;
      // Hard coding this... it used to be variable in JT65-HF
      glNBlank := 0;
 
@@ -369,118 +386,135 @@ begin
 
      if glnd65FirstRun Then
      Begin
-         glRunCount := 1;
-         glDTAvg    := 0.0;
-         glDemodCount := 0;
-         glSampOffset := 2048;
-         //
-         // ical =  0 = FFTW_ESTIMATE set, no load/no save wisdom.  Use ical = 0 when all else fails.
-         // ical =  1 = FFTW_MEASURE set, yes load/no save wisdom.  Use ical = 1 to load saved wisdom.
-         // ical = 11 = FFTW_MEASURE set, no load/no save wisdom.  Use ical = 11 when wisdom has been loaded and does not need saving.
-         // ical = 21 = FFTW_MEASURE set, no load/yes save wisdom.  Use ical = 21 to save wisdom.
-         //
-         glmline := StrAlloc(72);
-         glmcall := StrAlloc(12);
-         glmyline := StrAlloc(43);
-         glkvs := StrAlloc(22);
-         glwisfile := StrAlloc(256);
-         StrPCopy(glwisfile,PadRight(dmwisPath,255));
-         glkvfname := StrAlloc(256);
-         StrPCopy(glkvfname,PadRight(dmtmpdir+'KVASD.DAT',255));
+          dmPlotCount := 0;
+          glRunCount := 1;
+          glDTAvg    := 0.0;
+          glDemodCount := 0;
+          glSampOffset := 2048;
+          //
+          // ical =  0 = FFTW_ESTIMATE set, no load/no save wisdom.  Use ical = 0 when all else fails.
+          // ical =  1 = FFTW_MEASURE set, yes load/no save wisdom.  Use ical = 1 to load saved wisdom.
+          // ical = 11 = FFTW_MEASURE set, no load/no save wisdom.  Use ical = 11 when wisdom has been loaded and does not need saving.
+          // ical = 21 = FFTW_MEASURE set, no load/yes save wisdom.  Use ical = 21 to save wisdom.
+          //
+          glmline := StrAlloc(72);
+          glmcall := StrAlloc(12);
+          glmyline := StrAlloc(43);
+          glkvs := StrAlloc(22);
+          glwisfile := StrAlloc(256);
+          StrPCopy(glwisfile,PadRight(dmwisPath,255));
+          glkvfname := StrAlloc(256);
+          StrPCopy(glkvfname,PadRight(dmtmpdir+'KVASD.DAT',255));
 
-         gldecOut := TStringList.Create;
-         //glrawOut := TStringList.Create;
-         gldecOut.CaseSensitive := False;
-         gldecOut.Sorted := True;
-         gldecOut.Duplicates := Types.dupIgnore;
-         //glrawOut.CaseSensitive := False;
-         //glrawOut.Sorted := False;
-         //glrawOut.Duplicates := Types.dupIgnore;
-         glsort1 := TStringList.Create;
-         glsort1.CaseSensitive := False;
-         glsort1.Sorted := False;
-         glsort1.Duplicates := Types.dupIgnore;
-         // Clear internal buffers
-         for i := 0 to 661503 do
-         Begin
-              glf1Buffer[i] := 0.0;
-              glf2Buffer[i] := 0.0;
-              glf3Buffer[i] := 0.0;
-              gllpfM[i] := 0.0;
-         end;
-         for i := 0 to 99 do
-         Begin
-              decArray[i] := '';
-         end;
-    End
-    Else
-    Begin
-         // Clear internal buffers
-         glDemodCount := 0;
-         Inc(glRunCount);
-         for i := 0 to 661503 do
-         Begin
-              glf1Buffer[i] := 0.0;
-              glf2Buffer[i] := 0.0;
-              glf3Buffer[i] := 0.0;
-              gllpfM[i] := 0.0;
-         end;
-         for i := 0 to 99 do
-         Begin
-              decArray[i] := '';
-         end;
-    End;
-    // General housekeeping for a start of decoder cycle
-    glmline := '                                                                        ';
-    glmcall := '            ';
-    glmyline := '                                           ';
-    // [d65.]inBuffer contains 16 bit signed integer input samples and has
-    // been populated from maincode.
-    //diagout.Form3.ListBox1.Items.Add('D65:  Convert int16 buffer to float.');
-    // Convert inBuffer to f3buffer (int16 to float)
-    sum := 0.0;
-    nave := 0;
-    for i := bStart to bEnd do
-    Begin
-         sum := sum + glinBuffer[i];
-    End;
-    nave := Round(sum/bEnd);
-    if nave <> 0 Then
-    Begin
-         for i := bStart to bEnd do
-         Begin
-              glinBuffer[i] := min(32766,max(-32766,glinBuffer[i]-nave));
-         End;
-    End
-    Else
-    Begin
-         for i := bStart to bEnd do
-         Begin
-              glinBuffer[i] := min(32766,max(-32766,glinBuffer[i]));
-         End;
-    End;
-    If glNblank > 0 Then
-    Begin
-         //diagout.Form3.ListBox1.Items.Add('Apply NB');
-         // Noise blanker requested.
-         avg       := 700.0;
-         threshold := 5.0;
-         xmag      := 0.0;
-         for i := bStart to bEnd do
-         Begin
-              xmag := abs(glinBuffer[i]);
-              avg  := 0.999*avg + 0.001*xmag;
-              if xmag > threshold*avg Then glinBuffer[i] := 0;
-         End;
-    End;
+          gldecOut := TStringList.Create;
+          //glrawOut := TStringList.Create;
+          gldecOut.CaseSensitive := False;
+          gldecOut.Sorted := True;
+          gldecOut.Duplicates := Types.dupIgnore;
+          //glrawOut.CaseSensitive := False;
+          //glrawOut.Sorted := False;
+          //glrawOut.Duplicates := Types.dupIgnore;
+          glsort1 := TStringList.Create;
+          glsort1.CaseSensitive := False;
+          glsort1.Sorted := False;
+          glsort1.Duplicates := Types.dupIgnore;
+          // Clear internal buffers
+          for i := 0 to 661503 do
+          Begin
+               glf1Buffer[i] := 0.0;
+               glf2Buffer[i] := 0.0;
+               glf3Buffer[i] := 0.0;
+               gllpfM[i] := 0.0;
+          end;
+          for i := 0 to 99 do
+          Begin
+               decArray[i] := '';
+          end;
+     End
+     Else
+     Begin
+          // Clear internal buffers
+          glDemodCount := 0;
+          Inc(glRunCount);
+          for i := 0 to 661503 do
+          Begin
+               glf1Buffer[i] := 0.0;
+               glf2Buffer[i] := 0.0;
+               glf3Buffer[i] := 0.0;
+               gllpfM[i] := 0.0;
+          end;
+          for i := 0 to 99 do
+          Begin
+               decArray[i] := '';
+          end;
+     End;
+     // General housekeeping for a start of decoder cycle
+     glmline := '                                                                        ';
+     glmcall := '            ';
+     glmyline := '                                           ';
+     // [d65.]inBuffer contains 16 bit signed integer input samples and has
+     // been populated from maincode.
+     //diagout.Form3.ListBox1.Items.Add('D65:  Convert int16 buffer to float.');
+     // Convert inBuffer to f3buffer (int16 to float)
+     sum := 0.0;
+     nave := 0;
+     for i := bStart to bEnd do
+     Begin
+          sum := sum + glinBuffer[i];
+     End;
+     nave := Round(sum/bEnd);
+     if nave <> 0 Then
+     Begin
+          for i := bStart to bEnd do
+          Begin
+               glinBuffer[i] := min(32766,max(-32766,glinBuffer[i]-nave));
+          End;
+     End
+     Else
+     Begin
+          for i := bStart to bEnd do
+          Begin
+               glinBuffer[i] := min(32766,max(-32766,glinBuffer[i]));
+          End;
+     End;
+
+     sq := 0.0;
+     for i := bStart to bEnd do
+     begin
+          ffoo := glinBuffer[i];
+          if ffoo <> 0 Then sq := sq + power(ffoo,2);
+     end;
+     sq := sq/jz;
+     Inc(dmPlotCount);
+     dmPlotAvgsq := sq;
+     if dmPlotAvgsq < 1100000.0 Then
+     Begin
+          scale := 0.1;
+     end
+     else if dmPlotAvgsq > 1300000.0 Then
+     Begin
+          scale := 0.001;
+     end
+     else if dmPlotAvgsq > 1800000.0 Then
+     begin
+          scale := 0.0001;
+     end
+     else
+     begin
+          scale := 0.01;
+     end;
+
     sum := 0.0;
     ave := 0.0;
+
     for i := bStart to bEnd do
     Begin
-         glf3Buffer[i] := 0.01 * glinBuffer[i]; { TODO : Maybe a bad idea and need to revert to * 0.1 [Actually it seems to be a good thing :)] }
+         glf3Buffer[i] := scale * glinBuffer[i];
          sum := sum + glf3Buffer[i];
     End;
+
     ave := sum/bEnd;
+
     if ave <> 0.0 Then
     Begin
          for i := bStart to bEnd do
@@ -488,9 +522,9 @@ begin
               glf3Buffer[i] := glf3Buffer[i]-ave;
          End;
     End;
+
     // Copy f3Buffer to f1Buffer.
     for i := bStart to bEnd do glf1Buffer[i] := glf3Buffer[i];
-    jz := bEnd;
 
     // From this point on f1Buffer becomes sole sample holder.
     // Figure average level
@@ -504,6 +538,7 @@ begin
     basevb := db(avesq) - 44;
     dmAveSQ  := aveSQ;
     dmBaseVB := baseVB;
+
     //diagout.Form3.ListBox1.Items.Add('avesq = ' + floatToStr(avesq) + ' basevb = ' + floatToStr(basevb));
 //    if (avesq <> 0.0) And (basevb > -16.0) And (basevb < 21.0) Then
 //    Begin
@@ -549,22 +584,11 @@ begin
          for i := 0 to 254 do
          begin
               dtxa[i]     := 0.0;
-              dfxa[i]     := 0.0;
+              dfxa[i]     := -9999.0;
               snrxa[i]    := 0.0;
               snrsynca[i] := 0.0;
               flipa[i]    := 0.0;
-              picks[i]    := -1;
          end;
-
-         // Going to start testing ported (or semi-ported demod routines here)
-         dtx := 0.0;
-         dfx := 0.0;
-         snrx := 0.0;
-         snrsync := 0.0;
-         flip := 0.0;
-
-         jt65demod.jl_sync65(glf3Buffer,jz2,0.0,2500.0,dtx,dfx,snrx,snrsync,flip);
-
 
          // Clear the bins
          for i := 0 to 100 do
@@ -581,111 +605,270 @@ begin
          // 3 - if dfx < -1100 or > 1100 kill it.
          // Just set dfx to -9999 then populate bins will ignore it.
          k := 0;
-         for i := 0 to 254 do
-         begin
-              if snrxa[i] < -29.5 Then
-              Begin
-                   dfxa[i] := -9999.0;
-              end
-              else if dtxa[i] < -7.0 Then
-              Begin
-                   dfxa[i] := -9999.0;
-              end
-              else if dtxa[i] > 7.0 Then
-              Begin
-                   dfxa[i] := -9999.0;
-              end
-              else if dfxa[i] < -1100.0 Then
-              Begin
-                   dfxa[i] := -9999.0;
-              end
-              else if dfxa[i] > 1100.0 Then
-              Begin
-                   dfxa[i] := -9999.0;
-              end
-              else if round(snrsynca[i]-3.0) < 1 Then
-              Begin
-                   ffoo := snrsynca[i];
-                   dfxa[i] := -9999.0;
+         if syncount > 0 Then
+         Begin
+              for i := 0 to 254 do
+              begin
+                   if snrxa[i] < -29.5 Then
+                   Begin
+                        dfxa[i] := -9999.0;
+                   end
+                   else if dtxa[i] < -7.0 Then
+                   Begin
+                        dfxa[i] := -9999.0;
+                   end
+                   else if dtxa[i] > 7.0 Then
+                   Begin
+                        dfxa[i] := -9999.0;
+                   end
+                   else if dfxa[i] < -1100.0 Then
+                   Begin
+                        dfxa[i] := -9999.0;
+                   end
+                   else if dfxa[i] > 1100.0 Then
+                   Begin
+                        dfxa[i] := -9999.0;
+                   end
+                   else if round(snrsynca[i]-3.0) < 1 Then
+                   Begin
+                        dfxa[i] := -9999.0;
+                   end;
               end;
          end;
 
-         // Ok - now the "complex of arrays" above contains all the possible decode
-         // attempt markers if, and only if, dfxa[x] > -9999.0
-         // So now I kind of need to.... scrunch those down to a set of reasonable values
-         // where I don't end up doing even more work than I have to.
-         //
-         // Currently I'm doing this on a manual bin spacing of 20, 50, 100 or 200 Hz width
-         // condensing the sync points into one decode attempt at a given bin's center F point.
-         // Lets see if I can come at this another way achieving basically the same result.
-         //
-         // Keeping to a 20 Hz resolution.  Look at dfxa[x] and snrxa[x] leaving the ONE signal
-         // in a 20Hz window that is best candidate.
-
-         // Now - in theory I have points to look at where dfxa[i] > -9999
-         // so I'd call cqz65v2 for each
-
-         //for i := 0 to 254 do
-         //begin
-         //     if dfxa[i] > -9999.0 then
+         //     // Attempt a decode if we have something to work with at all sync points.
+         //     j := 0;
+         //     for i := 0 to 254 do if dfxa[i] > -2000 Then inc(j);
+         //     if j > 0 Then
          //     Begin
-         //          // Do a decode attempt here
-         //          // Copy lpfM to f3Buffer
-         //          for j := 0 to jz2 do
-         //          Begin
-         //               glf3Buffer[j] := gllpfM[j];
+         //          // Ok - so far so good.  Now I need to compact the sync points into
+         //          // smaller segments at 20 hz spacing so I don't end up doing a bazillion
+         //          // passes at 1 or 2 Hz delta.
+         //          for j := 0 to 100 do bins[j] := -1;
+         //          for i := 0 to 254 do
+         //          begin
+         //               passtest := trunc(dfxa[i]);
+         //               If (passtest > -1011) and (passtest < 1011) Then
+         //               Begin
+         //                    // 20 Hz Bins
+         //                    Case passtest of
+         //                         // Now what I need is to actually find the strongest sync in this
+         //                         // bin based on msync output and save the index to msync array collection
+         //                         // in bins[x].  This gets tricky in a hurry.
+         //
+         //                         -1010..-990         : inc(bins[0]);  // -1000 +/- 10
+         //                         -989..-970          : inc(bins[1]);  // -980 +/- 10
+         //                         -969..-950          : inc(bins[2]);  // -960
+         //                         -949..-930          : inc(bins[3]);  // -940
+         //                         -929..-910          : inc(bins[4]);  // -920
+         //                         -909..-890          : inc(bins[5]);  // -900
+         //                         -889..-870          : inc(bins[6]);  // -880
+         //                         -869..-850          : inc(bins[7]);  // -860
+         //                         -849..-830          : inc(bins[8]);  // -840
+         //                         -829..-810          : inc(bins[9]);  // -820
+         //                         -809..-790          : inc(bins[10]); // -800
+         //                         -789..-770          : inc(bins[11]); // -780
+         //                         -769..-750          : inc(bins[12]); // -760
+         //                         -749..-730          : inc(bins[13]); // -740
+         //                         -729..-710          : inc(bins[14]); // -720
+         //                         -709..-690          : inc(bins[15]); // -700
+         //                         -689..-670          : inc(bins[16]); // -680
+         //                         -669..-650          : inc(bins[17]); // -660
+         //                         -649..-630          : inc(bins[18]); // -640
+         //                         -629..-610          : inc(bins[19]); // -620
+         //                         -609..-590          : inc(bins[20]); // -600
+         //                         -589..-570          : inc(bins[21]); // -580
+         //                         -569..-550          : inc(bins[22]); // -560
+         //                         -549..-530          : inc(bins[23]); // -540
+         //                         -529..-510          : inc(bins[24]); // -520
+         //                         -509..-490          : inc(bins[25]); // -500
+         //                         -489..-470          : inc(bins[26]); // -480
+         //                         -469..-450          : inc(bins[27]); // -460
+         //                         -449..-430          : inc(bins[28]); // -440
+         //                         -429..-410          : inc(bins[29]); // -420
+         //                         -409..-390          : inc(bins[30]); // -400
+         //                         -389..-370          : inc(bins[31]); // -380
+         //                         -369..-350          : inc(bins[32]); // -360
+         //                         -349..-330          : inc(bins[33]); // -340
+         //                         -329..-310          : inc(bins[34]); // -320
+         //                         -309..-290          : inc(bins[35]); // -300
+         //                         -289..-270          : inc(bins[36]); // -280
+         //                         -269..-250          : inc(bins[37]); // -260
+         //                         -249..-230          : inc(bins[38]); // -240
+         //                         -229..-210          : inc(bins[39]); // -220
+         //                         -209..-190          : inc(bins[40]); // -200
+         //                         -189..-170          : inc(bins[41]); // -180
+         //                         -169..-150          : inc(bins[42]); // -160
+         //                         -149..-130          : inc(bins[43]); // -140
+         //                         -129..-110          : inc(bins[44]); // -120
+         //                         -109..-90           : inc(bins[45]); // -100
+         //                         -89..-70            : inc(bins[46]); // -80
+         //                         -69..-50            : inc(bins[47]); // -60
+         //                         -49..-30            : inc(bins[48]); // -40
+         //                         -29..-10            : inc(bins[49]); // -20
+         //                         -9..10              : inc(bins[50]); // 0
+         //                         11..30              : inc(bins[51]); // 20
+         //                         31..50              : inc(bins[52]); // 40
+         //                         51..70              : inc(bins[53]); // 60
+         //                         71..90              : inc(bins[54]); // 80
+         //                         91..110             : inc(bins[55]); // 100
+         //                         111..130            : inc(bins[56]); // 120
+         //                         131..150            : inc(bins[57]); // 140
+         //                         151..170            : inc(bins[58]); // 160
+         //                         171..190            : inc(bins[59]); // 180
+         //                         191..210            : inc(bins[60]); // 200
+         //                         211..230            : inc(bins[61]); // 220
+         //                         231..250            : inc(bins[62]); // 240
+         //                         251..270            : inc(bins[63]); // 260
+         //                         271..290            : inc(bins[64]); // 280
+         //                         291..310            : inc(bins[65]); // 300
+         //                         311..330            : inc(bins[66]); // 320
+         //                         331..350            : inc(bins[67]); // 340
+         //                         351..370            : inc(bins[68]); // 360
+         //                         371..390            : inc(bins[69]); // 380
+         //                         391..410            : inc(bins[70]); // 400
+         //                         411..430            : inc(bins[71]); // 420
+         //                         431..450            : inc(bins[72]); // 440
+         //                         451..470            : inc(bins[73]); // 460
+         //                         471..490            : inc(bins[74]); // 480
+         //                         491..510            : inc(bins[75]); // 500
+         //                         511..530            : inc(bins[76]); // 520
+         //                         531..550            : inc(bins[77]); // 540
+         //                         551..570            : inc(bins[78]); // 560
+         //                         571..590            : inc(bins[79]); // 580
+         //                         591..610            : inc(bins[80]); // 600
+         //                         611..630            : inc(bins[81]); // 620
+         //                         631..650            : inc(bins[82]); // 640
+         //                         651..670            : inc(bins[83]); // 660
+         //                         671..690            : inc(bins[84]); // 680
+         //                         691..710            : inc(bins[85]); // 700
+         //                         711..730            : inc(bins[86]); // 720
+         //                         731..750            : inc(bins[87]); // 740
+         //                         751..770            : inc(bins[88]); // 760
+         //                         771..790            : inc(bins[89]); // 780
+         //                         791..810            : inc(bins[90]); // 800
+         //                         811..830            : inc(bins[91]); // 820
+         //                         831..850            : inc(bins[92]); // 840
+         //                         851..870            : inc(bins[93]); // 860
+         //                         871..890            : inc(bins[94]); // 880
+         //                         891..910            : inc(bins[95]); // 900
+         //                         911..930            : inc(bins[96]); // 920
+         //                         931..950            : inc(bins[97]); // 940
+         //                         951..970            : inc(bins[98]); // 960
+         //                         971..990            : inc(bins[99]); // 980
+         //                         991..1010           : inc(bins[100]); // 1000
+         //                    End;
+         //               End;
          //          end;
-         //          dfx  := dfxa[i];
-         //          dtx  := dtxa[i];
-         //          flip := flipa[i];
-         //          // Call decoder
-         //          glmline := '';
-         //          cqz65v2(@glf3Buffer[glSampOffset],@jz2,@dtx,@dfx,@flip,@lical,glwisfile,glkvfname,glmline);
-         //          foo := '';
-         //          foo := StrPas(glmline);
-         //          if foo <> '' Then
+         //
+         //          // At this point each bin now has a value of 0 to something.  If > 1
+         //          // I need to come back and "compress" it down to 1 value (the strongest
+         //          // sync in this bin range leaving bin[#] as index to msync array for decoding
+         //          // pass.  If the value is 1 I just need to remap it to the proper index value.
+         //          // If 0 I need to set to -1 (this will make sense shortly).
+         //          //for j := 0 to 100 do if bins[j] < 1 Then bins[j] := -1;
+         //          // Ok - now left with only bins where we might have something.  Lets see if
+         //          // anything is left.
+         //          k := 0;
+         //          for j := 0 to 100 do if bins[j] > -1 Then inc(k);
+         //          if k > 0 Then
          //          Begin
-         //               foo := foo;
+         //               // Have something to work on
+         //               for j := 0 to 100 do
+         //               begin
+         //                    if bins[j] > -1 Then
+         //                    Begin
+         //                         // Just need to map and (if needed) squash
+         //                         // Now need to have a range based on bin.
+         //                         blow := -1010 + ((20*j)+1);
+         //                         bhigh := -990 + (20*j);
+         //                         // At j = 1 blow = -989 and bhigh = -970
+         //                         // At j = 2 blow = -969 and bhigh = -950
+         //                         // At j = 100 blow = 991 and bhigh = 1010
+         //                         // Ok - now have the range selectors.  Time to find dfxa[x] index to
+         //                         // strongest signal in range.
+         //                         maxsnr := -9999.0;
+         //                         for k := 0 to 254 do
+         //                         begin
+         //                              btest := trunc(dfxa[k]);
+         //                              if (btest >= blow) and (btest <= bhigh) Then
+         //                              Begin
+         //                                   // It's in the zone - now is it strongest?
+         //                                   if snrxa[k] > maxsnr Then
+         //                                   Begin
+         //                                        idx := k;
+         //                                        bins[j] := idx;
+         //                                   end;
+         //                              end;
+         //                         end;
+         //                    end;
+         //               end;
+         //          end;
+         //
+         //          k := 0;
+         //          for j := 0 to 100 do if bins[j] > -1 Then inc(k);
+         //          for j := 0 to 100 do glDecTrace[j].trDIS := True;
+         //
+         //          if k > 0 Then
+         //          Begin
+         //               // On to something... For stations with high + DT offset I see fails if I don't
+         //               // run decode with offset = 0.  I think I need to figure out a way to do offset
+         //               // on the fly per signal vs the one size fits all thing.
+         //               //
+         //               // For now I'm seeing best reulsts here with 0 offset to samples.  It's actually
+         //               // beating JT65-HF 1.0.9.3 in some respects.
+         //               foo3 := '';
+         //               for i := 0 to 100 do
+         //               Begin
+         //                    if bins[i] > -1 Then
+         //                    Begin
+         //                         kvwaste1 := Now;
+         //                         // Looks like about 120...130 mS per pass if no KV involved.
+         //                         // Next step is to see if there's any time waste in chain
+         //                         // called by cqz65v2.
+         //                         dfx     := dfxa[bins[i]];
+         //                         snrsync := snrsynca[bins[i]];
+         //                         snrx    := snrxa[bins[i]];
+         //                         dtx     := dtxa[bins[i]];
+         //                         flip    := flipa[bins[i]];
+         //                         glmline := '                                                                        ';
+         //                         if dtx > 2.0 Then
+         //                         Begin
+         //                              cqz65v2(@glf3Buffer[4096],@jz2,@dtx,@dfx,@flip,@lical,glwisfile,glkvfname,glmline);
+         //                         end
+         //                         else if dtx > 1.0 Then
+         //                         Begin
+         //                              cqz65v2(@glf3Buffer[2048],@jz2,@dtx,@dfx,@flip,@lical,glwisfile,glkvfname,glmline);
+         //
+         //                         end
+         //                         else
+         //                         begin
+         //                              cqz65v2(@glf3Buffer[0],@jz2,@dtx,@dfx,@flip,@lical,glwisfile,glkvfname,glmline);
+         //                         end;
+         //                         foo := '';
+         //                         foo := StrPas(glmline);
+         //                         foo := TrimLeft(TrimRight(foo));
+         //                         for j := 0 to 101 do
+         //                         begin
+         //                              if j < 100 then if glDecTrace[j].trDIS Then break;
+         //                         end;
+         //                         if j < 101 Then
+         //                         Begin
+         //                              glDecTrace[j].trDFX := dfx;
+         //                              glDecTrace[j].trSNR := snrx;
+         //                              glDecTrace[j].trDTX := dtx;
+         //                              glDecTrace[j].trBIN := bins[i];
+         //                              glDecTrace[j].trDEC := foo;
+         //                              if length(foo)>0 Then glDecTrace[j].trRES := true else glDecTrace[j].trRES := false;
+         //                              glDecTrace[j].trDIS := false;
+         //                              kvwaste2 := Now;
+         //                              glDecTrace[j].trTIM := MilliSecondSpan(kvwaste1,kvwaste2);;
+         //                         end;
+         //                    end;
+         //               end;
          //          end;
          //     end;
          //end;
-         //
-         //k := 0;
-         //for i := 0 to 254 do
-         //begin
-         //     if dfxa[i] > -1100.0 Then inc(k);
-         //end;
-         //
-         //if k < 1 Then
-         //Begin
-         //     syncount := 0;
-         //end
-         //else
-         //begin
-         //     syncount := k;
-         //end;
-         //
-         //// WSJT bases its valid to attempt decode upon;
-         ////
-         //// MinSigDB=1
-         //// nsnrlim=-32
-         ////
-         //// nsync=nint(snrsync-3.0)
-         //// nsnr=nint(snrx)
-         ////
-         //// So for me to get "nsync" I need to do;
-         //// nsync := round(snrsynca[i]-3.0);
-         //// nsnr := round(snrxa[i]);
-         ////
-         //// if(nsnr.lt.-30 .or. nsync.lt.0) nsync=0
-         ////
-         //// if snrxa[i] < -29 Then nsync := 0;
-         ////
-         //// if(nsync.lt.MinSigdB .or. nsnr.lt.nsnrlim) go to 200 (This is a goto bail out, no decode)
-         ////
-         //// if (nsync < 1) or (nsnr < -32) Then kill this sync point
-
-
 
          // Syncount is number of potential sync points.
          dmSynPoints := syncount;
@@ -1582,10 +1765,15 @@ begin
                    end;
               end;
          End;
+         Inc(dmrcount);
+         dmexit      := Now;
+         dmruntime   := MilliSecondSpan(dmenter,dmexit);
+         dmarun      := dmarun + dmruntime;
     end
     else
     begin
-         //diagout.Form3.ListBox1.Items.Add('No decodes.');
+         dmexit      := Now;
+         dmruntime   := MilliSecondSpan(dmenter,dmexit);
     end;
     gld65HaveDecodes := False;
     for i := 0 to length(gld65decodes)-1 do
@@ -1597,14 +1785,9 @@ begin
          end;
     end;
     gldecOut.Clear;
-    //glrawOut.Clear;
     glsort1.Clear;
     glinprog := False;
     glnd65FirstRun := False;
-    dmexit      := Now;
-    dmruntime   := MilliSecondSpan(dmenter,dmexit);
-    dmarun      := dmarun + dmruntime;
-    Inc(dmrcount);
 End;
 end.
 

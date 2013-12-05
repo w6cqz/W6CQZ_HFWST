@@ -28,7 +28,7 @@ procedure jl_slope(var y : Array of CTypes.cfloat; const n : CTypes.cint; const 
 procedure jl_peakup(const ym,y0,yp : CTypes.cfloat; var dx : CTypes.cfloat);
 procedure jl_ps(const a : Array of CTypes.cfloat; const n : CTypes.cint; var s : Array of CTypes.cfloat);
 procedure jl_sync65(const dat : Array of CTypes.cfloat; const jz : CTypes.cint; const cf : CTypes.cfloat; const bw : CTypes.cfloat; var dtx,dfx,snrx,snrsync,flip : CTypes.cfloat);
-
+procedure jl_flat2(var a : Array of CTypes.cfloat; const n,x : CTypes.cint);
 function  jdb(x : CTypes.cfloat) : CTypes.cfloat;
 
 implementation
@@ -38,8 +38,118 @@ procedure jt_xcor(s2,ipk,nsteps,nsym,lag1,lag2,ccf,ccf0,lagpk,flip,fdot : Pointe
 procedure jt_peakup(ym,y0,yp,dx : Pointer); cdecl; external JT_DLL name 'peakup_';
 procedure jt_pctile(x,tmp,nmax,npct,xpct : Pointer); cdecl; external JT_DLL name 'pctile_';
 
+procedure jl_flat2(var a : Array of CTypes.cfloat; const n,x : CTypes.cint);
+Var
+   ref,tmp : Array[0..2047] Of CTypes.cfloat;
+   nsmo,ia,ib,i,j,k : CTypes.cint;
+   base,base2 : CTypes.cfloat;
+Begin
+     SetExceptionMask([exInvalidOp, exDenormalized, exZeroDivide, exOverflow, exUnderflow, exPrecision]);
+     for i := 0 to 2047 do
+     begin
+          ref[i] := 0.0;
+          tmp[i] := 0.0;
+     end;
+
+     nsmo := 20;
+     base := 50.0 * power(x,1.5);
+     ia := nsmo+1;
+     ib := n-nsmo-1;
+
+     j := 2*nsmo+1;
+     k := 50;
+     for i := ia to ib do
+     begin
+          jt_pctile(@a[i-nsmo],@tmp,@j,@k,@ref[i])
+     end;
+     j := ib-ia+1;
+     k := 68;
+     base2 := 0.0;
+     jt_pctile(@ref[ia],@tmp,@j,@k,@base2);
+
+     if base2 > 0.05*base Then
+     Begin
+          for i := ia to ib do
+          begin
+               a[i] := base*a[i]/ref[i];
+          end;
+     end
+     else
+     begin
+          for i := 0 to n-1 do a[i] := a[i]*0.9;
+          //for i := 0 to n-1 do a[i] := 0.0;
+          for i := 0 to 2047 do
+          begin
+               ref[i] := 0.0;
+               tmp[i] := 0.0;
+          end;
+
+          nsmo := 20;
+          base := 50.0 * power(x,1.5);
+          ia := nsmo+1;
+          ib := n-nsmo-1;
+
+          j := 2*nsmo+1;
+          k := 50;
+          for i := ia to ib do
+          begin
+               jt_pctile(@a[i-nsmo],@tmp,@j,@k,@ref[i])
+          end;
+          j := ib-ia+1;
+          k := 68;
+          base2 := 0.0;
+          jt_pctile(@ref[ia],@tmp,@j,@k,@base2);
+
+          if base2 > 0.05*base Then
+          Begin
+               for i := ia to ib do
+               begin
+                    a[i] := base*a[i]/ref[i];
+               end;
+          end
+          else
+          begin
+               for i := 0 to n-1 do a[i] := a[i]*0.9;
+               for i := 0 to 2047 do
+               begin
+                    ref[i] := 0.0;
+                    tmp[i] := 0.0;
+               end;
+
+               nsmo := 20;
+               base := 50.0 * power(x,1.5);
+               ia := nsmo+1;
+               ib := n-nsmo-1;
+
+               j := 2*nsmo+1;
+               k := 50;
+               for i := ia to ib do
+               begin
+                    jt_pctile(@a[i-nsmo],@tmp,@j,@k,@ref[i])
+               end;
+               j := ib-ia+1;
+               k := 68;
+               base2 := 0.0;
+               jt_pctile(@ref[ia],@tmp,@j,@k,@base2);
+
+               if base2 > 0.05*base Then
+               Begin
+                    for i := ia to ib do
+                    begin
+                         a[i] := base*a[i]/ref[i];
+                    end;
+               end
+               else
+               begin
+                    for i := 0 to n-1 do a[i] := a[i]*0.9;
+               end;
+          end;
+     end;
+end;
+
 function  jdb(x : CTypes.cfloat) : CTypes.cfloat;
 Begin
+     SetExceptionMask([exInvalidOp, exDenormalized, exZeroDivide, exOverflow, exUnderflow, exPrecision]);
      Result := -99.0;
      if x > 1.259e-10 Then Result := 10.0 * log10(x);
 end;
@@ -50,6 +160,7 @@ Var
    i : CTypes.cint;
    sumw,sumx,sumy,sumx2,sumxy,sumy2,delta,a,b : CTypes.cfloat;
 Begin
+     SetExceptionMask([exInvalidOp, exDenormalized, exZeroDivide, exOverflow, exUnderflow, exPrecision]);
      if n < 101 Then
      Begin
           for i := 0 to 99 do x[i] := i+1.0; // Initialize x[]
@@ -99,6 +210,7 @@ procedure jl_peakup(const ym,y0,yp : CTypes.cfloat; var dx : CTypes.cfloat);
 var
    b,c : CTypes.cfloat;
 Begin
+     SetExceptionMask([exInvalidOp, exDenormalized, exZeroDivide, exOverflow, exUnderflow, exPrecision]);
      b := (yp-ym)/2.0;
      c := (yp+ym-2.0*y0)/2.0;
      dx := b/(2.0*c);
@@ -197,6 +309,8 @@ Var
    i,j,lag         : CTypes.cint;
    lagmin          : CTypes.cint;
 Begin
+     SetExceptionMask([exInvalidOp, exDenormalized, exZeroDivide, exOverflow, exUnderflow, exPrecision]);
+
      if (lag1<0) or (lag2>545) Then
      Begin
           i:=0;
@@ -291,6 +405,7 @@ Var
    dt        : CTypes.cfloat;
 Begin
      t1 := now;
+     SetExceptionMask([exInvalidOp, exDenormalized, exZeroDivide, exOverflow, exUnderflow, exPrecision]);
 
      nsym   := 126;
      nfft   := 2048;

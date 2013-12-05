@@ -42,10 +42,13 @@ implementation
                specPMs65.Position := 0;
 
                Bitmap := TBitmap.Create;
+               //Bitmap.Height := 180;
+               //Bitmap.Width  := 750;
                Bitmap.Height := 180;
-               Bitmap.Width  := 750;
+               Bitmap.Width  := 930;
 
-               image   := TFPMemoryImage.Create (750,180);
+               //image   := TFPMemoryImage.Create (750,180);
+               image   := TFPMemoryImage.Create (930,180);
                ccanvas := TFPImageCanvas.create(image);
                writer  := TFPWriterBMP.Create;
 
@@ -56,7 +59,8 @@ implementation
                ccolor.red := 0;
                ccolor.blue := 0;
                // Build a png then convert to a bmp then paint it - awesome (sarcasm++++) but it's way it has to be done with custom control
-               for i := 0 to 749 do
+               //for i := 0 to 749 do
+               for i := 0 to 929 do
                Begin
                     for j := 0 to 179 do
                     Begin

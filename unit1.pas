@@ -1,5 +1,4 @@
 { TODO :
-Check band setting and act accordingly N O W
 
 Think about having RX move to keep passband centered for Rebel
 
@@ -23,13 +22,14 @@ interface
 
 uses
   Classes, SysUtils, FileUtil, Forms, Controls, Graphics, Dialogs, StdCtrls,
-  ExtCtrls, Math, StrUtils, CTypes, Windows, lconvencoding, TAGraph,
-  TASeries, ComCtrls, EditBtn, DbCtrls, Types, portaudio, adc, spectrum,
-  waterfall1, spot, jt65demod, BufDataset, sqlite3conn, sqldb, valobject, rebel,
-  d65, LResources, blcksock;
+  ExtCtrls, Math, StrUtils, CTypes, Windows, lconvencoding, TAGraph, TASeries,
+  ComCtrls, EditBtn, DbCtrls, Types, portaudio, adc, spectrum,
+  waterfall1, spot, BufDataset, sqlite3conn, sqldb, valobject, rebel,
+  d65, LResources, blcksock, gettext;
 
 Const
-  JT_DLL = 'JT65v32.dll';
+  JT_DLL = 'JT65v392.dll';
+  JT9_DLL = 'libjt9.dll';
   SYNC65 : array[0..125] of CTypes.cint =
         (1,0,0,1,1,0,0,0,1,1,1,1,1,1,0,1,0,1,0,0,0,1,0,1,1,0,0,1,0,0,0,1,1,1,0,0,1,1,1,1,0,1,1,0,1,1,1,1,0,0,0,1,1,0,1,0,1,0,1,1,
         0,0,1,1,0,1,0,1,0,1,0,0,1,0,0,0,0,0,0,1,1,0,0,0,0,0,0,0,1,1,0,1,0,0,1,0,1,1,0,1,0,1,0,1,0,0,1,1,0,0,1,0,0,1,0,0,0,0,1,1,
@@ -77,13 +77,15 @@ type
     b73: TButton;
     bACQ: TButton;
     bCQ: TButton;
+    bnSaveMacro: TButton;
     bQRZ: TButton;
     bReport: TButton;
     bRReport: TButton;
     bRRR: TButton;
-    bnSaveMacro: TButton;
     Chart1: TChart;
-    Chart1BarSeries1: TBarSeries;
+    Chart1LineSeries1: TLineSeries;
+    Label16: TLabel;
+    Label44: TLabel;
     logEQSL: TButton;
     logClearComments: TButton;
     doLogQSO: TButton;
@@ -164,7 +166,6 @@ type
     Label87: TLabel;
     Label9: TLabel;
     Label92: TLabel;
-    Memo1: TMemo;
     Memo2: TMemo;
     Panel1: TPanel;
     rbMode65: TRadioButton;
@@ -220,7 +221,6 @@ type
     logCallsign: TEdit;
     groupLogQSO: TGroupBox;
     Label90: TLabel;
-    Label91: TLabel;
     btnsetQRG: TButton;
     btnClearDecodes: TButton;
     buttonConfig: TButton;
@@ -279,7 +279,6 @@ type
     Label1: TLabel;
     Label13: TLabel;
     Label15: TLabel;
-    Label16: TLabel;
     Label17: TLabel;
     Label18: TLabel;
     Label2: TLabel;
@@ -360,7 +359,6 @@ type
     procedure edTXReportDblClick(Sender: TObject);
     procedure edTXtoCallDblClick(Sender: TObject);
     procedure LogQSOClick(Sender: TObject);
-    procedure Memo1DblClick(Sender: TObject);
     procedure Memo2DblClick(Sender: TObject);
     procedure edTXMsgDblClick(Sender: TObject);
     procedure ListBox1DrawItem(Control: TWinControl; Index: Integer; ARect: TRect; State: TOwnerDrawState);
@@ -544,6 +542,7 @@ var
   mycall,myscall : String;  // Keeps this stations call and slashed call in order (Same if not a slashed call)
   kvdatdel       : Integer; // Tracing how many calls it takes to delete a stuck KV
   jtencode       : PChar; // To avoid heap error making this global
+  jtdecode       : PChar; // To avoid heap error making this global
   //tx73,txFree    : Boolean; // Flags to determine if last message was a 73 or Free Text for CWID purposes
   //doCWID         : Boolean; // Set to fire CW ID TX
   mgendf         : String; // TX DF Message was last generated at
@@ -551,6 +550,15 @@ var
   instance       : Integer; // Allows multiple copies (eventually) to run = 1..4
   psAcc          : Array[0..1023] Of CTypes.cfloat;
   psTick         : Integer = 1;
+  timeString     : String;  // Format of time, date, decimal character and thousands sep
+  dateString     : String;  // Set using system functions to get localized settings.
+  deciString     : String;
+  kiloString     : String;
+  plotCount      : CTypes.cint;
+  headerRes      : CTypes.cint = 0; // Keeps track of resolution for spectrum header display
+  lastTXDFMark   : CTypes.cint = -9000; // Keeps track of last painting for TX Marker
+  lastRXDFMark   : CTypes.cint = -9000;
+
 implementation
 
 procedure rscode(Psyms : CTypes.pcint; Ptsyms : CTypes.pcint); cdecl; external JT_DLL name 'rs_encode_';
@@ -559,6 +567,9 @@ procedure graycode(Ptsyms : CTypes.pcint; Pcount : CTypes.pcint; Pdirection : CT
 procedure set65; cdecl; external JT_DLL name 'setup65_';
 procedure packgrid(saveGrid : PChar; ng : CTypes.pcint; text : CTypes.pcbool); cdecl; external JT_DLL name 'packgrid_';
 procedure packmsg(msg : Pointer; syms : Pointer); cdecl; external JT_DLL name 'packmsg_';
+procedure gen4fsk(mi, mo, mode, fsk, sym, dat, dgn : Pointer); cdecl; external JT_DLL name 'gen4jl_';
+procedure jtEntail4(a,b : Pointer); cdecl; external JT_DLL name 'entail_';
+procedure genjt9(msg,ichk,decoded,i4tone,itext : Pointer); cdecl; external JT9_DLL name 'genjt9_';
 
 {$R *.lfm}
 
@@ -599,10 +610,24 @@ Var
    cfgpath   : String;
    basedir   : String;
    mustcfg   : Boolean;
+   l,fbl     : String;
+   deci      : PChar;
 Begin
      // This runs on first timer interrupt once per run session
      timer1.Enabled:=False;
-
+     // Getting locale settings
+     l := '';
+     fbl := '';
+     GetLanguageIDs(l, fbl);
+     deci := StrAlloc(255);
+     GetLocaleInfo(LOCALE_USER_DEFAULT,LOCALE_SSHORTDATE,deci,255);
+     dateString := TrimLeft(TrimRight(StrPas(deci)));
+     GetLocaleInfo(LOCALE_USER_DEFAULT,LOCALE_STIMEFORMAT,deci,255);
+     timeString := TrimLeft(TrimRight(StrPas(deci)));
+     GetLocaleInfo(LOCALE_USER_DEFAULT,LOCALE_SDECIMAL,deci,255);
+     deciString := TrimLeft(TrimRight(StrPas(deci)));
+     GetLocaleInfo(LOCALE_USER_DEFAULT,LOCALE_STHOUSAND,deci,255);
+     kiloString := TrimLeft(TrimRight(StrPas(deci)));
      // Trying to fix an ANNOYING corruption to my GUI layout
      TabSheet1.PageIndex := 0;
      TabSheet6.PageIndex := 1;
@@ -719,9 +744,15 @@ Begin
        +'ND'#174'B`'#130
      ]);
 
+     for i := 0 to 100 do d65.glDecTrace[i].trDIS := True;
+
+     plotcount := 0;
      dtrejects := 0;
      d65.glDecCount := 0;
      kvdatdel := 0;
+     headerRes := 0;
+     lastTXDFMark := -9000;
+     lastRXDFMark := -9000;
      //tx73   := False;
      //txFree := False;
      //doCWID := False;
@@ -982,7 +1013,8 @@ Begin
      edCWID.Text := query.FieldByName('cwidcall').AsString;
      cbNoOptFFT.Checked := query.FieldByName('disableoptfft').AsBoolean;
      cbNoKV.Checked := query.FieldByName('disablekv').AsBoolean;
-     lastQRG.Text := query.FieldByName('lastqrg').AsString;
+     foo := query.FieldByName('lastqrg').AsString;
+     lastQRG.Text := foo;
      tbSingleBin.Position := query.FieldByName('sbinspace').AsInteger;
      tbMultiBin.Position := query.FieldByName('mbinspace').AsInteger;
      //tbTXLevel.Position := query.FieldByName('txlevel').AsInteger;
@@ -1120,23 +1152,6 @@ Begin
      if cbSpecSmooth.Checked then spectrum.specSmooth := True else spectrum.specSmooth := False;
      if cbSpecSmooth.Checked then spectrum.specuseagc := True else spectrum.specuseagc := False;
      spectrum.specColorMap := spColorMap.ItemIndex;
-     if not tryStrToInt(lastQRG.Text,fi) then lastQRG.Text := '0';
-     edDialQRG.Text := lastQRG.Text;
-     fs  := '';
-     ff  := 0.0;
-     fi  := 0;
-     fs  := edDialQRG.Text;
-     fsc := '';
-     mval.forceDecimalAmer := False;
-     mval.forceDecimalEuro := False;
-     if mval.evalQRG(fs,'STRICT',ff,fi,fsc) Then qrgValid := True else qrgValid := False;
-     if qrgValid Then
-     Begin
-          // Set Rebel to last session QRG
-          qsyQRG := StrToInt(edDialQRG.Text);
-          setQRG := True;
-          editQRG.Text := fsc;
-     end;
      //If TryStrToInt(TXLevel.Text,i) Then tbTXLevel.Position := i else tbTXLevel.Position := 16;
      if useDeciAmerican.Checked then
      begin
@@ -1150,8 +1165,8 @@ Begin
      end;
      if useDeciAuto.Checked then
      begin
-          dChar := DecimalSeparator;
-          kChar := ThousandSeparator;
+          dChar := deciString[1];
+          kChar := kiloString[1];
           if dChar = '.' Then useDeciAuto.Caption := 'Use System Default (decimal = . thousands = ,)';
           if dChar = ',' Then useDeciAuto.Caption := 'Use System Default (decimal = , thousands = .)';
      end;
@@ -1210,7 +1225,8 @@ Begin
      // Create and initialize TWaterfallControl
      Waterfall := TWaterfallControl1.Create(self);
      Waterfall.Height := 180;
-     Waterfall.Width  := 747;
+     //Waterfall.Width  := 747;
+     Waterfall.Width  := 748;
      Waterfall.Top    := 47;
      Waterfall.Left   := 152;
      Waterfall.Parent := Self;
@@ -1242,11 +1258,33 @@ Begin
                rb.myCall := TrimLeft(TrimRight(UpCase(edRBCall.Text)));
                rb.myGrid := TrimLeft(TrimRight(edGrid.Text));
                rb.rbInfo := TrimLeft(TrimRight(edStationInfo.Text));
-               rb.myQRG  := StrToInt(edDialQRG.Text);
-               sopQRG    := StrToInt(edDialQRG.Text);
-               rb.useRB := True;
-               rb.useDBF := False;
-               rbping    := True;
+               if tryStrToInt(edDialQRG.Text,i) Then
+               Begin
+                    if mval.evalIQRG(i,'lax',foo) Then
+                    Begin
+                         rb.myQRG  := i;
+                         sopQRG    := i;
+                         rb.useRB := True;
+                         rb.useDBF := False;
+                         rbping    := True;
+                    end
+                    else
+                    begin
+                         rb.myQRG  := 0;
+                         sopQRG    := 0;
+                         rb.useRB := False;
+                         rb.useDBF := False;
+                         rbping    := False;
+                    end;
+               end
+               else
+               begin
+                    rb.myQRG  := 0;
+                    sopQRG    := 0;
+                    rb.useRB := False;
+                    rb.useDBF := False;
+                    rbping    := False;
+               end;
           end
           else
           begin
@@ -1268,11 +1306,33 @@ Begin
                rb.myCall := TrimLeft(TrimRight(UpCase(edRBCall.Text)));
                rb.myGrid := TrimLeft(TrimRight(edGrid.Text));
                rb.rbInfo := TrimLeft(TrimRight(edStationInfo.Text));
-               rb.myQRG  := StrToInt(edDialQRG.Text);
-               sopQRG    := StrToInt(edDialQRG.Text);
-               rb.useRB := False;
-               rb.useDBF := False;
-               rbping    := False;
+               if tryStrToInt(edDialQRG.Text,i) Then
+               Begin
+                    if mval.evalIQRG(i,'lax',foo) Then
+                    Begin
+                         rb.myQRG  := i;
+                         sopQRG    := i;
+                         rb.useRB := False;
+                         rb.useDBF := False;
+                         rbping    := False;
+                    end
+                    else
+                    begin
+                         rb.myQRG  := 0;
+                         sopQRG    := 0;
+                         rb.useRB := False;
+                         rb.useDBF := False;
+                         rbping    := False;
+                    end;
+               end
+               else
+               begin
+                    rb.myQRG  := 0;
+                    sopQRG    := 0;
+                    rb.useRB := False;
+                    rb.useDBF := False;
+                    rbping    := False;
+               end;
           end
           else
           begin
@@ -1503,36 +1563,6 @@ Begin
           //     end;
           //end;
      end;
-     // Populate QRG list
-     comboQRGList.Clear;
-     query.Active := False;
-     query.SQL.Clear;
-     { TODO : Limit even more with Rebel based on band selected by jumpers }
-     // Limit QRG list to 40/20M ranges for now if Rebel is on
-     if not rigRebel.Checked Then query.SQL.Add('SELECT fqrg FROM qrg WHERE instance = ' + IntToStr(instance) + ' ORDER BY fqrg DESC;') else query.SQL.Add('SELECT fqrg FROM qrg WHERE instance = ' + IntToStr(instance) + ' AND fqrg > 6999999.9 AND fqrg < 14350000.1 ORDER BY fqrg DESC;');
-     query.Active := True;
-     if query.RecordCount > 0 Then
-     Begin
-          query.First;
-          for i := 0 to query.RecordCount-1 do
-          begin
-               fs  := query.Fields[0].AsString;
-               ff  := 0.0;
-               fi  := 0;
-               fsc := '';
-               if rigRebel.Checked Then
-               Begin
-                    // This cuts out 30M entries for Rebel
-                    if (mval.evalQRG(fs,'STRICT',ff,fi,fsc)) and ((fi < 10100000) or (fi > 10150000)) Then comboQRGList.Items.Add(fsc);
-               end
-               else
-               begin
-                    if (mval.evalQRG(fs,'STRICT',ff,fi,fsc)) Then comboQRGList.Items.Add(fsc);
-               end;
-               query.Next;
-          end;
-     end;
-     query.Active := False;
      // For multiple instances I need to work out a lock mechanism such the multiple instances don't
      // attemp to attach to same Rebel.
      if rigRebel.Checked Then
@@ -1556,6 +1586,7 @@ Begin
                               Begin
                                    // Sure enough seem to have one
                                    haveRebel := True;
+                                   ListBox2.Items.Insert(0,'Connected to Rebel');
                               end
                               else
                               begin
@@ -1587,72 +1618,184 @@ Begin
           end;
      end;
 
+     if rigRebel.Checked and haveRebel Then
+     Begin
+          // Need to read in Rebel's band selection so we know how to act here.
+          if not clRebel.poll Then
+          Begin
+               ShowMessage('Unable to communicate with Rebel - will retry');
+          end
+          else
+          begin
+               ListBox2.Items.Insert(0,'Rebel firmare version = ' + clRebel.rebVer);
+               ListBox2.Items.Insert(0,'Rebel DDS Type = ' + clRebel.ddsVer);
+          end;
+     end;
+
+     // Populate QRG list but after Rebel handler in case I need to do things
+     // here based on Rebel's settings.
+     comboQRGList.Clear;
+     query.Active := False;
+     query.SQL.Clear;
+     { TODO : Limit even more with Rebel based on band selected by jumpers }
+
+     // Limit QRG list to 40/20M ranges for now if Rebel is on
+     if not rigRebel.Checked Then query.SQL.Add('SELECT fqrg FROM qrg WHERE instance = ' + IntToStr(instance) + ' ORDER BY fqrg DESC;') else query.SQL.Add('SELECT fqrg FROM qrg WHERE instance = ' + IntToStr(instance) + ' AND fqrg > 6999999.9 AND fqrg < 14350000.1 ORDER BY fqrg DESC;');
+     query.Active := True;
+     if query.RecordCount > 0 Then
+     Begin
+          query.First;
+          for i := 0 to query.RecordCount-1 do
+          begin
+               fs  := query.Fields[0].AsString;
+               ff  := 0.0;
+               fi  := 0;
+               fsc := '';
+               if rigRebel.Checked Then
+               Begin
+                    // This cuts out 30M entries for Rebel
+                    if (mval.evalQRG(fs,'STRICT',ff,fi,fsc)) and ((fi < 10100000) or (fi > 10150000)) Then comboQRGList.Items.Add(fsc);
+               end
+               else
+               begin
+                    if (mval.evalQRG(fs,'STRICT',ff,fi,fsc)) Then comboQRGList.Items.Add(fsc);
+               end;
+               query.Next;
+          end;
+     end;
+     query.Active := False;
+
      // Moved routines to deal with QRG down so I can know if this is a Rebel setup or not and react properly
      // Validate initial QRG
-     fs  := '';
-     ff  := 0.0;
-     fi  := 0;
-     fs  := edDialQRG.Text;
-     fsc := '';
-     mval.forceDecimalAmer := False;
-     mval.forceDecimalEuro := False;
-     if mval.evalQRG(fs,'STRICT',ff,fi,fsc) Then qrgValid := True else qrgValid := False;
+     //fs  := '';
+     //ff  := 0.0;
+     //fi  := 0;
+     //fs  := edDialQRG.Text;
+     //fsc := '';
+     //mval.forceDecimalAmer := False;
+     //mval.forceDecimalEuro := False;
+     //if mval.evalQRG(fs,'STRICT',ff,fi,fsc) Then qrgValid := True else qrgValid := False;
 
      // Read in defaults if Rebel is on
      if haveRebel Then
      Begin
-          if clRebel.poll Then
+          //if clRebel.poll Then
           Begin
-               edDialQRG.Text := IntToStr(Round(clRebel.qrg));
+               //edDialQRG.Text := IntToStr(Round(clRebel.qrg));
+               // Check to see if offset is different for RX/TX than defaults
+               // hardwired in Rebel.  If so - update Rebel as we assume HFWST
+               // has the correct values (maybe not the best assumption, but, safest
+               // one).
+               if not tryStrToInt(edRebTXOffset.Text,i) Then edRebTXOffset.Text := '0';
+               if clRebel.txOffset <> StrToInt(edRebTXOffset.Text) Then
+               Begin
+                    // fix it
+                    if tryStrToInt(edRebTXOffset.Text,i) then clRebel.txOffset := i else clRebel.txOffset := 0;
+               end;
+               if not tryStrToInt(edRebRXOffset.Text,i) Then edRebRXOffset.Text := '0';
+               if clRebel.rxOffset <> StrToInt(edRebRXOffset.Text) Then
+               Begin
+                    // fix it
+                    if tryStrToInt(edRebRXOffset.Text,i) then clRebel.rxOffset := i else clRebel.rxOffset := 0;
+               end;
+               // push changes to Rebel
+               if not clRebel.setOffsets Then ShowMessage('Could not set offsets.' + sLineBreak + clRebel.lerror);
           end;
-          // Check to see if offset is different for RX/TX than defaults
-          // hardwired in Rebel.  If so - update Rebel as we assume HFWST
-          // has the correct values (maybe not the best assumption, but, safest
-          // one).
-          if clRebel.txOffset <> StrToInt(edRebTXOffset.Text) Then
+          // Need to take into account Rebel may have had a band change since last run
+          // so be sure band currently active fits last QRG setting.
+          if not tryStrToInt(lastQRG.Text,fi) then lastQRG.Text := '0';
+          if fi > 0 Then
           Begin
-               // fix it
-               if tryStrToInt(edRebTXOffset.Text,i) then clRebel.txOffset := i else clRebel.txOffset := 0;
+               edDialQRG.Text := lastQRG.Text;
+               fs  := '';
+               ff  := 0.0;
+               fi  := 0;
+               fs  := edDialQRG.Text;
+               fsc := '';
+               mval.forceDecimalAmer := False;
+               mval.forceDecimalEuro := False;
+               if mval.evalQRG(fs,'STRICT',ff,fi,fsc) Then qrgValid := True else qrgValid := False;
+               if qrgValid Then
+               Begin
+                    // Set Rebel to last session QRG (maybe)
+                    if clRebel.band = 20 Then
+                    Begin
+                         if (fi>=14000000) and (fi<=14350000) Then
+                         Begin
+                              edDialQRG.Text := lastQRG.Text;
+                              if not tryStrToInt(edDialQRG.Text,i) Then edDialQRG.Text := '14076000';
+                              qsyQRG := StrToInt(edDialQRG.Text);
+                              setQRG := True;
+                              editQRG.Text := fsc;
+                         end
+                         else
+                         begin
+                              edDialQRG.Text := '14076000';
+                              qsyQRG := 14076000;
+                              setQRG := True;
+                              editQRG.Text := '14076';
+                         end;
+                    end
+                    else if clRebel.band = 40 Then
+                    Begin
+                         if (fi>=7000000) and (fi<=7300000) Then
+                         Begin
+                              edDialQRG.Text := lastQRG.Text;
+                              if not tryStrToInt(edDialQRG.Text,i) Then edDialQRG.Text := '7076000';
+                              qsyQRG := StrToInt(edDialQRG.Text);
+                              setQRG := True;
+                              editQRG.Text := fsc;
+                         end
+                         else
+                         begin
+                              edDialQRG.Text := '7076000';
+                              qsyQRG := 7076000;
+                              setQRG := True;
+                              editQRG.Text := '7076';
+                         end;
+                    end;
+               end
+               else
+               begin
+                    if clRebel.band = 20 Then
+                    Begin
+                         edDialQRG.Text := '14076000';
+                         qsyQRG := 14076000;
+                         setQRG := True;
+                         editQRG.Text := '14076';
+                    end
+                    else if clRebel.band = 40 Then
+                    begin
+                         edDialQRG.Text := '7076000';
+                         qsyQRG := 7076000;
+                         setQRG := True;
+                         editQRG.Text := '7076';
+                    end;
+               end;
           end;
-          if clRebel.rxOffset <> StrToInt(edRebRXOffset.Text) Then
-          Begin
-               // fix it
-               if tryStrToInt(edRebRXOffset.Text,i) then clRebel.rxOffset := i else clRebel.rxOffset := 0;
-          end;
-          // push changes to Rebel
-          if not clRebel.setOffsets Then ShowMessage('Could not set offsets.' + sLineBreak + clRebel.lerror);
-          // Set QRG for proper default on band
-          if clRebel.band = 20 Then
-          Begin
-               clRebel.qrg := 14076000.0;
-               clRebel.setQRG;
-               clRebel.poll;
-          end;
-          if clRebel.band = 40 Then
-          Begin
-               { TODO : Remove this hack once 40M is supported on Rebel }
-               ShowMessage('Rebel is currently only supported for 20M!' + sLineBreak + 'Program must halt.');
-               halt;
-               clRebel.qrg := 7076000.0;
-               clRebel.setQRG;
-               clRebel.poll;
-          end;
+     end
+     else
+     begin
+          // No rebel so (for now) invalidate last QRG
+          edDialQRG.Text := '';
+          lastQRG.Text := '0';
      end;
 
      d65.glnz := cbNZLPF.Checked;
+     spectrum.specWindow := cbSpecWindow.Checked;
      readQRG   := True;
      firstTick := False;
 end;
 
 procedure TForm1.OncePerTick;
 Var
-   i,fi,dti  : Integer;
-   fs, fsc   : String;
-   s1,s2     : String;
-   ff,dta    : Double;
-   valid     : Boolean;
-   c1,c2,c3  : Array[0..125] of String;
-   adjtime   : Boolean;
+   i,fi,dti   : Integer;
+   fs,fsc     : String;
+   s1,s2,foo  : String;
+   ff,dta,tot : Double;
+   valid      : Boolean;
+   c1,c2,c3   : Array[0..125] of String;
+   adjtime    : Boolean;
 Begin
      // Disable timer while here.  It should be disabled already, but this is
      // a double check for that.  :)
@@ -1674,7 +1817,7 @@ Begin
           if qsycount > 6 Then
           Begin
                // Mark message needing regeneration
-               genTX(edTXMsg.Text, StrToInt(edTXDF.Text)+clRebel.txOffset);
+               if tryStrToInt(edTXDF.Text,i) Then genTX(edTXMsg.Text, i+clRebel.txOffset);
                qsycount := 0;
           end;
      end
@@ -1832,17 +1975,6 @@ Begin
      if rbUseLeftAudio.Checked Then adc.adcChan  := 1;
      if rbUseRightaudio.Checked Then adc.adcChan := 2;
      if cbUseMono.Checked Then adc.adcMono := True else adc.adcMono := False;
-
-     if not d65.glinprog Then
-     Begin
-          if d65.dmruntime > lrun then lrun := d65.dmruntime;
-          if isZero(srun) Then srun := d65.dmruntime;
-          if d65.dmruntime < srun Then srun := d65.dmruntime;
-          if not IsZero(d65.dmruntime) Then Label82.Caption := FormatFloat('0.000',(d65.dmruntime/1000.0));
-          if not IsZero(lrun) Then Label83.Caption := FormatFloat('0.000',(lrun/1000.0));
-          if not IsZero(srun) Then Label84.Caption := FormatFloat('0.000',(srun/1000.0));
-          if not isZero(d65.dmarun) Then Label86.Caption := FormatFloat('0.000',((d65.dmarun/d65.dmrcount)/1000.0));
-     end;
 
      // Compute actual full callsign to use from prefix+callsign+suffix
 
@@ -2137,9 +2269,34 @@ Begin
           rb.myCall := TrimLeft(TrimRight(UpCase(edRBCall.Text)));
           rb.myGrid := TrimLeft(TrimRight(edGrid.Text));
           rb.rbInfo := TrimLeft(TrimRight(edStationInfo.Text));
-          rb.myQRG  := StrToInt(edDialQRG.Text);
-          rb.useRB  := True;
-          rbping    := True;
+          foo := '';
+          if tryStrToInt(edDialQRG.Text,i) Then
+          Begin
+               if mval.evalIQRG(i,'lax',foo) Then
+               Begin
+                    rb.myQRG  := i;
+                    sopQRG    := i;
+                    rb.useRB := True;
+                    rb.useDBF := False;
+                    rbping    := True;
+               end
+               else
+               begin
+                    rb.myQRG  := 0;
+                    sopQRG    := 0;
+                    rb.useRB := False;
+                    rb.useDBF := False;
+                    rbping    := False;
+               end;
+          end
+          else
+          begin
+               rb.myQRG  := 0;
+               sopQRG    := 0;
+               rb.useRB := False;
+               rb.useDBF := False;
+               rbping    := False;
+          end;
      end;
 
      if useDeciAmerican.Checked then
@@ -2154,8 +2311,8 @@ Begin
      end;
      if useDeciAuto.Checked then
      begin
-          dChar := DecimalSeparator;
-          kChar := ThousandSeparator;
+          dChar := deciString[1];
+          kChar := kiloString[1];
      end;
      if d65.glinprog Then Image1.Picture.LoadFromLazarusResource('decode');
      if not clRebel.txStat And not d65.glinprog Then Image1.Picture.LoadFromLazarusResource('receive');
@@ -2184,6 +2341,28 @@ Begin
                except
                   //ShowMessage('Debug - could not remove orphaned kvasd.dat' + sLineBreak + 'Please notify W6CQZ');
                end;
+          end;
+     end;
+
+     if not d65.glinprog Then
+     begin
+          tot := 0.0;
+          fi := 0;
+          for i := 0 to 100 do
+          begin
+               if not d65.glDecTrace[i].trDIS Then
+               Begin
+                    Memo2.Append(FormatFloat('####',d65.glDecTrace[i].trTIM) + ' mS Bin:  ' + IntToStr(d65.glDecTrace[i].trBIN) + '  DF:  ' + IntToStr(Round(d65.glDecTrace[i].trDFX)) + '  db:  ' + IntToStr(Round(d65.glDecTrace[i].trSNR)) + '  DT:  ' + FormatFloat('##.#',d65.glDecTrace[i].trDTX) + ' [' + d65.glDecTrace[i].trDEC + ']');
+                    tot := tot + d65.glDecTrace[i].trTIM;
+                    d65.glDecTrace[i].trDIS := True;
+                    inc(fi);
+               end;
+          end;
+          if fi>0 Then
+          Begin
+               Memo2.Append('');
+               Memo2.Append(FormatFloat('##.###',tot) + ' mS');
+               Memo2.Append('--------------------------------------------------------');
           end;
      end;
 end;
@@ -2256,29 +2435,33 @@ Begin
           runDecode := True;
      end;
      i := 0;
-     if tryStrToInt(edRebTXOffset.Text,i) and (clRebel.txOffset <> i) Then
+     if haveRebel and tryStrToInt(edRebTXOffset.Text,i) and (clRebel.txOffset <> i) Then
      Begin
           // fix it
           if not clRebel.Busy then
           begin
                clRebel.txOffset := i;
-               qsyQRG := StrToInt(edDialQRG.Text);
-               setQRG := True;
                clRebel.setOffsets;
-               qsyQRG := StrToInt(edDialQRG.Text);
-               setQRG := True;
+               if tryStrToInt(edDialQRG.Text,i) Then
+               Begin
+                    qsyQRG := i;
+                    setQRG := True;
+               end;
           end;
      end;
      i := 0;
-     if tryStrToInt(edRebRXOffset.Text,i) and (clRebel.rxOffset <> i) Then
+     if haveRebel and tryStrToInt(edRebRXOffset.Text,i) and (clRebel.rxOffset <> i) Then
      Begin
           // fix it
           if not clRebel.busy then
           begin
                clRebel.rxOffset := i;
                clRebel.setOffsets;
-               qsyQRG := StrToInt(edDialQRG.Text);
-               setQRG := True;
+               if tryStrToInt(edDialQRG.Text,i) Then
+               Begin
+                    qsyQRG := i;
+                    setQRG := True;
+               end;
           end;
      end;
 
@@ -2287,7 +2470,10 @@ Begin
 
      // Frame progress indicator
      if (thisSecond < 48) Then ProgressBar1.Position := thisSecond;
-     if (thisSecond = 47) And (lastSecond = 46) And InSync And paActive Then eopQRG := StrToInt(edDialQRG.Text); // Track start/end frame QRG values
+     if (thisSecond = 47) And (lastSecond = 46) And InSync And paActive Then
+     Begin
+          if tryStrToInt(edDialQRG.Text,i) Then eopQRG := i else eopQRG := 0; // Track start/end frame QRG values
+     end;
      // Update clock display
      foo := '';
      //if thisUTC.Month < 10 Then foo := '0' + IntToStr(thisUTC.Month) + '-' else foo := IntToStr(thisUTC.Month) + '-';
@@ -2297,6 +2483,8 @@ Begin
      if thisUTC.Minute < 10 Then foo := foo + '0' + IntToStr(thisUTC.Minute) + ':' else foo := foo + IntToStr(thisUTC.Minute) + ':';
      if thisUTC.Second < 10 Then foo := foo + '0' + IntToStr(thisUTC.Second) else foo := foo + IntToStr(thisUTC.Second);
      Label15.Caption :=  foo;
+     Label44.Caption := FormatDateTime(dateString,now);
+
      // Ping RB Server to keep alive on minutes 0,5,10,15,20,25,30,35,40,45,50,55 at 15 seconds
      if (thisSecond = 15) and (thisUTC.Minute MOD 5 = 0) Then
      Begin
@@ -2306,18 +2494,60 @@ Begin
                rb.myCall := TrimLeft(TrimRight(UpCase(edRBCall.Text)));
                rb.myGrid := TrimLeft(TrimRight(edGrid.Text));
                rb.rbInfo := TrimLeft(TrimRight(edStationInfo.Text));
-               rb.myQRG  := StrToInt(edDialQRG.Text);
-               rb.useRB  := True;
-               rbping    := True;
+               if tryStrToInt(edDialQRG.Text,i) Then
+               Begin
+                    if mval.evalIQRG(i,'lax',foo) Then
+                    Begin
+                         rb.myQRG  := i;
+                         rb.useRB  := True;
+                         rbping    := True;
+                    end
+                    else
+                    begin
+                         rb.myQRG  := 0;
+                         rb.useRB  := False;
+                         rbping    := False;
+                    end;
+               end
+               else
+               begin
+                    rb.myQRG   := 0;
+                    rb.useRB  := False;
+                    rbping    := False;
+               end;
           end
           else
           begin
                rb.myCall := TrimLeft(TrimRight(UpCase(edRBCall.Text)));
                rb.myGrid := TrimLeft(TrimRight(edGrid.Text));
                rb.rbInfo := TrimLeft(TrimRight(edStationInfo.Text));
-               rb.myQRG  := StrToInt(edDialQRG.Text);
-               rb.useRB  := False;
-               rbping    := False;
+               if tryStrToInt(edDialQRG.Text,i) Then
+               Begin
+                    if mval.evalIQRG(i,'lax',foo) Then
+                    Begin
+                         rb.myQRG  := i;
+                         sopQRG    := i;
+                         rb.useRB := False;
+                         rb.useDBF := False;
+                         rbping    := False;
+                    end
+                    else
+                    begin
+                         rb.myQRG  := 0;
+                         sopQRG    := 0;
+                         rb.useRB := False;
+                         rb.useDBF := False;
+                         rbping    := False;
+                    end;
+               end
+               else
+               begin
+                    rb.myQRG  := 0;
+                    sopQRG    := 0;
+                    rb.useRB := False;
+                    rb.useDBF := False;
+                    rbping    := False;
+               end;
           end;
      end;
      // Update rig control method before processing any rig control event
@@ -2444,7 +2674,8 @@ Begin
      if (thisSecond = 51) and (lastSecond = 50) Then
      Begin
           Try
-             for i := 0 to 749 do
+             //for i := 0 to 749 do
+             for i := 0 to 929 do
              Begin
                   spectrum.specPNG[0][i].r := 65535;
                   spectrum.specPNG[0][i].g := 0;
@@ -2460,9 +2691,11 @@ Begin
      // Paint a line for second = 0
      if (thisSecond = 1) and (lastSecond = 0) Then
      Begin
-          sopQRG := StrToInt(edDialQRG.Text);
+          if tryStrToInt(edDialQRG.Text,i) Then sopQRG := i else sopQRG := 0;
           Try
-             for i := 0 to 749 do
+             //for i := 0 to 749 do
+             for i := 0 to 929
+             do
              Begin
                   spectrum.specPNG[0][i].r := 0;
                   spectrum.specPNG[0][i].g := 65535;
@@ -2486,7 +2719,6 @@ Var
 Begin
      for i := 0 to 1023 do psAcc[i] := 0.0;
      pstick := 1;
-     Chart1BarSeries1.Clear;
      // Items that run once per minute at new minute start
      SetExceptionMask([exInvalidOp, exDenormalized, exZeroDivide, exOverflow, exUnderflow, exPrecision]);
      // RX to index = 0
@@ -2519,6 +2751,22 @@ Begin
      // Display any RB Errors
      //if rb.errLog.Count > 0 Then for i := 0 to rb.errLog.Count-1 do Memo2.Append(rb.errlog.Strings[i]);
      rb.clearErr;
+
+     if plotCount <> d65.dmPlotCount Then
+     Begin
+          if d65.dmPlotCount > 1440 Then
+          Begin
+               chart1.Series.Clear;
+               d65.dmPlotCount := 1;
+               Chart1LineSeries1.AddXY(d65.dmPlotCount,d65.dmPlotAvgSq);
+               plotcount := d65.dmPlotCount;
+          end
+          else
+          begin
+               Chart1LineSeries1.AddXY(d65.dmPlotCount,d65.dmPlotAvgSq);
+               plotcount := d65.dmPlotCount;
+          end;
+     end;
 end;
 
 procedure TForm1.periodicSpecial;
@@ -2527,47 +2775,10 @@ Begin
 end;
 
 procedure TForm1.adcdacTick;
-Var
-  psTempI  : Array[0..2047] of CTypes.cfloat;
-  psTempO  : Array[0..1023] of CTypes.cfloat;
-  i,j      : Integer;
-  f,g,fave : CTypes.cfloat;
 Begin
      // Events triggered from ADC/DAC callback counter change
      // Compute spectrum and audio levels.
      if adc.haveSpec Then specHeader;  // Update spectrum display header
-     if thisUTC.Second < 49 Then
-     Begin
-          Chart1BarSeries1.Clear;
-          j:=0;
-          for i := 0 to 4095 do
-          Begin
-               if odd(i) then
-               Begin
-                    if j<2048 then psTempI[j] := adc.adclast4k1[i];
-                    inc(j);
-               end;
-          end;
-
-          fave := 0.0;
-          for i := 0 to length(psTempI)-1 do fave := fave + psTempI[i];
-          fave := fave/(length(psTempI));
-          for i := 0 to length(psTempI)-1 do psTempI[i] := 0.1*(psTempI[i]-fave);
-
-          for i := 0 to length(psTempO)-1 do psTempO[i] := 0.0;
-
-          jt65demod.jl_ps(psTempI,length(psTempI),psTempO);
-
-          for i := 0 to length(psTempO)-1 Do
-          Begin
-               psAcc[i] := psAcc[i] + psTempO[i];
-               f := (i*2.691650390625)-(472*2.691650390625);
-               g := db(((psAcc[i]-1.0)/pstick)*(5512.5/2048.0)/2756.25);
-               if g<-33.0 Then g := -33.0;
-               Chart1BarSeries1.AddXY(f,g);
-          end;
-          inc(pstick);
-     end;
 
      if cbWFTX.Checked Then
      Begin
@@ -2623,97 +2834,23 @@ end;
 
 procedure TForm1.specHeader;
 Var
-   i, ii, txHpix     : Integer;
-   cfPix, lPix, hPix : Integer;
-   floatVar          : Single;
-   loBound, hiBound  : Double;
-   lowF, hiF         : Double;
+   i,ii,txHpix : Integer;
+   cfPix       : Integer;
+   floatVar    : Single;
+   bitmap      : Graphics.TBitMap;
 Begin
-     // Create header for spectrum display
-     PaintBox1.Canvas.Brush.Color := clWhite;
-     PaintBox1.Canvas.Brush.Style := bsSolid;
-     PaintBox1.Canvas.FillRect(0,0,749,11);
-     PaintBox1.Canvas.Pen.Color := clBlack;
-     PaintBox1.Canvas.Pen.Width := 1;
-     PaintBox1.Canvas.MoveTo(0,0);
-     PaintBox1.Canvas.Line(0,0,749,0);
-     PaintBox1.Canvas.Line(0,11,749,11);
-     PaintBox1.Canvas.Line(0,0,0,11);
-     PaintBox1.Canvas.Line(749,0,749,11);
-     // Paint 100hz tick marks.  This scales 0 to be at pixel 376, -1000 at 6
-     // and +1000 at 746.
-     PaintBox1.Canvas.Pen.Color := clBlack;
-     PaintBox1.Canvas.Pen.Width := 3;
-     ii := 6;
-     For i := 1 To 21 do
+     If not TryStrToInt(edTXDF.Text,i) Then i := -9000;
+     If not TryStrToInt(edRXDF.Text,ii) Then ii := -9000;
+     if ((not (d65.glBinSpace = headerRes)) or (not (i=lastTXDFMark)) or (not (ii=lastRXDFMark))) and (i>-9000) and (ii>-9000) Then
      Begin
-          PaintBox1.Canvas.Line(ii,1,ii,6);
-          ii := ii+37;
-     End;
-
-     // I now need to paint the RX indicators
-     If cbMultiOn.Checked Then
-     Begin
-          // Paint the bin tick marks
-          PaintBox1.Canvas.Pen.Width := 3;
-          PaintBox1.Canvas.Pen.Color := clTeal;
-          lobound := -1000 - (d65.glbinspace div 2);
-          hibound := -1000 + (d65.glbinspace div 2);
-          hiF := 0;
-          lowF := 0;
-          while hiBound < 1001 do
-          Begin
-               // Compute markers
-               lowF := loBound/2.7027;
-               hiF := (loBound+d65.glbinspace)/2.7027;
-               lowF := 376+lowF;
-               hiF := 376+hiF;
-               lPix := Round(lowF);
-               hPix := Round(hiF);
-               if (lPix > 0) And (hPix < 752) Then
-               Begin
-                    PaintBox1.Canvas.Line(lPix,8,lPix,10);
-                    PaintBox1.Canvas.Line(hPix,8,hPix,10);
-               End;
-               loBound := loBound + d65.glbinspace;
-               hiBound := hiBound + d65.glbinspace;
-          End;
-     End
-     Else
-     Begin
-          // Single decode set.  The passband for single is centered on
-          // Form1.spinDecoderCF.Value going Form1.spinDecoderBW.Value
-          // above and below CF.
-          // At 37 pixels per 100 hz 1 pixel = 2.7027 hz...
-          // Display is 2000 hz wide, -1000 at pixel 1, 0 at pixel 376 and
-          // +1000 at pixel 746
-          If TryStrToInt(edRXDF.Text,i) Then
-          Begin
-               loBound := i - d65.glDFTolerance;
-               hiBound := i + d65.glDFTolerance;
-               // Now that I have a center, low and high points I can convert those to
-               // relative pixel position for the spectrum display.  0 df = 376 and 1
-               // pixel ~ 2.7027 hz.
-               lowF := loBound/2.7027;
-               hiF := hiBound/2.7027;
-               lowF := 376+lowF;
-               hiF := 376+hiF;
-               cfPix := 376;
-               hPix := Round(hiF);
-               lPix := Round(lowF);
-               if lPix < 1 Then lPix := 1;
-               if hPix > 751 Then hPix := 751;
-               // Paint the RX passband, horizontal lime green line.
-               PaintBox1.Canvas.Pen.Width := 3;
-               PaintBox1.Canvas.Pen.Color := clLime;
-               PaintBox1.Canvas.Line(lPix,9,hPix,9);
-               PaintBox1.Canvas.Line(lPix,1,lPix,9);
-               PaintBox1.Canvas.Line(hPix,1,hPix,9);
-          end;
-     End;
-     // Paint the TX marker
-     If TryStrToInt(edTXDF.Text,i) Then
-     Begin
+          // Reload header Paint the TX/RX Markers.  RX Marker is not painted unless in single decode mode.
+          paintbox1.Canvas.Clear;
+          Bitmap := Graphics.TBitmap.Create;
+          Bitmap.Height := 12;
+          Bitmap.Width  := 748;
+          Bitmap.LoadFromFile('header'+IntToStr(d65.glBinSpace)+'.bmp');
+          paintBox1.Canvas.Draw(0,0,Bitmap);
+          Bitmap.Destroy;
           if i <> 0 Then
           Begin
                floatVar := i / 2.7027;
@@ -2737,7 +2874,27 @@ Begin
                PaintBox1.Canvas.Line(txHpix,1,txHpix,7);
                PaintBox1.Canvas.Line(cfPix,1,txHpix,1);
           end;
-     End;
+          if ii <> 0 Then
+          Begin
+               floatVar := ii / 2.7027;
+               floatVar := 376+floatVar;
+               cfPix := Round(floatVar);
+               PaintBox1.Canvas.Pen.Color := clGreen;
+               PaintBox1.Canvas.Pen.Width := 5;
+               PaintBox1.Canvas.Line(cfpix,1,cfpix,7);
+          end
+          else
+          begin
+               cfPix := 376;
+               PaintBox1.Canvas.Pen.Color := clGreen;
+               PaintBox1.Canvas.Pen.Width := 5;
+               PaintBox1.Canvas.Line(cfpix,1,cfpix,7);
+          end;
+          lastTXDFMark := i;
+          lastRXDFMark := ii;
+          headerRes := d65.glBinSpace;
+     end;
+
 End;
 
 function TForm1.asBand(const qrg : Integer) : Integer;
@@ -2771,7 +2928,6 @@ Begin
      for i := 0 to 49 do if not d65.gld65decodes[i].dtProcessed Then inc(k);
      if thisUTC.Hour < 10 Then afoo := '0'+IntToStr(thisUTC.Hour) else afoo := intToStr(thisUTC.Hour);
      if thisUTC.Minute < 10 then afoo := afoo + ':0' + intToStr(thisUTC.Minute) else afoo := afoo + ':' + intToStr(thisUTC.Minute);
-     //if (d65.dmRunTime > 2500.0) or (d65.dmKVWasted > 10) Then memo1.Lines.Insert(1,afoo + '  ' + PadRight(IntToStr(d65.dmSynPoints),4) + '  ' + PadRight(IntToStr(d65.dmMerged),6) + '  ' + PadRight(IntToStr(d65.dmKVHangs),5) + '  ' + PadRight(FormatFloat('##.#',d65.dmruntime/1000.0),4) + '  ' + FormatFloat('#.###',d65.dmKVWasted/1000.0));
      d65.dmAveSQ := 0.0;
      d65.dmBaseVB := 0.0;
      d65.dmSynPoints := 0;
@@ -2779,6 +2935,15 @@ Begin
      d65.dmkvhangs := 0;
      If k>0 Then
      Begin
+          // Update decoder statistics
+          if d65.dmruntime > lrun then lrun := d65.dmruntime;
+          if isZero(srun) Then srun := d65.dmruntime;
+          if d65.dmruntime < srun Then srun := d65.dmruntime;
+          if not IsZero(d65.dmruntime) Then Label82.Caption := FormatFloat('0.000',(d65.dmruntime/1000.0));
+          if not IsZero(lrun) Then Label83.Caption := FormatFloat('0.000',(lrun/1000.0));
+          if not IsZero(srun) Then Label84.Caption := FormatFloat('0.000',(srun/1000.0));
+          if not isZero(d65.dmarun) Then Label86.Caption := FormatFloat('0.000',((d65.dmarun/d65.dmrcount)/1000.0));
+
           if cbDivideDecodes.Checked Then ListBox1.Items.Insert(0,'------------------------------------------------------------');
           for i := 0 to 49 do
           begin
@@ -2845,6 +3010,7 @@ Begin
                                    if ng[1]='-' Then logMySig.Text:=ng else if ng[1..2]='R-' Then logMySig.Text := ng[2..Length(ng)];
                               end;
                          end;
+                         if not tryStrToInt(edDialQRG.Text,j) Then edDialQRG.Text := '0';
                          if (rbOn.Checked) And (sopQRG = eopQRG) And (StrToInt(edDialQRG.Text) > 0) Then
                          Begin
                               //Post to RB
@@ -3560,7 +3726,7 @@ Begin
                // compute TX period
                foo := exchange.utc[4..5];
                i := -1;
-               i := StrToInt(foo);
+               tryStrToInt(foo,i);
                if (i>-1) and odd(i) then txp := 0; // Was received Odd so TX Even!
                if (i>-1) and not odd(i) then txp := 1; // Was received Even so TX Odd!
           end;
@@ -4103,6 +4269,7 @@ begin
                if isBreakIn Then Memo2.Append('[TE] ' + response + ' to ' + connectTo + ' [' + fullCall + '] @ ' + hisGrid + ' Proto ' + IntToStr(level) + '[' + sdb + 'dB @ ' + sdf + 'Hz]') else Memo2.Append('[IM] ' + response + ' to ' + connectTo + ' [' + fullCall + '] @ ' + hisGrid + ' Proto ' + IntToStr(level) + '[' + sdb + 'dB @ ' + sdf + 'Hz]');
                logCallsign.Text := fullCall;
                logSigReport.Text := sdb;
+               if not TryStrToInt(edDialQRG.Text,i) Then edDialQRG.Text := '0';
                logQRG.Text := FormatFloat('0.0000',(StrToInt(edDialQRG.Text)/1000000.0));
                edTXMsg.Text := response;
                thisTXMsg := response;
@@ -4120,6 +4287,7 @@ begin
 
                if isFText(response) or isSText(response) Then
                Begin
+                    if not tryStrToInt(sdf,i) then sdf := '0';
                     genTX(response, StrToInt(sdf)+clRebel.txOffset);
                     if txp=0 then rbTxEven.Checked := True else rbTxOdd.Checked := True;
                     if not isBreakin then toggleTX.State := cbChecked else toggleTX.State := cbUnchecked;
@@ -4651,8 +4819,12 @@ Var
    pfxt,sfxt     : String;
    syms          : Array[0..11] Of CTypes.cint;
    tsyms         : Array[0..62] Of CTypes.cint;
+   itone9        : Array[0..84] Of CTypes.cint;
+   itone9fsk     : Array[0..84] Of CTypes.cdouble;
+   itone9dds     : Array[0..84] Of CTypes.cuint;
    sm, ft, doit  : Boolean;
    baseTX        : CTypes.cdouble;
+   maxf,minf,bw  : CTypes.cdouble;
 begin
      // Validate the message for proper content BEFORE calling this
      txValid := False;
@@ -4681,6 +4853,40 @@ begin
           end;
      end;
 
+//     strpcopy(jtencode,PadRight(foo,22));
+//     jtdecode := '                                ';
+//     for i := 0 to length(itone9)-1 do
+//     begin
+//          itone9[i] := 0;
+//          itone9fsk[i] := 0.0;
+//          itone9dds[i] := 0;
+//     end;
+//
+//     i := 0;
+//     j := 0;
+//     genjt9(jtencode,@i,jtdecode,@itone9[0],@j);
+//     foo := StrPas(jtdecode);
+//
+//     for i := 0 to length(itone9)-1 do itone9fsk[i] := ((itone9[i] * 1.736) + 2270.0) + 14076000.0;
+//
+//     maxf := -1.0e30;
+//     minf := 1.0e30;
+//     bw   := 0.0;
+//
+//     for i := 0 to length(itone9fsk)-1 do
+//     begin
+//          if itone9fsk[i] > maxf then maxf := itone9fsk[i];
+//          if itone9fsk[i] < minf then minf := itone9fsk[i];
+//     end;
+//     bw := maxf-minf;
+//
+//     for i := 0 to length(itone9fsk)-1 do itone9dds[i] := rebelTuning(itone9fsk[i]);
+//     for i := 0 to length(itone9fsk)-1 do
+//     begin
+//          if itone9fsk[i] > maxf then maxf := itone9fsk[i];
+//          if itone9fsk[i] < minf then minf := itone9fsk[i];
+//     end;
+
      // One last check for proto.  This will force it to use libJT65 message generator if
      // there's a slash in the string and it wasn't set to JT proto.  Maybe not, again, one
      // of my better ideas... but for now it stands.
@@ -4692,7 +4898,6 @@ begin
           doit := False;
           if proto = 'JT' Then
           Begin
-               memo2.Append('Using libJT65 SM encoder');
                // It's a slashed call form so use the tried and true V1 encoder from libJT65
                strpcopy(jtencode,PadRight(foo,22));
                for i := 0 to 11 do syms[i] := 0;
@@ -4708,7 +4913,6 @@ begin
           end
           else
           begin
-               memo2.Append('Using local SM encoder');
                // Use local code encoder and by my current rule set there will be no slashed calls here
                nc1 := 0;
                If (nc1t = 'CQ') or (nc1t = 'QRZ') or (nc1t = 'DE') Then
@@ -4751,7 +4955,6 @@ begin
      if ft then
      begin
           doit := False;
-          memo2.Append('Using free text encoder');
           nc1 := 0;
           nc2 := 0;
           ng  := 0;
@@ -4770,7 +4973,7 @@ begin
           end;
      end;
      // Generate FSK values
-     if doit Then
+     if doit and haveRebel Then
      Begin
           // tsyms holds the 63 TX symbols - will need to look at TXDF and current dial
           // RX QRG to compute the true RF TX QRG list.  TXDF 0 = 1270.5 Hz so if dial
@@ -4781,6 +4984,7 @@ begin
           //ssyms         : Array[0..62] Of String;
           // So.... tone 0 (sync) = Dial QRG + 1270.5 + TXDF
           baseTX   := 1270.5;
+          if not tryStrToInt(edDialQRG.Text,i) Then edDialQRG.Text := '0';
           baseTX   := baseTX + StrToInt(edDialQRG.Text) + txdf;  // This is the floating point value in Hz of the sync carrier (base frequency - data goes up from this)
           k := rebelTuning(baseTX); // Base sync tone as RF tuning word
           // For this we clear the whole 128 and it's 128 because of way I pass FSK values to Rebel - it only uses 126 :)
@@ -4803,7 +5007,7 @@ begin
           txValid := True;
           mgendf := IntToStr(txdf-clRebel.txOffset);
           if edTXDF.Text <> mgendf Then edTXDF.Text := mgendf;
-          Memo2.Append('Message to send:  ' + foo + ' at TXDF ' + edTXDF.Text);
+          Memo2.Append('Msg: ' + TrimLeft(TrimRight(foo)) + ' DF ' + edTXDF.Text + ' ' + FormatFloat('########.##',baseTX-clRebel.txOffset) + ' Hz');
 
      end;
 end;
@@ -4840,6 +5044,7 @@ end;
 procedure TForm1.mgenClick(Sender: TObject);
 Var
    foo : String;
+   i   : Integer;
 begin
      lastTXMsg := '';
      sameTXCount := 0;
@@ -5081,7 +5286,7 @@ begin
           // Final QC check
           if length(thisTXmsg)>1 Then
           Begin
-               if isFText(thisTXmsg) or isSText(thisTXmsg) Then genTX(thisTXmsg, StrToInt(edTXDF.Text)+clRebel.txOffset) else thisTXmsg := '';
+               if (isFText(thisTXmsg) or isSText(thisTXmsg)) and tryStrToInt(edTXDF.Text,i) Then genTX(thisTXmsg, StrToInt(edTXDF.Text)+clRebel.txOffset) else thisTXmsg := '';
                edTXMsg.Text := thisTXmsg; // this double checks for valid message.
                if thisTXMsg = '' Then ShowMessage('Error.. odd... no message from a button?  Please tell W6CQZ');
           end;
@@ -5328,12 +5533,6 @@ begin
      end;
 end;
 
-procedure TForm1.Memo1DblClick(Sender: TObject);
-begin
-     Memo1.Clear;
-     //Memo1.Lines.Add('UTC    Sync  Mashed  Hangs  Time  Waste');
-end;
-
 procedure TForm1.Memo2DblClick(Sender: TObject);
 begin
      memo2.Clear;
@@ -5523,6 +5722,7 @@ end;
 procedure TForm1.buttonXferMacroClick(Sender: TObject);
 Var
    foo : String;
+   i   : Integer;
 begin
      // Transfers contents of Macro buffer to TX Message buffer
      //function TForm1.isFText(c : String) : Boolean;
@@ -5535,7 +5735,7 @@ begin
      if isFText(comboMacroList.Text) or isSText(comboMacroList.Text) Then
      Begin
           thisTXMsg := comboMacroList.Text;
-          if isFText(thisTXmsg) or isSText(thisTXmsg) Then genTX(thisTXmsg, StrToInt(edTXDF.Text)+clRebel.txOffset) else thisTXmsg := '';
+          if (isFText(thisTXmsg) or isSText(thisTXmsg)) and tryStrToInt(edTXDF.Text,i) Then genTX(thisTXmsg, StrToInt(edTXDF.Text)+clRebel.txOffset) else thisTXmsg := '';
           edTXMsg.Text := thisTXmsg; // this double checks for valid message.
           //if rbCWIDFree.Checked Then doCWID := True else doCWID := False;
      end;
@@ -5689,6 +5889,7 @@ begin
      decoderBusy := False;
      qrgValid    := False;
      jtencode    := SysUtils.StrAlloc(32);
+     jtdecode    := SysUtils.StrAlloc(32);
      Timer1.Enabled := True;
 end;
 
@@ -5905,7 +6106,6 @@ begin
      Query.Params.ParamByName('DGAINR').AsInteger    := i;
      Query.Params.ParamByName('DGAINRA').AsBoolean   := cbAttenuateRight.Checked;
      Query.Params.ParamByName('USESERIAL').AsBoolean := cbUseSerial.Checked;
-     //Query.Params.ParamByName('USEALT').AsBoolean    := cbUseAltPTT.Checked;
      If not TryStrToInt(t(edPort.Text),i) then i := -1;
      Query.Params.ParamByName('PORT').AsInteger      := i;
      Query.Params.ParamByName('TXWD').AsBoolean      := cbUseTXWD.Checked;
@@ -6141,8 +6341,8 @@ Begin
      end;
      if useDeciAuto.Checked then
      begin
-          dChar := DecimalSeparator;
-          kChar := ThousandSeparator;
+          dChar := deciString[1];
+          kChar := kiloString[1];
           if dChar = '.' Then useDeciAuto.Caption := 'Use System Default (decimal = . thousands = ,)';
           if dChar = ',' Then useDeciAuto.Caption := 'Use System Default (decimal = , thousands = .)';
      end;

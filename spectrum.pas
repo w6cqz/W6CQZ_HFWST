@@ -5,10 +5,10 @@ unit spectrum;
 interface
 
 uses
-  Classes, SysUtils, CTypes, cmaps, fftw_jl, graphics, Math;
+  Classes, SysUtils, CTypes, cmaps, fftw_jl, graphics, Math, jt65demod;
 
 Const
-  JT_DLL = 'JT65v32.dll';
+  JT_DLL = 'JT65v35.dll';
 
 Type
     PNGPixel = Packed Record
@@ -18,7 +18,8 @@ Type
              a : Word;
     end;
 
-    PNGArray = Array[0..749] of PNGPixel;
+    //PNGArray = Array[0..749] of PNGPixel;
+    PNGArray = Array[0..929] of PNGPixel;
 
 procedure computeSpectrum(Const dBuffer : Array of CTypes.cint16);
 function computeAudio(Const Buffer : Array of CTypes.cint16): Integer;
@@ -46,108 +47,6 @@ implementation
 
 procedure flat(ss,n,nsum : Pointer); cdecl; external JT_DLL name 'flat2_';
 
-//function colorMap(Const integerArray : Array of LongInt; Var rgbArray : RGBArray ): Boolean;
-//Var
-//   floatvar : Single;
-//   i        : Integer;
-//   intvar   : LongInt;
-//Begin
-//     // This routine maps integerArray[0..749] to rgbArray[0..749] in RGB pixel format.
-//     If specColorMap = 0 Then
-//     Begin
-//          for i := 0 to 749 do
-//          Begin
-//               floatvar := cmaps.bluecmap1[integerArray[i]];
-//               floatvar := floatvar * 256; // Red
-//               intvar := trunc(floatvar);
-//               intVar := min(255,max(0,intVar));
-//               rgbArray[i].r := intvar;
-//
-//               floatvar := cmaps.bluecmap2[integerArray[i]];
-//               floatvar := floatvar * 256;
-//               intvar := trunc(floatvar);
-//               intVar := min(255,max(0,intVar));
-//               rgbArray[i].g := intvar;
-//
-//               floatvar := cmaps.bluecmap3[integerArray[i]];
-//               floatvar := floatvar * 256;
-//               intvar := trunc(floatvar);
-//               intVar := min(255,max(0,intVar));
-//               rgbArray[i].b := intvar;
-//          End;
-//     End;
-//     If specColorMap = 1 Then
-//     Begin
-//          for i := 0 to 749 do
-//          Begin
-//               floatvar := cmaps.linradcmap1[integerArray[i]];
-//               floatvar := floatvar * 256;
-//               intvar := trunc(floatvar);
-//               intVar := min(255,max(0,intVar));
-//               rgbArray[i].r := intvar;
-//
-//               floatvar := cmaps.linradcmap2[integerArray[i]];
-//               floatvar := floatvar * 256;
-//               intvar := trunc(floatvar);
-//               intVar := min(255,max(0,intVar));
-//               rgbArray[i].g := intvar;
-//
-//               floatvar := cmaps.linradcmap3[integerArray[i]];
-//               floatvar := floatvar * 256;
-//               intvar := trunc(floatvar);
-//               intVar := min(255,max(0,intVar));
-//               rgbArray[i].b := intvar;
-//          End;
-//     End;
-//     If specColorMap = 2 Then
-//     Begin
-//          for i := 0 to 749 do
-//          Begin
-//               floatvar := cmaps.gray0cmap1[integerArray[i]];
-//               floatvar := floatvar * 256;
-//               intvar := trunc(floatvar);
-//               intVar := min(255,max(0,intVar));
-//               rgbArray[i].r := intvar;
-//
-//               floatvar := cmaps.gray0cmap2[integerArray[i]];
-//               floatvar := floatvar * 256;
-//               intvar := trunc(floatvar);
-//               intVar := min(255,max(0,intVar));
-//               rgbArray[i].g := intvar;
-//
-//               floatvar := cmaps.gray0cmap3[integerArray[i]];
-//               floatvar := floatvar * 256;
-//               intvar := trunc(floatvar);
-//               intVar := min(255,max(0,intVar));
-//               rgbArray[i].b := intvar;
-//          End;
-//     End;
-//     If specColorMap = 3 Then
-//     Begin
-//          for i := 0 to 749 do
-//          Begin
-//               floatvar := cmaps.gray1cmap1[integerArray[i]];
-//               floatvar := floatvar * 256;
-//               intvar := trunc(floatvar);
-//               intVar := min(255,max(0,intVar));
-//               rgbArray[i].r := intvar;
-//
-//               floatvar := cmaps.gray1cmap2[integerArray[i]];
-//               floatvar := floatvar * 256;
-//               intvar := trunc(floatvar);
-//               intVar := min(255,max(0,intVar));
-//               rgbArray[i].g := intvar;
-//
-//               floatvar := cmaps.gray1cmap3[integerArray[i]];
-//               floatvar := floatvar * 256;
-//               intvar := trunc(floatvar);
-//               intVar := min(255,max(0,intVar));
-//               rgbArray[i].b := intvar;
-//          End;
-//     End;
-//     Result := True;
-//End;
-
 function pColorMap(Const integerArray : Array of LongInt; Var rgbArray : PNGArray ): Boolean;
 Var
    floatvar : Single;
@@ -157,7 +56,8 @@ Begin
      // This routine maps integerArray[0..749] to rgbArray[0..749] in RGB pixel format.
      If specColorMap = 0 Then
      Begin
-          for i := 0 to 749 do
+          //for i := 0 to 749 do
+          for i := 0 to 929 do
           Begin
                rgbarray[i].a := 65535;
                floatvar := cmaps.bluecmap1[integerArray[i]];
@@ -181,7 +81,8 @@ Begin
      End;
      If specColorMap = 1 Then
      Begin
-          for i := 0 to 749 do
+          //for i := 0 to 749 do
+          for i := 0 to 929 do
           Begin
                rgbarray[i].a := 65535;
                floatvar := cmaps.linradcmap1[integerArray[i]];
@@ -205,7 +106,8 @@ Begin
      End;
      If specColorMap = 2 Then
      Begin
-          for i := 0 to 749 do
+          //for i := 0 to 749 do
+          for i := 0 to 929 do
           Begin
                rgbarray[i].a := 65535;
                floatvar := cmaps.gray0cmap1[integerArray[i]];
@@ -229,7 +131,8 @@ Begin
      End;
      If specColorMap = 3 Then
      Begin
-          for i := 0 to 749 do
+          //for i := 0 to 749 do
+          for i := 0 to 929 do
           Begin
                rgbarray[i].a := 65535;
                floatvar := cmaps.gray1cmap1[integerArray[i]];
@@ -312,19 +215,19 @@ End;
 
 procedure computeSpectrum(Const dBuffer : Array of CTypes.cint16);
 Var
-   i,intVar,nh,iadj,j           : CTypes.cint;
-   gamma,offset,fi,fvar,pw1,pw2 : CTypes.cfloat;
-   fave                         : CTypes.cfloat;
-   pngSpectra                   : PNGArray;
-   doSpec                       : Boolean;
-   fftOut65                     : Array[0..2047] of fftw_jl.complex_single;
-   fftIn65                      : Array[0..4095] of Single;
-   pfftIn65                     : PSingle;
-   pfftOut65                    : fftw_jl.Pcomplex_single;
-   p                            : fftw_plan_single;
-   ss65,ss65b                   : Array[0..2047] of CTypes.cfloat;
-   floatSpectra                 : Array[0..749] of CTypes.cfloat;
-   integerSpectra               : Array[0..749] of CTypes.cint32;
+   i,intVar,nh,iadj          : CTypes.cint;
+   gamma,offset,fvar,pw1,pw2 : CTypes.cfloat;
+   fave                      : CTypes.cfloat;
+   pngSpectra                : PNGArray;
+   doSpec                    : Boolean;
+   fftOut65                  : Array[0..2047] of fftw_jl.complex_single;
+   fftIn65                   : Array[0..4095] of Single;
+   pfftIn65                  : PSingle;
+   pfftOut65                 : fftw_jl.Pcomplex_single;
+   p                         : fftw_plan_single;
+   ss65                      : Array[0..2047] of CTypes.cfloat;
+   floatSpectra              : Array[0..929] of CTypes.cfloat;
+   integerSpectra            : Array[0..929] of CTypes.cint32;
 Begin
      // Compute spectrum display.  Expects 4096 samples in dBuffer
      spectrumComputing65 := True;
@@ -338,7 +241,8 @@ Begin
                ss65[i] := 0;
           End;
           // clear rgbSpectra
-          for i := 0 to 749 do
+          //for i := 0 to 749 do
+          for i := 0 to 929 do
           Begin
                pngSpectra[i].r := 0;
                pngSpectra[i].g := 0;
@@ -353,7 +257,7 @@ Begin
              //specspeed2 < 0 = spectrum display off.
              doSpec := False;
              specNewSpec65 := False;
-             // Adjust to float and copy data to FFT calculation buffer
+             // Adjust to float and copy data to FFT calculation buffer - removing any DC to boot
              fave := 0.0;
              for i := 0 to length(dBuffer)-1 do fave := fave + dBuffer[i];
              fave := fave/(length(dBuffer));
@@ -386,75 +290,26 @@ Begin
              // ss[0..2047] contains the power density in ~2.7 hz steps.
              inc(specfftCount);
              iadj := 97; // Adjust bins to match graphic display - this is for a 2K range centered on 1270.5 Hz
+             // iadj sets the lower bin to F = iadj * (11025/4096) = iadj * 2.691650390625
+             // iadj = 464 = 1248.925
+             // iadj = 465 = 1251.617
+             // Top of range is itadj
+             // itadj = 1024 = 2756.25
+             //iadj := 460;
              if specfftCount >= (10-specSpeed2) Then
              Begin
                   inc(specfftCount);
-                  try
-                     for i := 0 to length(ss65)-1 do ss65b[i] := ss65[i];
-                     flat(@ss65[0],@nh,@specfftCount);
-                     //if specuseagc then
-                     //begin
-                          gamma := 1.3 + 0.01*specContrast;
-                          offset := (specGain+64.0)/2;
-                          fi := 0.0;
-                          i := iadj;
-                          j := 0;
-                          // WUT
-                          { TODO : Sort this out - it seems to do a whole lot of looping FOR NOTHING }
-                          //While i < length(ss65)-1 do
-                          //begin
-                               //fi := ss65[i];
-                               //i := i + iadj;
-                               //inc(j);
-                          //end;
-                          // Now... I just "corrected" the above with the line below BUT
-                          // if AGC stops working the deal is....
-                          // Uncorrect it and figure out why the hell it works that cockeyed way.
-                          // It's likely my rescaling of the data from data[x]*.1 to data[x]*.001 may have cured this and made all this moot.
-                          for i := 0 to 2047 do fi := fi+ss65[i];
-                          //While i < length(ss65)-1 do
-                          //begin
-                               //fi := fi + ss65[i];
-                               //i := i + iadj;
-                               //inc(j);
-                          //end;
-                          fi := fi / 2048.0;
-                          intvar := 0;
-                          fvar := fi;
-                          if fvar <> 0 Then
-                          Begin
-                               pw1 := 0.01*fvar;
-                               pw2 := gamma;
-                               fvar := 0.0;
-                               fvar := power(pw1,pw2);
-                               fvar := fvar+offset;
-                          End
-                          Else
-                          Begin
-                               fvar := 0.0;
-                          End;
-                          if fvar <> 0 then intVar := trunc(fvar) else intVar := 0;
-                          intVar := min(252,max(0,intVar));
-                          if intVar < 5 then
-                          begin
-                               // Undo the smooth if the avg value looks too low...
-                               for i := 0 to length(ss65)-1 do ss65[i] := ss65b[i];
-                               inc(specagc);
-                          end;
-                     //end;
-                  except
-                        for i := 0 to length(ss65)-1 do ss65[i] := ss65b[i];
-                  end;
-                  // Create spectra line
-                  // Somewhere in range of 490...570 there's a "stuck" pixel - lets find that someday :)
-                  For i := 0 to 749 do floatSpectra[i] := (specVGain*ss65[i+iadj])/specfftCount;
+                  jt65demod.jl_flat2(ss65,nh,specfftCount);
+                  //For i := 0 to 749 do floatSpectra[i] := (specVGain*ss65[i+iadj])/specfftCount;
+                  For i := 0 to 929 do floatSpectra[i] := (specVGain*ss65[i+iadj])/specfftCount;
                   //Clear ss[]
                   for i := 0 to 2047 do ss65[i] := 0;
                   specfftCount := 0;
                   gamma := 1.3 + 0.01*specContrast;
                   offset := (specGain+64.0)/2;
                   // Map float specta pixels to integer
-                  For i := 0 to 749 do
+                  //For i := 0 to 749 do
+                  For i := 0 to 929 do
                   Begin
                        intVar := 0;
                        fvar := floatSpectra[i];
@@ -475,7 +330,8 @@ Begin
                        integerSpectra[i] := intVar;
                   End;
                   doSpec := True;
-                  for i := 0 to 749 do floatSpectra[i] := 0.0;
+                  //for i := 0 to 749 do floatSpectra[i] := 0.0;
+                  for i := 0 to 929 do floatSpectra[i] := 0.0;
              End
              Else
              Begin
@@ -489,7 +345,8 @@ Begin
                   // Spectrum types 4 is simple single color mapping.
                   If specColorMap = 4 Then
                   Begin
-                       for i := 0 to 749 do
+                       //for i := 0 to 749 do
+                       for i := 0 to 929 do
                        Begin
                             pngSpectra[i].a := 65535;
                             pngSpectra[i].g := integerSpectra[i]*256;

@@ -6,7 +6,7 @@ unit valobject;
 interface
 
 uses
-  Classes, SysUtils, StrUtils;
+  Classes, SysUtils, StrUtils, Windows;
 
 Const
      JT65delimiter = ['A'..'Z','0'..'9','+','-','.','/','?',' '];
@@ -1223,8 +1223,10 @@ implementation
         resolved : Boolean;
         foo, s1  : String;
         s2, sqrg : String;
+        ds,ks    : String;
         decichar : Char;
         kilochar : Char;
+        deci     : PChar;
    begin
         // Returns an integer value in Hz for an input string that may be
         // in MHz, KHz or Hz.  Mode parameter can be lax or strict.  Float QRG
@@ -1257,8 +1259,14 @@ implementation
         sqrg     := '';
         // Will rely on defined constants for decimal and thousand markers.
         // Hopefully this will be correct for decimal point indication.
-        decichar := DecimalSeparator;
-        kilochar := ThousandSeparator;
+        deci := StrAlloc(255);
+        GetLocaleInfo(LOCALE_USER_DEFAULT,LOCALE_SDECIMAL,deci,255);
+        ds := TrimLeft(TrimRight(StrPas(deci)));
+        GetLocaleInfo(LOCALE_USER_DEFAULT,LOCALE_STHOUSAND,deci,255);
+        ks := TrimLeft(TrimRight(StrPas(deci)));
+        decichar := ds[1];
+        kilochar := ks[1];
+        deci := StrAlloc(0);
         // Variables to override the system idea of deci and kilo
         if prDeciEuro Then
         Begin

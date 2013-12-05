@@ -186,17 +186,17 @@ Begin
 end;
 
 function TRebel.doCWID : Boolean;
-Var
-   foo : String;
 Begin
      // WARNING - this command blocks return until CWID is completed.
      prBusy := True;
-     // Command 24,string_cwID,integer_TX-TUNING-WORD
-     prCommand := '24,' + prCWID + ',' + IntToStr(prCWIDQRG) + ';';  // TX CW Message (prCWID) at QRG prCWIDQRG (as DDS tuning word value)
+     // Command 21,string_cwID,integer_TX-TUNING-WORD
+     // String CWID <= 14 Characters!!!!
+     prCWID := TrimLeft(TrimRight(UpCase(prCWID)));
+     if Length(prCWID)>14 Then prCWID := prCWID[1..14];
+     prCommand := '21,' + prCWID + ',' + IntToStr(prCWIDQRG) + ';';  // TX CW Message (prCWID) at QRG prCWIDQRG (as DDS tuning word value)
      prResponse := '';
      if ask Then
      Begin
-          foo := prResponse;
           if prResponse='1,' + prCWID + ',' + IntToStr(prCWIDQRG) + ';' Then
           Begin
                prTXState := False;
@@ -219,7 +219,7 @@ end;
 
 function TRebel.ltx : Boolean;
 var
-   foo   : String;
+   foo,f2: String;
    i,j   : Integer;
 Begin
      prBusy := True;
@@ -228,64 +228,71 @@ Begin
      // I need to get 64 tuning words from ptTXArray into the Rebel.  First
      // I need to get a go ahead to start the upload then clock the values in
      // 4 at a time with an ack between each push.
-     prCommand := '5;';  // Request to upload FSK Words  I need to get back 1,5; as response.  0,5; means Rebel can't do this now.
+     // Note - this sets up for loading JT65, JT9 or anything else I may yet define for FSK modes
+     prCommand := '23;';  // Request to upload FSK Words  I need to get back 1,23; as response.  0,23; means Rebel can't do this now.
      prResponse := '';
      if ask Then
      Begin
-          if prResponse = '1,5;' Then
+          foo := prResponse;
+          if prResponse = '1,23;' Then
           Begin
-               // Lets be double sure and send command 21 to clear any data already uploaded.
-               prCommand := '21;';
+               // Lets be double sure and send command 22 to clear any data already uploaded.
+               prCommand := '22;';
                prResponse := '';
-               if ask and (prResponse = '1,21;') Then
+               if ask Then
                Begin
-                    // Have go ahead to start upload
-                    // Command ID=20,Block {1..32},I1,I2,I3,I4;
-                    prDebug := '';
-                    foo := '0,FSK VALUES FOLLOW,';
-                    for j := 0 to 126 do foo := foo + IntToStr(prTXArray[j]) + ',';
-                    prDebug := foo + IntToStr(prTXArray[127]);
-                    j := 0;
-                    for i := 1 to 32 do
-                    begin
-                         foo := '20,'+IntToStr(i)+','+IntToStr(prTXArray[j])+','+IntToStr(prTXArray[j+1])+','+IntToStr(prTXArray[j+2])+','+IntToStr(prTXArray[j+3])+';';
-                         prCommand := foo;
-                         prResponse := '';
-                         if ask Then
-                         Begin
-                              If prResponse = foo Then
+                    foo := prResponse;
+                    if prResponse = '1,22;' Then
+                    Begin
+                         // Have go ahead to start upload
+                         // Command ID=24,Block {1..32},I1,I2,I3,I4;
+                         prDebug := '';
+                         foo := '0,FSK VALUES FOLLOW,';
+                         for j := 0 to 126 do foo := foo + IntToStr(prTXArray[j]) + ',';
+                         prDebug := foo + IntToStr(prTXArray[127]);
+                         j := 0;
+                         for i := 1 to 32 do
+                         begin
+                              foo := '24,'+IntToStr(i)+','+IntToStr(prTXArray[j])+','+IntToStr(prTXArray[j+1])+','+IntToStr(prTXArray[j+2])+','+IntToStr(prTXArray[j+3])+';';
+                              prCommand := foo;
+                              prResponse := '';
+                              if ask Then
                               Begin
-                                   // This indicates the block was accepted and matches what I expect it to be.
-                                   j := j+4;
+                                   f2 := prResponse;
+                                   If prResponse = foo Then
+                                   Begin
+                                        // This indicates the block was accepted and matches what I expect it to be.
+                                        j := j+4;
+                                   end
+                                   else
+                                   begin
+                                        // Bad news :(
+                                        break;
+                                   end;
                               end
                               else
                               begin
-                                   // Bad news :(
+                                   prError := 'Upload block fails ack';
+                                   result := false;
                                    break;
                               end;
+                         end;
+                         if i<32 Then
+                         Begin
+                              prError := 'Bad upload';
+                              result := False;
                          end
                          else
                          begin
-                              prError := 'Upload block fails ack';
-                              result := false;
-                              break;
+                              prError := '';
+                              result := True;
                          end;
-                    end;
-                    if i<32 Then
-                    Begin
-                         prError := 'Bad upload';
-                         result := False;
                     end
                     else
                     begin
-                         prError := '';
-                         result := True;
+                         prError := 'Clear fails';
+                         result := False;
                     end;
-               end
-               else
-               begin
-                    prError := 'Clear fails';
-                    result := False;
                end;
           end
           else
@@ -310,7 +317,7 @@ begin
      prError := '';
      // Need to set RX and TX offsets
      // 16,INTEGER; = Set RX Offset
-     prCommand := '16,' + IntToStr(prRXOffset) + ';';  // RX Offset
+     prCommand := '10,' + IntToStr(prRXOffset) + ';';  // RX Offset
      prResponse := '';
      if ask Then
      Begin
@@ -331,7 +338,7 @@ begin
           prError := 'Command timeout RX Offset';
      end;
 
-     prCommand := '17,' + IntToStr(prTXOffset) + ';';  // TX Offset
+     prCommand := '11,' + IntToStr(prTXOffset) + ';';  // TX Offset
      prResponse := '';
      if ask Then
      Begin
@@ -370,8 +377,8 @@ Var
 begin
      prBusy := True;
      // Reading back FSK Values from the actual stored in array values
-     // 22; = Read FSK Array
-     prCommand := '22;';  // TX ON
+     // 26; = Read FSK Array
+     prCommand := '26;';
      prResponse := '';
      if ask Then
      Begin
@@ -387,18 +394,15 @@ begin
 end;
 
 function TRebel.latePTTOn : Boolean;
-Var
-   foo : String;
 Begin
      prBusy := True;
      // Need to turn it ON
-     // 23; = ON
-     prCommand := '23,' + IntToStr(prLateOffset) + ';';  // TX ON
+     // 19; = ON
+     prCommand := '19,' + IntToStr(prLateOffset) + ';';  // TX ON
      prResponse := '';
      if ask Then
      Begin
-          foo := prResponse;
-          if prResponse='1,23,' + IntToStr(prLateOffset) + ';' Then
+          if prResponse='1,19,' + IntToStr(prLateOffset) + ';' Then
           Begin
                prTXState := True;
                result := True;
@@ -412,7 +416,6 @@ Begin
      end
      else
      begin
-          foo := prResponse;
           prTXState := False;
           result := False;
           prError := 'Command timeout';
@@ -424,17 +427,16 @@ Begin
      prBusy := False;
 end;
 
-
 function TRebel.pttOn : Boolean;
 Begin
      prBusy := True;
      // Need to turn it ON
      // 10; = ON
-     prCommand := '10;';  // TX ON
+     prCommand := '16;';  // TX ON
      prResponse := '';
      if ask Then
      Begin
-          if prResponse='1,10;' Then
+          if prResponse='1,16;' Then
           Begin
                prTXState := True;
                result := True;
@@ -460,11 +462,11 @@ Begin
      prBusy := True;
      // Need to turn it OFF
      // 11; = OFF
-     prCommand := '11;';  // TX OFF
+     prCommand := '18;';  // TX OFF
      prResponse := '';
      if ask Then
      Begin
-          if prResponse='1,11;' Then
+          if prResponse='1,18;' Then
           Begin
                prTXState := False;
                result := True;
@@ -496,30 +498,52 @@ Begin
      // Take into account if band is 20M the DDS word is desired (RX + offset) - IF
      // WARNING WARNING WARNING WARNING and MORE WARNING
      //
-     if prBand = 20 then t := prQRG-9000000.0;
-     prCommand := '3,' + IntToStr(ddsWord(t,prRXOffset+prTXOffset,prDDSRef)) + ';';  // Sets RX frequency
-     prResponse := '';
-     if ask Then
+
+     if prBand = 20 then
      Begin
-          i := wordcount(prResponse,[',',';']);
-          if i > 1 Then foo := ExtractWord(2,prResponse,[',',';']) else foo := '-1';
-          // Response sends back the tuning word and it should be = to what we calculated :)
-          if IntToStr(ddsWord(t,prRXOffset+prTXOffset,prDDSRef)) = foo Then
+          if (prQRG >= 14000000.0) and (prQRG <= 14350000.0) Then t := prQRG-9000000.0 else t := 0.0;
+     end
+     else if prBand = 40 then
+     begin
+          if (prQRG >= 7000000.0) and (prQRG <= 7300000.0) Then t := 9000000.0-prQRG else t := 0.0;
+     end
+     else
+     begin
+          // This is an error (for now) if band != 20 or 40
+          t := 0.0;
+     end;
+
+     if t > 0.0 Then
+     Begin
+          prCommand := '14,' + IntToStr(ddsWord(t,prRXOffset+prTXOffset,prDDSRef)) + ';';  // Sets RX frequency
+          prResponse := '';
+          if ask Then
           Begin
-               result := True;
-               prError := '';
-               poll;
+               i := wordcount(prResponse,[',',';']);
+               if i > 1 Then foo := ExtractWord(2,prResponse,[',',';']) else foo := '-1';
+               // Response sends back the tuning word and it should be = to what we calculated :)
+               if IntToStr(ddsWord(t,prRXOffset+prTXOffset,prDDSRef)) = foo Then
+               Begin
+                    result := True;
+                    prError := '';
+                    poll;
+               end
+               else
+               begin
+                    result := False;
+                    prError := 'Rebel word != calculated word';
+               end;
           end
           else
           begin
                result := False;
-               prError := 'Rebel word != calculated word';
+               prError := 'Command timeout';
           end;
      end
      else
      begin
           result := False;
-          prError := 'Command timeout';
+          prError := 'Band to QRG mismatch';
      end;
      prBusy := False;
 end;
@@ -580,7 +604,7 @@ Var
 Begin
      prBusy := True;
      // Poll for various values
-     prCommand := '6;';  // Returns Rebel Version
+     prCommand := '2;';  // Returns Rebel Version
      prResponse := '';
      if ask Then
      Begin
@@ -588,14 +612,14 @@ Begin
           if i > 1 Then prRebVer := ExtractWord(2,prResponse,[',',';']) else prRebVer := '';
      end;
 
-     prCommand := '8;'; // Returns DDS Type
+     prCommand := '3;'; // Returns DDS Type
      prResponse := '';
      if ask Then
      Begin
           i := wordcount(prResponse,[',',';']);
           if i > 1 Then prDDSVer := ExtractWord(2,prResponse,[',',';']) else prDDSVer := '';
      end;
-     prCommand := '7;'; // Returns Integer DDS Reference QRG (as string)
+     prCommand := '4;'; // Returns Integer DDS Reference QRG (as string)
      prResponse := '';
      if ask Then
      Begin
@@ -603,7 +627,7 @@ Begin
           if i > 1 Then if tryStrToInt(ExtractWord(2,prResponse,[',',';']),i) then prDDSRef := i else prDDSRef := 0;
      end;
 
-     prCommand := '18;'; // Returns Integer RX Frequency offset (as string)
+     prCommand := '8;'; // Returns Integer RX Frequency offset (as string)
      prResponse := '';
      if ask Then
      Begin
@@ -611,7 +635,7 @@ Begin
           if i > 1 Then if tryStrToInt(ExtractWord(2,prResponse,[',',';']),i) then prRXOffset := i else prRXOffset := 0;
      end;
 
-     prCommand := '19;'; // Returns Integer TX Frequency offset (as string)
+     prCommand := '9;'; // Returns Integer TX Frequency offset (as string)
      prResponse := '';
      if ask Then
      Begin
@@ -619,7 +643,7 @@ Begin
           if i > 1 Then if tryStrToInt(ExtractWord(2,prResponse,[',',';']),i) then prTXOffset := i else prTXOffset := 0;
      end;
 
-     prCommand := '4;'; // Returns Integer Band hard selected (as string)
+     prCommand := '12;'; // Returns Integer Band hard selected (as string)
      prResponse := '';
      if ask Then
      Begin
@@ -627,17 +651,27 @@ Begin
           if i > 1 Then if tryStrToInt(ExtractWord(2,prResponse,[',',';']),i) then prBand := i else prTXOffset := 0;
      end;
 
-     prCommand := '2;';  // Returns DDS RX Tuning word as 1,#####;
+     prCommand := '13;';  // Returns DDS RX Tuning word as 1,#####;
      prResponse := '';
      if ask Then
      Begin
           i := wordcount(prResponse,[',',';']);
           if i > 1 Then if tryStrToInt(ExtractWord(2,prResponse,[',',';']),i) then j := i else j := 0;
           if (j>0) and (prDDSRef>0) then ff := j/(268435456.0/prDDSRef) else ff := 0.0;
-          if ff>0 Then prQRG := (ff + 9000000.0)-(prRXOffset+prTXOffset);
+          if ff>0 Then
+          Begin
+               if prBand = 20 Then
+               Begin
+                    prQRG := (ff + 9000000.0)-(prRXOffset+prTXOffset);
+               end
+               else if prBand = 40 Then
+               Begin
+                    prQRG := (9000000.0 - ff)+(prRXOffset+prTXOffset);
+               end;
+          end;
      end;
 
-     prCommand := '15;';  // Returns Loop speed as string
+     prCommand := '7;';  // Returns Loop speed as string
      prResponse := '';
      if ask Then
      Begin
@@ -734,7 +768,6 @@ Var
 Begin
      prBusy := True;
      result := False;
-     // Need to wait for the sign in message - This WILL change from '1,Rebel Command Ready;'
      if prConnected Then
      Begin
           i := 0;
@@ -744,7 +777,7 @@ Begin
                foo := prTTY.Recvstring(50);
                if length(foo)>0 Then break;
           end;
-          if foo = '1,Rebel Command Ready;' Then
+          if foo = '1,W6CQZ_FW_1000;' Then
           Begin
                result := True;
                prError := '';
@@ -764,4 +797,35 @@ Begin
 end;
 
 end.
+{
+  cmdMessenger.attach(OnUnknownCommand);               // Catch all in case of garbage/bad command - does nothing but ignore junk.                                   Command ID
+  cmdMessenger.attach(gVersion, onGVersion);           // Get firmware version                                                                                           2
+  cmdMessenger.attach(gDDSVer, onGDDSVer);             // Get DDS type                                                                                                   3
+  cmdMessenger.attach(gDDSRef, onGDDSRef);             // Get DDS reference QRG                                                                                          4
+  cmdMessenger.attach(sLockPanel, onSLockPanel);       // Lock out controls (going away - default is locked and stay locked)                                             5
+  cmdMessenger.attach(sUnlockPanel, onSUnlockPanel);   // Unlock panel controls (use with caution!)                                                                      6
+  cmdMessenger.attach(gloopSpeed, onLoopSpeed);        // Get main loop execution speed as string                                                                        7
+  cmdMessenger.attach(gRXOffset, onGRXOffset);         // Get RX offset value                                                                                            8
+  cmdMessenger.attach(gTXOffset, onGTXOffset);         // Get TX offset value                                                                                            9
+  cmdMessenger.attach(sRXOffset, onSRXOffset);         // Set RX offset for correcting CW RX offset built into 2nd LO/mixer                                             10
+  cmdMessenger.attach(sTXOffset, onSTXOffset);         // Set TX offset (usually 0 but if you want to calibrate the Rebel this value will do it, not the RX offset!     11
+  cmdMessenger.attach(gBand, onGBand);                 // Get Band                                                                                                      12
+  cmdMessenger.attach(gRXFreq, onGRXFreq);             // Get RX QRG as DDS tuning word                                                                                 13
+  cmdMessenger.attach(sRXFreq, onSRXFreq);             // Set RX QRG with DDS tuning word                                                                               14
+  cmdMessenger.attach(gTXStatus, onGTXStatus);         // Get TX status, on or off - JT65 or JT9                                                                        15
+  cmdMessenger.attach(sTXOn, onSTXOn);                 // Start TX - JT65                                                                                               16
+  cmdMessenger.attach(sTX9On, onS9TXOn);               // Start TX - JT9                                                                                                17
+  cmdMessenger.attach(sTXOff, onSTXOff);               // Stop TX - JT65 or JT9                                                                                         18
+  cmdMessenger.attach(sDTXOn, onSDTXOn);               // Begin delayed TX at offset given - JT65                                                                       19
+  cmdMessenger.attach(sD9TXOn, onSD9TXOn);             // Begin delayed TX at offset given - JT9                                                                        20
+  cmdMessenger.attach(sDoCWID, onDoCWID);              // Send CW ID with string provided after current JT65 or JT9 TX is completed                                     21
+  cmdMessenger.attach(gClearTX, onGClearTX);           // Clear FSK tuning word array - Clears JT9 and JT65 FSK Array                                                   22
+  cmdMessenger.attach(sTXFreq, onSTXFreq);             // Request to setup TX array - JT65 or JT9                                                                       23
+  cmdMessenger.attach(gLoadTXBlock, onGLoadTXBlock);   // FSK tuning word loader setup - JT65 format                                                                    24
+  cmdMessenger.attach(gLoad9TXBlock, onG9LoadTXBlock); // FSK tuning word loader - JT9 format                                                                           25
+  cmdMessenger.attach(gFSKVals, onGFSKVals);           // Return current loaded FSK array - JT65                                                                        26
+  cmdMessenger.attach(gFSK9Vals, onG9FSKVals);         // Return current loaded FSK array - JT9                                                                         27
+  cmdMessenger.attach(gGPSGrid, onGGPSGrid);           // Get Grid from GPS                                                                                             28
+  cmdMessenger.attach(gGPSTime, onGGPSTime);           // Get Time from GPS                                                                                             29
+}
 
