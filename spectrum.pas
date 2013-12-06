@@ -8,7 +8,7 @@ uses
   Classes, SysUtils, CTypes, cmaps, fftw_jl, graphics, Math, jt65demod;
 
 Const
-  JT_DLL = 'JT65v35.dll';
+  JT_DLL = 'JT65v392.dll';
 
 Type
     PNGPixel = Packed Record
@@ -61,19 +61,19 @@ Begin
           Begin
                rgbarray[i].a := 65535;
                floatvar := cmaps.bluecmap1[integerArray[i]];
-               floatvar := floatvar * 65536; // Red
+               floatvar := floatvar * 65535; // Red
                intvar := trunc(floatvar);
                intVar := min(65535,max(0,intVar));
                rgbArray[i].r := intvar;
 
                floatvar := cmaps.bluecmap2[integerArray[i]];
-               floatvar := floatvar * 65536;
+               floatvar := floatvar * 65535; // Red
                intvar := trunc(floatvar);
                intVar := min(65535,max(0,intVar));
                rgbArray[i].g := intvar;
 
                floatvar := cmaps.bluecmap3[integerArray[i]];
-               floatvar := floatvar * 65536;
+               floatvar := floatvar * 65535; // Red
                intvar := trunc(floatvar);
                intVar := min(65535,max(0,intVar));
                rgbArray[i].b := intvar;
@@ -86,19 +86,19 @@ Begin
           Begin
                rgbarray[i].a := 65535;
                floatvar := cmaps.linradcmap1[integerArray[i]];
-               floatvar := floatvar * 65536;
+               floatvar := floatvar * 65535; // Red
                intvar := trunc(floatvar);
                intVar := min(65535,max(0,intVar));
                rgbArray[i].r := intvar;
 
                floatvar := cmaps.linradcmap2[integerArray[i]];
-               floatvar := floatvar * 65536;
+               floatvar := floatvar * 65535; // Red
                intvar := trunc(floatvar);
                intVar := min(65535,max(0,intVar));
                rgbArray[i].g := intvar;
 
                floatvar := cmaps.linradcmap3[integerArray[i]];
-               floatvar := floatvar * 65536;
+               floatvar := floatvar * 65535; // Red
                intvar := trunc(floatvar);
                intVar := min(65535,max(0,intVar));
                rgbArray[i].b := intvar;
@@ -111,19 +111,19 @@ Begin
           Begin
                rgbarray[i].a := 65535;
                floatvar := cmaps.gray0cmap1[integerArray[i]];
-               floatvar := floatvar * 65536;
+               floatvar := floatvar * 65535; // Red
                intvar := trunc(floatvar);
                intVar := min(65535,max(0,intVar));
                rgbArray[i].r := intvar;
 
                floatvar := cmaps.gray0cmap2[integerArray[i]];
-               floatvar := floatvar * 65536;
+               floatvar := floatvar * 65535; // Red
                intvar := trunc(floatvar);
                intVar := min(65535,max(0,intVar));
                rgbArray[i].g := intvar;
 
                floatvar := cmaps.gray0cmap3[integerArray[i]];
-               floatvar := floatvar * 65536;
+               floatvar := floatvar * 65535; // Red
                intvar := trunc(floatvar);
                intVar := min(65535,max(0,intVar));
                rgbArray[i].b := intvar;
@@ -136,19 +136,19 @@ Begin
           Begin
                rgbarray[i].a := 65535;
                floatvar := cmaps.gray1cmap1[integerArray[i]];
-               floatvar := floatvar * 65536;
+               floatvar := floatvar * 65535; // Red
                intvar := trunc(floatvar);
                intVar := min(65535,max(0,intVar));
                rgbArray[i].r := intvar;
 
                floatvar := cmaps.gray1cmap2[integerArray[i]];
-               floatvar := floatvar * 65536;
+               floatvar := floatvar * 65535; // Red
                intvar := trunc(floatvar);
                intVar := min(65535,max(0,intVar));
                rgbArray[i].g := intvar;
 
                floatvar := cmaps.gray1cmap3[integerArray[i]];
-               floatvar := floatvar * 65536;
+               floatvar := floatvar * 65535; // Red
                intvar := trunc(floatvar);
                intVar := min(65535,max(0,intVar));
                rgbArray[i].b := intvar;
@@ -215,19 +215,17 @@ End;
 
 procedure computeSpectrum(Const dBuffer : Array of CTypes.cint16);
 Var
-   i,intVar,nh,iadj          : CTypes.cint;
-   gamma,offset,fvar,pw1,pw2 : CTypes.cfloat;
-   fave                      : CTypes.cfloat;
-   pngSpectra                : PNGArray;
-   doSpec                    : Boolean;
-   fftOut65                  : Array[0..2047] of fftw_jl.complex_single;
-   fftIn65                   : Array[0..4095] of Single;
-   pfftIn65                  : PSingle;
-   pfftOut65                 : fftw_jl.Pcomplex_single;
-   p                         : fftw_plan_single;
-   ss65                      : Array[0..2047] of CTypes.cfloat;
-   floatSpectra              : Array[0..929] of CTypes.cfloat;
-   integerSpectra            : Array[0..929] of CTypes.cint32;
+   i,nh,iadj         : CTypes.cint;
+   gamma,offset,fave : CTypes.cfloat;
+   pngSpectra        : PNGArray;
+   doSpec            : Boolean;
+   fftOut65          : Array[0..2047] of fftw_jl.complex_single;
+   fftIn65           : Array[0..4095] of Single;
+   pfftIn65          : PSingle;
+   pfftOut65         : fftw_jl.Pcomplex_single;
+   p                 : fftw_plan_single;
+   ss65              : Array[0..2047] of CTypes.cfloat;
+   integerSpectra    : Array[0..929] of CTypes.cint32;
 Begin
      // Compute spectrum display.  Expects 4096 samples in dBuffer
      spectrumComputing65 := True;
@@ -241,7 +239,6 @@ Begin
                ss65[i] := 0;
           End;
           // clear rgbSpectra
-          //for i := 0 to 749 do
           for i := 0 to 929 do
           Begin
                pngSpectra[i].r := 0;
@@ -260,21 +257,12 @@ Begin
              // Adjust to float and copy data to FFT calculation buffer - removing any DC to boot
              fave := 0.0;
              for i := 0 to length(dBuffer)-1 do fave := fave + dBuffer[i];
-             fave := fave/(length(dBuffer));
+             fave := fave/length(dBuffer);
+             // Convert to float and scale.
              for i := 0 to length(dbuffer)-1 do fftIn65[i] := 0.001*(dbuffer[i]-fave);
-             if specWindow Then
-             Begin
-                  // Gaussian 3/5
-                  // This might not be so bad with the change above scaling by .001 :)
-                  fave := -2*3.5*3.5;
-                  for i := 0 to 4095 do fftIn65[i] := fftIn65[i] * exp(fave*(0.25 + ((i/4096)*(i/4096)) - (i/4096)));
-             end;
-             // Clear FFT output array
-             for i := 0 to 2047 do
-             begin
-                  fftOut65[i].re := 0.0;
-                  fftOut65[i].im := 0.0;
-             end;
+             // Gaussian 3/5 window function (If enabled)
+             fave := -2*3.5*3.5;
+             if specWindow Then for i := 0 to 4095 do fftIn65[i] := fftIn65[i] * exp(fave*(0.25 + ((i/4096)*(i/4096)) - (i/4096)));
              // Compute 4096 point FFT
              pfftIn65  := @fftIn65;
              pfftOut65 := @fftOut65;
@@ -282,62 +270,38 @@ Begin
              fftw_execute(p);
              // Accumulate power spectrum
              for i := 0 to 2047 do ss65[i] := ss65[i] + (power(fftOut65[i].re,2) + power(fftOut65[i].im,2));
+             // FFT done, destroy plan.
              fftw_destroy_plan(p);
-             // FFT Completed.
-             // ss[0..2047] now contains an fft of the power spectrum of the last 4096 samples.
-             //
-             // Compute spectral display line.
-             // ss[0..2047] contains the power density in ~2.7 hz steps.
+             // Keep track of accumulations
              inc(specfftCount);
-             iadj := 97; // Adjust bins to match graphic display - this is for a 2K range centered on 1270.5 Hz
              // iadj sets the lower bin to F = iadj * (11025/4096) = iadj * 2.691650390625
-             // iadj = 464 = 1248.925
-             // iadj = 465 = 1251.617
-             // Top of range is itadj
-             // itadj = 1024 = 2756.25
-             //iadj := 460;
+             iadj := 97;
+             // Maps PS to pixels - these can vary based on user choices for contrast and gain.
+             gamma := 1.3 + 0.01*specContrast;
+             offset := (specGain+64.0)/2;
+
              if specfftCount >= (10-specSpeed2) Then
              Begin
-                  inc(specfftCount);
+                  // Compute spectral display line.
                   jt65demod.jl_flat2(ss65,nh,specfftCount);
-                  //For i := 0 to 749 do floatSpectra[i] := (specVGain*ss65[i+iadj])/specfftCount;
-                  For i := 0 to 929 do floatSpectra[i] := (specVGain*ss65[i+iadj])/specfftCount;
-                  //Clear ss[]
-                  for i := 0 to 2047 do ss65[i] := 0;
-                  specfftCount := 0;
-                  gamma := 1.3 + 0.01*specContrast;
-                  offset := (specGain+64.0)/2;
                   // Map float specta pixels to integer
-                  //For i := 0 to 749 do
                   For i := 0 to 929 do
-                  Begin
-                       intVar := 0;
-                       fvar := floatSpectra[i];
-                       if fvar <> 0 Then
-                       Begin
-                            pw1 := 0.01*fvar;
-                            pw2 := gamma;
-                            fvar := 0.0;
-                            fvar := power(pw1,pw2);
-                            fvar := fvar+offset;
-                       End
-                       Else
-                       Begin
-                            fvar := 0.0;
-                       End;
-                       if fvar <> 0 then intVar := min(252,max(0,trunc(fvar))) else intVar := 0;
-                       intVar := min(252,max(0,intVar));
-                       integerSpectra[i] := intVar;
-                  End;
+                  begin
+                       integerSpectra[i] := min(255,max(0,Round(offset + (power((0.01*((specVGain*ss65[i+iadj])/specfftCount)),gamma)))));
+                  end;
+                  // Clear ss65 (This is important!) :)
+                  for i := 0 to length(ss65)-1 do ss65[i] := 0.0;
+                  // Need to generate new spectrum display frame
                   doSpec := True;
-                  //for i := 0 to 749 do floatSpectra[i] := 0.0;
-                  for i := 0 to 929 do floatSpectra[i] := 0.0;
+                  // Reset spectrum PS accumulator counter
+                  specfftCount := 0;
              End
              Else
              Begin
+                  // Haven't accumulated enough samples yet.
                   doSpec := False;
              End;
-             // integerSpectra[0..749] now contains the values ready to convert to rgbSpectra via colorMap()
+             // integerSpectra[0..929] now contains the values ready to convert to rgbSpectra via colorMap()
              If doSpec Then
              Begin
                   // Spectrum types 0..3 need conversion via colorMap()
@@ -345,16 +309,14 @@ Begin
                   // Spectrum types 4 is simple single color mapping.
                   If specColorMap = 4 Then
                   Begin
-                       //for i := 0 to 749 do
                        for i := 0 to 929 do
                        Begin
                             pngSpectra[i].a := 65535;
-                            pngSpectra[i].g := integerSpectra[i]*256;
+                            pngSpectra[i].g := integerSpectra[i]*255;
                             pngSpectra[i].r := 0;
                             pngSpectra[i].b := 0;
                        end;
                   End;
-
                   // Shift the lines and add new one then Build the PNG
                   // Now prepend the new spectra to the spectrum rolling off the former
           	  // oldest element.  This is held in specDisplayData :
@@ -365,7 +327,6 @@ Begin
           	  // full spectrum display has 180 lines.  See that I'm copying the
           	  // newest 179 lines (0 to 178) to temp as lines 1 to 179 then
           	  // adding the new line as element 0 yielding again 180 lines.
-
           	  for i := 0 to 178 do specPNGTemp[i+1] := specPNG[i];
           	  // Prepend new spectra to copy buffer
           	  specPNGTemp[0] := pngSpectra;
@@ -379,7 +340,6 @@ Begin
              End;
         end;
      Except
-        //dlog.fileDebug('Exception raised in spectrum computation');
         specNewSpec65 := False;
      End;
      spectrumComputing65 := False;

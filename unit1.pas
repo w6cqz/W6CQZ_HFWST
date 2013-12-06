@@ -84,6 +84,13 @@ type
     bRRR: TButton;
     Chart1: TChart;
     Chart1LineSeries1: TLineSeries;
+    Chart2: TChart;
+    Chart2LineSeries1: TLineSeries;
+    Chart2LineSeries2: TLineSeries;
+    Chart3: TChart;
+    Chart3LineSeries1: TLineSeries;
+    Chart3LineSeries2: TLineSeries;
+    Chart3LineSeries3: TLineSeries;
     Label16: TLabel;
     Label44: TLabel;
     logEQSL: TButton;
@@ -342,6 +349,7 @@ type
     procedure audioChange(Sender: TObject);
     procedure bnSaveMacroClick(Sender: TObject);
     procedure cbMultiOnChange(Sender: TObject);
+    procedure Chart1DblClick(Sender: TObject);
     procedure doLogQSOClick(Sender: TObject);
     procedure buttonXferMacroClick(Sender: TObject);
     procedure cbNZLPFChange(Sender: TObject);
@@ -483,6 +491,7 @@ var
   ppaInParams    : PPaStreamParameters;
 //  ppaOutParams   : PPaStreamParameters;
   paInStream     : PPaStream;
+  paInStream2    : PPaStream;
   inDev          : Integer;//,outDev   : Integer;
   inIcal,pttDev  : Integer;
   auLevel        : Integer;
@@ -558,6 +567,9 @@ var
   headerRes      : CTypes.cint = 0; // Keeps track of resolution for spectrum header display
   lastTXDFMark   : CTypes.cint = -9000; // Keeps track of last painting for TX Marker
   lastRXDFMark   : CTypes.cint = -9000;
+  periodDecodes  : Integer;
+  b20,b50        : Graphics.TBitMap; // Waterfall headers for 20,50,100 and 200 hz bin spacing
+  b100,b200      : Graphics.TBitMap;
 
 implementation
 
@@ -615,6 +627,23 @@ Var
 Begin
      // This runs on first timer interrupt once per run session
      timer1.Enabled:=False;
+     // Read in spectrum headers
+     b20 := Graphics.TBitmap.Create;
+     b20.Height := 12;
+     b20.Width  := 748;
+     b20.LoadFromFile('header20.bmp');
+     b50 := Graphics.TBitmap.Create;
+     b50.Height := 12;
+     b50.Width  := 748;
+     b50.LoadFromFile('header50.bmp');
+     b100 := Graphics.TBitmap.Create;
+     b100.Height := 12;
+     b100.Width  := 748;
+     b100.LoadFromFile('header100.bmp');
+     b200 := Graphics.TBitmap.Create;
+     b200.Height := 12;
+     b200.Width  := 748;
+     b200.LoadFromFile('header200.bmp');
      // Getting locale settings
      l := '';
      fbl := '';
@@ -1485,7 +1514,7 @@ Begin
                //dac.dacTick := 0;
                // Attempt to open selected devices, both must pass open/start to continue.
 
-               // Initialize RX stream.
+               // Initialize RX stream for 11025
                paResult := portaudio.Pa_OpenStream(PPaStream(paInStream),PPaStreamParameters(ppaInParams),PPaStreamParameters(Nil),CTypes.cdouble(11025.0),CTypes.culong(2048),TPaStreamFlags(0),PPaStreamCallback(@adc.adcCallback),Pointer(Self));
                if paResult <> 0 Then
                Begin
@@ -1493,8 +1522,19 @@ Begin
                     ShowMessage('Unable to start PortAudio Input Stream.');
                     Halt;
                end;
-               ListBox2.Items.Insert(0,'Opened input device');
-               // Start the RX stream.
+               ListBox2.Items.Insert(0,'Opened input');
+
+               // Initialize RX stream for 12000
+               //paResult := portaudio.Pa_OpenStream(PPaStream(paInStream2),PPaStreamParameters(ppaInParams),PPaStreamParameters(Nil),CTypes.cdouble(12000.0),CTypes.culong(2048),TPaStreamFlags(0),PPaStreamCallback(@adc.adcCallback2),Pointer(Self));
+               //if paResult <> 0 Then
+               //Begin
+                    // Was unable to open RX.
+                    //ShowMessage('Unable to start secondary PortAudio Input Stream.');
+                    //Halt;
+               //end;
+               //ListBox2.Items.Insert(0,'Opened secondary input');
+
+               // Start the RX stream for 11025
                paResult := portaudio.Pa_StartStream(paInStream);
                if paResult <> 0 Then
                Begin
@@ -1502,7 +1542,17 @@ Begin
                     ShowMessage('Unable to start PortAudio Input Stream.');
                     Halt;
                end;
-               ListBox2.Items.Insert(0,'Started input device');
+               ListBox2.Items.Insert(0,'Started input');
+
+               // Start the RX stream for 12000
+               //paResult := portaudio.Pa_StartStream(paInStream2);
+               //if paResult <> 0 Then
+               //Begin
+                    // Was unable to start RX stream.
+                    //ShowMessage('Unable to start secondary PortAudio Input Stream.');
+                    //Halt;
+               //end;
+               //ListBox2.Items.Insert(0,'Started secondary input');
 
                // Initialize tx stream.
                txInProgress := false;
@@ -1882,7 +1932,6 @@ Begin
           dtrejects := 0;
           avgdt := 0.0;
           Label98.Caption := PadLeft(FormatFloat('0.000',(d65.glDTAvg)),5);
-          ListBox2.Items.Add('Resetting DT Averager');
      end;
      adjtime := False;
      if (d65.glDecCount > 19) and ((d65.glDTAvg < -0.5) or (d65.glDTAvg > 0.5)) Then adjtime := True else adjtime := false;
@@ -2709,13 +2758,12 @@ Begin
      end;
 
      if cbMultiOn.Checked Then edRXDF.Text := '0';
+     specHeader;  // Update spectrum display header
 end;
 
 procedure TForm1.OncePerMinute;
 Var
-  //foo       : String;
-  i         : Integer;
-  //paResult  : TPaError;
+  i        : Integer;
 Begin
      for i := 0 to 1023 do psAcc[i] := 0.0;
      pstick := 1;
@@ -2751,22 +2799,6 @@ Begin
      // Display any RB Errors
      //if rb.errLog.Count > 0 Then for i := 0 to rb.errLog.Count-1 do Memo2.Append(rb.errlog.Strings[i]);
      rb.clearErr;
-
-     if plotCount <> d65.dmPlotCount Then
-     Begin
-          if d65.dmPlotCount > 1440 Then
-          Begin
-               chart1.Series.Clear;
-               d65.dmPlotCount := 1;
-               Chart1LineSeries1.AddXY(d65.dmPlotCount,d65.dmPlotAvgSq);
-               plotcount := d65.dmPlotCount;
-          end
-          else
-          begin
-               Chart1LineSeries1.AddXY(d65.dmPlotCount,d65.dmPlotAvgSq);
-               plotcount := d65.dmPlotCount;
-          end;
-     end;
 end;
 
 procedure TForm1.periodicSpecial;
@@ -2778,8 +2810,6 @@ procedure TForm1.adcdacTick;
 Begin
      // Events triggered from ADC/DAC callback counter change
      // Compute spectrum and audio levels.
-     if adc.haveSpec Then specHeader;  // Update spectrum display header
-
      if cbWFTX.Checked Then
      Begin
           If adc.haveSpec And (not d65.glinprog) Then
@@ -2837,20 +2867,35 @@ Var
    i,ii,txHpix : Integer;
    cfPix       : Integer;
    floatVar    : Single;
-   bitmap      : Graphics.TBitMap;
 Begin
      If not TryStrToInt(edTXDF.Text,i) Then i := -9000;
      If not TryStrToInt(edRXDF.Text,ii) Then ii := -9000;
-     if ((not (d65.glBinSpace = headerRes)) or (not (i=lastTXDFMark)) or (not (ii=lastRXDFMark))) and (i>-9000) and (ii>-9000) Then
+     if (i>-9000) and (ii>-9000) Then
      Begin
           // Reload header Paint the TX/RX Markers.  RX Marker is not painted unless in single decode mode.
           paintbox1.Canvas.Clear;
-          Bitmap := Graphics.TBitmap.Create;
-          Bitmap.Height := 12;
-          Bitmap.Width  := 748;
-          Bitmap.LoadFromFile('header'+IntToStr(d65.glBinSpace)+'.bmp');
-          paintBox1.Canvas.Draw(0,0,Bitmap);
-          Bitmap.Destroy;
+          if (d65.glbinspace = 0) or (d65.glbinspace = 20) Then
+          Begin
+               paintBox1.Canvas.Draw(0,0,B20);
+          end
+          else if d65.glbinspace = 50 then
+          begin
+               paintBox1.Canvas.Draw(0,0,B50);
+
+          end
+          else if d65.glbinspace = 100 then
+          begin
+               paintBox1.Canvas.Draw(0,0,B100);
+          end
+          else if d65.glbinspace = 200 then
+          begin
+               paintBox1.Canvas.Draw(0,0,B200);
+          end
+          else
+          begin
+               paintBox1.Canvas.Draw(0,0,B20);
+          end;
+
           if i <> 0 Then
           Begin
                floatVar := i / 2.7027;
@@ -2923,16 +2968,13 @@ Var
    cfoo,ng  : String;
    srec     : Spot.spotRecord;
    nodteval : Boolean;
+   td,te,tf : CTypes.cdouble;
 Begin
+     periodDecodes := 0;
      k := 0;
      for i := 0 to 49 do if not d65.gld65decodes[i].dtProcessed Then inc(k);
      if thisUTC.Hour < 10 Then afoo := '0'+IntToStr(thisUTC.Hour) else afoo := intToStr(thisUTC.Hour);
      if thisUTC.Minute < 10 then afoo := afoo + ':0' + intToStr(thisUTC.Minute) else afoo := afoo + ':' + intToStr(thisUTC.Minute);
-     d65.dmAveSQ := 0.0;
-     d65.dmBaseVB := 0.0;
-     d65.dmSynPoints := 0;
-     d65.dmMerged := 0;
-     d65.dmkvhangs := 0;
      If k>0 Then
      Begin
           // Update decoder statistics
@@ -2949,6 +2991,7 @@ Begin
           begin
                if not d65.gld65decodes[i].dtProcessed Then
                Begin
+                    inc(periodDecodes);
                     // Adjust the decimal point to what it "should" be for user's display.
                     afoo := d65.gld65decodes[i].dtDeltaTime;
                     if length(afoo)> 2 Then
@@ -3061,6 +3104,43 @@ Begin
      begin
           d65.gld65decodes[i].dtProcessed := True;
      end;
+     if plotCount <> d65.dmPlotCount Then
+     Begin
+          td := periodDecodes*1.0;
+          te := d65.dmSynPoints*1.0;
+          tf := d65.glBinCount *1.0;
+          if d65.dmPlotCount > 360 Then
+          Begin
+               Chart1LineSeries1.Clear;
+               Chart2LineSeries1.Clear;
+               Chart3LineSeries1.Clear;
+               Chart3LineSeries2.Clear;
+               Chart3LineSeries3.Clear;
+               d65.dmPlotCount := 0;
+               Chart1LineSeries1.AddXY(d65.dmPlotCount,d65.dmPlotAvgSq);
+               Chart2LineSeries1.AddXY(d65.dmPlotCount,d65.dmruntime/1000.0);
+               Chart2LineSeries2.AddXY(d65.dmPlotCount,(d65.dmarun/d65.dmrcount)/1000.0);
+               Chart3LineSeries1.AddXY(d65.dmPlotCount,te);
+               Chart3LineSeries2.AddXY(d65.dmPlotCount,tf);
+               Chart3LineSeries3.AddXY(d65.dmPlotCount,td);
+               plotcount := d65.dmPlotCount;
+          end
+          else
+          begin
+               Chart1LineSeries1.AddXY(d65.dmPlotCount,d65.dmPlotAvgSq);
+               Chart2LineSeries1.AddXY(d65.dmPlotCount,d65.dmruntime/1000.0);
+               Chart2LineSeries2.AddXY(d65.dmPlotCount,(d65.dmarun/d65.dmrcount)/1000.0);
+               Chart3LineSeries1.AddXY(d65.dmPlotCount,te);
+               Chart3LineSeries2.AddXY(d65.dmPlotCount,tf);
+               Chart3LineSeries3.AddXY(d65.dmPlotCount,td);
+               plotcount := d65.dmPlotCount;
+          end;
+     end;
+     d65.dmAveSQ := 0.0;
+     d65.dmBaseVB := 0.0;
+     d65.dmSynPoints := 0;
+     d65.dmMerged := 0;
+     d65.dmkvhangs := 0;
 end;
 
 function  TForm1.db(x : CTypes.cfloat) : CTypes.cfloat;
@@ -5658,6 +5738,17 @@ end;
 procedure TForm1.cbMultiOnChange(Sender: TObject);
 begin
      if cbMultiOn.Checked Then edRXDF.Text := '0' else edRXDF.Text := edTXDF.Text;
+end;
+
+procedure TForm1.Chart1DblClick(Sender: TObject);
+begin
+     Chart1LineSeries1.Clear;
+     Chart2LineSeries1.Clear;
+     Chart2LineSeries2.Clear;
+     Chart3LineSeries1.Clear;
+     Chart3LineSeries2.Clear;
+     Chart3LineSeries3.Clear;
+     d65.dmPlotCount := 0;
 end;
 
 procedure TForm1.comboQRGListChange(Sender: TObject);

@@ -5,8 +5,7 @@ program project1;
 
 uses
   Interfaces, Forms, lazcontrols, tachartlazaruspkg, Unit1, portaudio, adc,
-  spectrum, cmaps, fftw_jl, spot, waterfall1, valobject, rebel, d65, jt65demod,
-  FFTReal;
+  spectrum, cmaps, fftw_jl, spot, waterfall1, valobject, rebel, d65, jt65demod;
 
 {$R *.res}
 

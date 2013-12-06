@@ -7,11 +7,15 @@ interface
 uses
   Classes, SysUtils, Math, CTypes, PortAudio;
 
-  function adcCallback(input: Pointer; output: Pointer; frameCount: Longword;
-                       timeInfo: PPaStreamCallbackTimeInfo;
-                       statusFlags: TPaStreamCallbackFlags;
-                       inputDevice: Pointer): Integer; cdecl;
+function adcCallback(input: Pointer; output: Pointer; frameCount: Longword;
+                     timeInfo: PPaStreamCallbackTimeInfo;
+                     statusFlags: TPaStreamCallbackFlags;
+                     inputDevice: Pointer): Integer; cdecl;
 
+function adcCallback2(input: Pointer; output: Pointer; frameCount: Longword;
+                     timeInfo: PPaStreamCallbackTimeInfo;
+                     statusFlags: TPaStreamCallbackFlags;
+                     inputDevice: Pointer): Integer; cdecl;
 Var
    d65rxIBuffer    : Packed Array[0..661503] of CTypes.cint16;   // Frame sample buffer (V3 integer)
    adclast2k1      : Packed Array[0..2047] of CTypes.cint16;     // For computing audio levels
@@ -120,4 +124,14 @@ Begin
      end;
      adcFirst := False;
 End;
+
+function adcCallback2(input: Pointer; output: Pointer; frameCount: Longword;
+                      timeInfo: PPaStreamCallbackTimeInfo;
+                      statusFlags: TPaStreamCallbackFlags;
+                      inputDevice: Pointer): Integer; cdecl;
+Begin
+     // Handles sample gathering for the 12K S/S stream.
+     result := paContinue;
+end;
+
 end.
