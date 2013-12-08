@@ -219,7 +219,7 @@ end;
 
 function TRebel.ltx : Boolean;
 var
-   foo,f2: String;
+   foo   : String;
    i,j   : Integer;
 Begin
      prBusy := True;
@@ -258,7 +258,6 @@ Begin
                               prResponse := '';
                               if ask Then
                               Begin
-                                   f2 := prResponse;
                                    If prResponse = foo Then
                                    Begin
                                         // This indicates the block was accepted and matches what I expect it to be.

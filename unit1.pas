@@ -1858,6 +1858,9 @@ Begin
      thisSecond  := thisUTC.Second;
      thisADCTick := adc.adcTick;
 
+     if cbNoKV.Checked Then d65.glUseKV := False else d65.glUseKV := True;
+     if cbNoOptFFT.Checked Then d65.glUseWisdom := False else d65.glUseWisdom := True;
+
      // Check to see if message needs regen due to TxDF change since last
      if length(edTXMsg.Text)>0 Then
      Begin
@@ -4909,12 +4912,12 @@ Var
    pfxt,sfxt     : String;
    syms          : Array[0..11] Of CTypes.cint;
    tsyms         : Array[0..62] Of CTypes.cint;
-   itone9        : Array[0..84] Of CTypes.cint;
-   itone9fsk     : Array[0..84] Of CTypes.cdouble;
-   itone9dds     : Array[0..84] Of CTypes.cuint;
+   //itone9        : Array[0..84] Of CTypes.cint;
+   //itone9fsk     : Array[0..84] Of CTypes.cdouble;
+   //itone9dds     : Array[0..84] Of CTypes.cuint;
    sm, ft, doit  : Boolean;
    baseTX        : CTypes.cdouble;
-   maxf,minf,bw  : CTypes.cdouble;
+   //maxf,minf,bw  : CTypes.cdouble;
 begin
      // Validate the message for proper content BEFORE calling this
      txValid := False;

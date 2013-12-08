@@ -112,7 +112,7 @@ Var
    glBinCount                    : CTypes.cdouble;
    glDTAvg,dmKVWasted            : CTypes.cdouble;
    dmruntime,dmarun,dmnzrun      : CTypes.cdouble;
-   glnz                          : Boolean;
+   glnz,glUseKV,glUseWisdom      : Boolean;
    glnd65firstrun, glinprog      : Boolean;
    gld65HaveDecodes              : Boolean;
 
@@ -241,92 +241,100 @@ Var
    kvfullname              : String;
    kvwaste1,kvwaste2       : TDateTime;
 Begin
-     // Looking for a KV decode
-     Result := false;
-     kdec := '';
-     glkvs := '                      ';
-     for i := 0 to 11 do
+     if glUseKV Then
      Begin
-          kvDat[i] := 0;
-     End;
-     ierr := 0;
-     kvfullname := dmtmpdir+'KVASD.DAT';
-     if SysUtils.FileExists(kvfullname) Then
-     Begin
-          kvProc := TProcess.Create(nil);
-          kvProc.Executable := dmtmpdir + 'kvasd.exe';
-          kvProc.Parameters.Append('-q');
-          kvProc.CurrentDirectory := dmtmpdir;
-          kvProc.Options := kvProc.Options + [poWaitOnExit];
-          kvProc.Options := kvProc.Options + [poNoConsole];
-          kvProc.Execute;
-          ierr := kvProc.ExitStatus;
-     End
-     Else
-     Begin
-          ierr := -1;
-     end;
+          // Looking for a KV decode
+          Result := false;
+          kdec := '';
+          glkvs := '                      ';
+          for i := 0 to 11 do kvDat[i] := 0;
+          ierr := 0;
+          kvfullname := dmtmpdir+'KVASD.DAT';
+          if SysUtils.FileExists(kvfullname) Then
+          Begin
+               kvProc := TProcess.Create(nil);
+               kvProc.Executable := dmtmpdir + 'kvasd.exe';
+               kvProc.Parameters.Append('-q');
+               kvProc.CurrentDirectory := dmtmpdir;
+               kvProc.Options := kvProc.Options + [poWaitOnExit];
+               kvProc.Options := kvProc.Options + [poNoConsole];
+               kvProc.Execute;
+               ierr := kvProc.ExitStatus;
+          End
+          Else
+          Begin
+               ierr := -1;
+          end;
 
-     if ierr = 0 Then
-     Begin
-          Try
-             // read kvasd.dat
-             AssignFile(kvFile, kvfullname);
-             Reset(kvFile);
-             j:=System.FileSize(kvfile);
-             If j > 256 Then
-             Begin
-                  // Seek to nsec2 (256)
-                  Seek(kvFile,256);
-                  Read(kvFile, kvsec2);
-                  Seek(kvFile,257);
-                  Read(kvFile, kvcount);
-                  For i := 258 to 269 do
+          if ierr = 0 Then
+          Begin
+               Try
+                  // read kvasd.dat
+                  AssignFile(kvFile, kvfullname);
+                  Reset(kvFile);
+                  j:=System.FileSize(kvfile);
+                  If j > 256 Then
                   Begin
-                       Seek(kvFile, i);
-                       Read(kvFile, kvDat[i-258]);
-                  End;
-                  CloseFile(kvFile);
-                  if kvCount > -1 Then
-                  Begin
-                       unpack(@kvDat[0],glkvs);
+                       // Seek to nsec2 (256)
+                       Seek(kvFile,256);
+                       Read(kvFile, kvsec2);
+                       Seek(kvFile,257);
+                       Read(kvFile, kvcount);
+                       For i := 258 to 269 do
+                       Begin
+                            Seek(kvFile, i);
+                            Read(kvFile, kvDat[i-258]);
+                       End;
+                       CloseFile(kvFile);
+                       if kvCount > -1 Then
+                       Begin
+                            unpack(@kvDat[0],glkvs);
+                       End
+                       Else
+                       Begin
+                            // No decode, kvasd failed to reconstruct message.
+                            Result := False;
+                            kdec := '';
+                       End;
                   End
                   Else
                   Begin
-                       // No decode, kvasd failed to reconstruct message.
+                       CloseFile(kvFile);
                        Result := False;
                        kdec := '';
                   End;
-             End
-             Else
-             Begin
-                  CloseFile(kvFile);
+               except
                   Result := False;
                   kdec := '';
-             End;
-          except
-             Result := False;
-             kdec := '';
-          end;
-     End
-     Else
-     Begin
-          // No decode, error status returned from kvasd.exe
+               end;
+          End
+          Else
+          Begin
+               // No decode, error status returned from kvasd.exe
+               Result := False;
+               kdec := '';
+          End;
+          kvProc.Destroy;
+          kdec := TrimLeft(TrimRight(StrPas(glkvs)));
+          if (Length(kdec) > 0) And (kvCount > -1) Then
+          Begin
+               Result := True;
+          End
+          Else
+          Begin
+               // No decode, kvasd messge too short or SNR too low.
+               Result := False;
+               kdec := '';
+          End;
+     end
+     else
+     begin
           Result := False;
           kdec := '';
-     End;
-     kvProc.Destroy;
-     kdec := TrimLeft(TrimRight(StrPas(glkvs)));
-     if (Length(kdec) > 0) And (kvCount > -1) Then
-     Begin
-          Result := True;
-     End
-     Else
-     Begin
-          // No decode, kvasd messge too short or SNR too low.
-          Result := False;
-          kdec := '';
-     End;
+     end;
+
+     // Clean up
+     kvWaste1      := Now;
      try
         FileUtil.DeleteFileUTF8(kvfullname);
      except
@@ -335,7 +343,6 @@ Begin
      j := 0;
      if FileExists(kvfullname) Then
      Begin
-          kvWaste1      := Now;
           repeat
                 try
                    FileUtil.DeleteFileUTF8(kvfullname);
@@ -344,61 +351,81 @@ Begin
                 end;
                 inc(j);
           until (j>9) or not FileExists(kvfullname);
-          kvWaste2      := Now;
-          dmKVWasted := dmKVWasted + MilliSecondSpan(kvWaste1,kvWaste2);
      end;
      if j>0 then dmKVHangs := dmKVHangs+j;
+     kvWaste2      := Now;
+     dmKVWasted := dmKVWasted + MilliSecondSpan(kvWaste1,kvWaste2);
 end;
 
 procedure doDecode(bStart, bEnd : Integer);
 
 Var
    i,k,n,jz,nave,ifoo,ndec,lical     : CTypes.cint;
-   idf,bw,afc,lmousedf,mousedf2,idx  : CTypes.cint;
+   idf,bw,afc,lmousedf,mousedf2      : CTypes.cint;
    jz2,j,wcount,strongest,syncount   : CTypes.cint;
    passcount,passtest,binspace       : CTypes.cint;
-   blow,bhigh,btest,imin,imax        : CTypes.cint;
+   btest,imin,imax                   : CTypes.cint;
    allEqual,haveDupe,devel           : Boolean;
    avesq,basevb,ffoo,scale,fsum,fave : CTypes.cfloat;
-   sq,maxsnr,fmin,fmax,f1,f2,f3      : CTypes.cfloat;
-   dfxa,snrsynca,snrxa,dtxa,flipa    : Array[0..254] Of CTypes.cfloat;
-   dfx,snrsync,snrx,dtx,flip,ftest   : CTypes.cfloat;
+   sq,fmin,fmax,f1,f2,f3             : CTypes.cfloat;
+   dfxa,snrxa,snrsynca,dtxa,flipa    : Array[0..254] Of CTypes.cfloat;
+   dfx,snrsync,dtx,flip,ftest        : CTypes.cfloat;
    bins                              : Array[0..100] Of CTypes.cint;
    decArray                          : Array[0..99] Of String;
    foo,kdec,dupeFoo,foo2,foo3        : String;
    decode                            : decodeRec;
    dmenter,dmexit,kvwaste1,kvwaste2  : TDateTime;
    nzenter,nzexit                    : TDateTime;
-   dectime,nzspan,dtadj              : Double;
+   nzspan,dtadj                      : Double;
    synres,synres2,synres3,synres4    : Array of msyncresult;
 
 
 begin
-     nzspan := 0;
-     dmenter      := Now;
+     // General setup for pass
      glinprog := True;
+     dmenter      := Now;
      gld65HaveDecodes := False;
+     nzspan := 0;
      jz := bEnd;
-     // Hard coding this... it used to be variable in JT65-HF
+
+     // Hard coding these... used to be variable in JT65-HF
      glNBlank := 0;
+     afc := 1;
+
 
      // Counts how many times KV would let me delete KVASD.DAT during this run
      dmKVHangs := 0;
      // Counts time wasted deleting locked KVASD.DAT file
      dmKVWasted := 0.0;
 
-     if glfftFWisdom > -1 Then
+     // Figure out if we're being wise or not
+     //
+     // ical =  0 = FFTW_ESTIMATE set, no load/no save wisdom.  Use ical = 0 when all else fails.
+     // ical =  1 = FFTW_MEASURE set, yes load/no save wisdom.  Use ical = 1 to load saved wisdom.
+     // ical = 11 = FFTW_MEASURE set, no load/no save wisdom.  Use ical = 11 when wisdom has been loaded and does not need saving.
+     // ical = 21 = FFTW_MEASURE set, no load/yes save wisdom.  Use ical = 21 to save wisdom.
+     //
+     if not glUseWisdom
+     Then
      Begin
-          if glfftFWisdom = 1 Then
+          lical := 0;
+     end
+     else
+     begin
+          if glfftFWisdom > -1 Then
           Begin
-               if glnd65FirstRun Then lical := 1 else lical := 11;
-          End;
-          if glfftFWisdom = 21 Then
-          Begin
-               if glnd65FirstRun Then lical := 21 else lical := 11;
-          End;
+               if glfftFWisdom = 1 Then
+               Begin
+                    if glnd65FirstRun Then lical := 1 else lical := 11;
+               End;
+               if glfftFWisdom = 21 Then
+               Begin
+                    if glnd65FirstRun Then lical := 21 else lical := 11;
+               End;
+          end;
      End;
 
+     // Specials for first run
      if glnd65FirstRun Then
      Begin
           dmPlotCount := 0;
@@ -406,12 +433,6 @@ begin
           glDTAvg    := 0.0;
           glDemodCount := 0;
           glSampOffset := 2048;
-          //
-          // ical =  0 = FFTW_ESTIMATE set, no load/no save wisdom.  Use ical = 0 when all else fails.
-          // ical =  1 = FFTW_MEASURE set, yes load/no save wisdom.  Use ical = 1 to load saved wisdom.
-          // ical = 11 = FFTW_MEASURE set, no load/no save wisdom.  Use ical = 11 when wisdom has been loaded and does not need saving.
-          // ical = 21 = FFTW_MEASURE set, no load/yes save wisdom.  Use ical = 21 to save wisdom.
-          //
           glmline := StrAlloc(72);
           glmcall := StrAlloc(12);
           glmyline := StrAlloc(43);
@@ -456,6 +477,7 @@ begin
                decArray[i] := '';
           end;
      End;
+
      // General housekeeping for a start of decoder cycle
      glmline := '                                                                        ';
      glmcall := '            ';
@@ -538,12 +560,12 @@ begin
      ndec := 0;
      set65();
 
-     // Run msync
      lmousedf := 0;
      jz2 := 0;
      mousedf2 := 0;
      for i := 0 to jz do gllpfM[i] := glf1Buffer[i];
 
+     // User WSJT LPF or simple decimate 2x based on classic or new demod choice
      if glnz then
      Begin
           // Since I'm not doing the lpf I'll do the simple 2x decimate here.
@@ -564,6 +586,9 @@ begin
      end;
      // Pad gllpfM just to be sure nothing get stuck on the (should be) unused tail
      for j := jz2 to length(gllpfM)-1 do glLPFM[j] := 0.0;
+
+     // Clear the bins
+     for i := 0 to 100 do bins[i] := 0;
      // Clear msync detect array structures
      for i := 0 to 254 do
      begin
@@ -573,10 +598,8 @@ begin
           snrsynca[i] := 0.0;
           flipa[i]    := 0.0;
      end;
-     // Clear the bins
-     for i := 0 to 100 do bins[i] := 0;
-     syncount := 0;
      // Call msync to see what we have to work with
+     syncount := 0;
      msync(@gllpfM[0],@jz2,@syncount,@dtxa[0],@dfxa[0],@snrxa[0],@snrsynca[0],@lical,glwisfile);
      // Time to start USING the data I'm getting from msync.
      // 1 - If snrx < -29.5 kill it.
@@ -625,6 +648,7 @@ begin
                end;
           end;
      end;
+
      // This isn't quite there yet so forcing old demodulate methods
      devel := false;
      // At this point I can again fork to new vs old
@@ -1002,7 +1026,7 @@ begin
                               begin
                                    // Oh joy.  Time to try for kv.
                                    kdec := '';
-                                   if FileExists(dmtmpdir+'KVASD.DAT') Then
+                                   if FileExists(dmtmpdir+'KVASD.DAT') And glUseKV Then
                                    Begin
                                         if evalKV(kdec) Then
                                         Begin
@@ -1355,7 +1379,6 @@ begin
                               idf := lmousedf-mousedf2;
                               glmline := '                                                                        ';
                               bw := binspace;
-                              afc := 1;  // Hard coding this on.  Not worried about those who used to argue it is useless on HF.  It's not.
                               // Copy lpfM to f3Buffer
                               for j := 0 to jz2-1 do glf2Buffer[j] := gllpfM[j];
                               for j := jz2 to length(glf2Buffer)-1 do glf2Buffer[j] := 0.0;
@@ -1419,7 +1442,7 @@ begin
                                         begin
                                              // Oh joy.  Time to try for kv.
                                              kdec := '';
-                                             if FileExists(dmtmpdir+'KVASD.DAT') Then
+                                             if FileExists(dmtmpdir+'KVASD.DAT') and glUseKV Then
                                              Begin
                                                   if evalKV(kdec) Then
                                                   Begin
@@ -1484,7 +1507,7 @@ begin
           end;
      end;
 
-     // Fix up the decodes to display/rbc specs.
+     // Process decodes, removes dupes and format for sending back to main GUI
      if gldecOut.Count > 0 Then
      Begin
           // Have ndec decodes available in decArray[x]
@@ -1733,7 +1756,8 @@ begin
                inc(glDemodCount);
           end;
      end;
-     // Attempting to insure KVASD.DAT does not exist.
+
+     // One last pass to insure KVASD.DAT does not exist.
      j := 0;
      if FileExists(dmtmpdir+'KVASD.DAT') Then
      Begin
@@ -1766,6 +1790,8 @@ begin
           kvWaste2      := Now;
           dmKVWasted := dmKVWasted + MilliSecondSpan(kvWaste1,kvWaste2);
      end;
+
+     // All done - clean up.
      gldecOut.Clear;
      glsort1.Clear;
      glinprog := False;

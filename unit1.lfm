@@ -255,10 +255,10 @@ object Form1: TForm1
     Height = 243
     Top = 20
     Width = 803
-    ActivePage = TabSheet1
+    ActivePage = TabSheet4
     ParentBiDiMode = False
     ParentShowHint = False
-    TabIndex = 0
+    TabIndex = 5
     TabOrder = 5
     Visible = False
     object TabSheet1: TTabSheet
@@ -1183,7 +1183,7 @@ object Form1: TForm1
     object TabSheet4: TTabSheet
       Caption = 'Other Options'
       ClientHeight = 214
-      ClientWidth = 739
+      ClientWidth = 795
       object GroupBox9: TGroupBox
         Left = 4
         Height = 94
