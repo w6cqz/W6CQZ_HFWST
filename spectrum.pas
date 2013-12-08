@@ -31,7 +31,6 @@ Var
    specFirstRun    : Boolean;
    specColorMap    : Integer;
    specSpeed2      : Integer;
-   specGain        : Integer;
    specVGain       : Integer;
    specContrast    : Integer;
    specfftCount    : Integer;
@@ -52,28 +51,29 @@ Var
    floatvar : Single;
    i        : Integer;
    intvar   : LongInt;
+   scale    : Single;
 Begin
-     // This routine maps integerArray[0..749] to rgbArray[0..749] in RGB pixel format.
+     scale := 65535.0;
+     // This routine maps integerArray[0..929] to rgbArray[0..929] in RGB pixel format.
      If specColorMap = 0 Then
      Begin
-          //for i := 0 to 749 do
           for i := 0 to 929 do
           Begin
                rgbarray[i].a := 65535;
                floatvar := cmaps.bluecmap1[integerArray[i]];
-               floatvar := floatvar * 65535; // Red
+               floatvar := floatvar * scale; // Red
                intvar := trunc(floatvar);
                intVar := min(65535,max(0,intVar));
                rgbArray[i].r := intvar;
 
                floatvar := cmaps.bluecmap2[integerArray[i]];
-               floatvar := floatvar * 65535; // Red
+               floatvar := floatvar * scale; // Green
                intvar := trunc(floatvar);
                intVar := min(65535,max(0,intVar));
                rgbArray[i].g := intvar;
 
                floatvar := cmaps.bluecmap3[integerArray[i]];
-               floatvar := floatvar * 65535; // Red
+               floatvar := floatvar * scale; // Blue
                intvar := trunc(floatvar);
                intVar := min(65535,max(0,intVar));
                rgbArray[i].b := intvar;
@@ -81,24 +81,23 @@ Begin
      End;
      If specColorMap = 1 Then
      Begin
-          //for i := 0 to 749 do
           for i := 0 to 929 do
           Begin
                rgbarray[i].a := 65535;
                floatvar := cmaps.linradcmap1[integerArray[i]];
-               floatvar := floatvar * 65535; // Red
+               floatvar := floatvar * scale; // Red
                intvar := trunc(floatvar);
                intVar := min(65535,max(0,intVar));
                rgbArray[i].r := intvar;
 
                floatvar := cmaps.linradcmap2[integerArray[i]];
-               floatvar := floatvar * 65535; // Red
+               floatvar := floatvar * scale; // Green
                intvar := trunc(floatvar);
                intVar := min(65535,max(0,intVar));
                rgbArray[i].g := intvar;
 
                floatvar := cmaps.linradcmap3[integerArray[i]];
-               floatvar := floatvar * 65535; // Red
+               floatvar := floatvar * scale; // Blue
                intvar := trunc(floatvar);
                intVar := min(65535,max(0,intVar));
                rgbArray[i].b := intvar;
@@ -106,24 +105,23 @@ Begin
      End;
      If specColorMap = 2 Then
      Begin
-          //for i := 0 to 749 do
           for i := 0 to 929 do
           Begin
                rgbarray[i].a := 65535;
                floatvar := cmaps.gray0cmap1[integerArray[i]];
-               floatvar := floatvar * 65535; // Red
+               floatvar := floatvar * scale; // Red
                intvar := trunc(floatvar);
                intVar := min(65535,max(0,intVar));
                rgbArray[i].r := intvar;
 
                floatvar := cmaps.gray0cmap2[integerArray[i]];
-               floatvar := floatvar * 65535; // Red
+               floatvar := floatvar * scale; // Green
                intvar := trunc(floatvar);
                intVar := min(65535,max(0,intVar));
                rgbArray[i].g := intvar;
 
                floatvar := cmaps.gray0cmap3[integerArray[i]];
-               floatvar := floatvar * 65535; // Red
+               floatvar := floatvar * scale; // Blue
                intvar := trunc(floatvar);
                intVar := min(65535,max(0,intVar));
                rgbArray[i].b := intvar;
@@ -131,24 +129,23 @@ Begin
      End;
      If specColorMap = 3 Then
      Begin
-          //for i := 0 to 749 do
           for i := 0 to 929 do
           Begin
                rgbarray[i].a := 65535;
                floatvar := cmaps.gray1cmap1[integerArray[i]];
-               floatvar := floatvar * 65535; // Red
+               floatvar := floatvar * scale; // Red
                intvar := trunc(floatvar);
                intVar := min(65535,max(0,intVar));
                rgbArray[i].r := intvar;
 
                floatvar := cmaps.gray1cmap2[integerArray[i]];
-               floatvar := floatvar * 65535; // Red
+               floatvar := floatvar * scale; // Green
                intvar := trunc(floatvar);
                intVar := min(65535,max(0,intVar));
                rgbArray[i].g := intvar;
 
                floatvar := cmaps.gray1cmap3[integerArray[i]];
-               floatvar := floatvar * 65535; // Red
+               floatvar := floatvar * scale; // Blue
                intvar := trunc(floatvar);
                intVar := min(65535,max(0,intVar));
                rgbArray[i].b := intvar;
@@ -278,7 +275,8 @@ Begin
              iadj := 97;
              // Maps PS to pixels - these can vary based on user choices for contrast and gain.
              gamma := 1.3 + 0.01*specContrast;
-             offset := (specGain+64.0)/2;
+             //offset := (specGain+64.0)/2;
+             offset := 32.0;
 
              if specfftCount >= (10-specSpeed2) Then
              Begin
@@ -307,16 +305,16 @@ Begin
                   // Spectrum types 0..3 need conversion via colorMap()
                   If specColorMap < 4 then pColorMap(integerSpectra, pngSpectra);
                   // Spectrum types 4 is simple single color mapping.
-                  If specColorMap = 4 Then
-                  Begin
-                       for i := 0 to 929 do
-                       Begin
-                            pngSpectra[i].a := 65535;
-                            pngSpectra[i].g := integerSpectra[i]*255;
-                            pngSpectra[i].r := 0;
-                            pngSpectra[i].b := 0;
-                       end;
-                  End;
+                  //If specColorMap = 4 Then
+                  //Begin
+                  //     for i := 0 to 929 do
+                  //     Begin
+                  //          pngSpectra[i].a := 65535;
+                  //          pngSpectra[i].g := integerSpectra[i]*255;
+                  //          pngSpectra[i].r := 0;
+                  //          pngSpectra[i].b := 0;
+                  //     end;
+                  //End;
                   // Shift the lines and add new one then Build the PNG
                   // Now prepend the new spectra to the spectrum rolling off the former
           	  // oldest element.  This is held in specDisplayData :

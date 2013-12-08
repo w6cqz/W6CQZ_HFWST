@@ -26,9 +26,13 @@ Var
    gray1cmap2        : Array[0..255] of single;
    gray1cmap3        : Array[0..255] of single;
 
+   g0map, g1map      : Array[0..65535] of single;
+
 implementation
 
 procedure buildCMaps();
+var
+   i,j : Integer;
 Begin
 bluecmap1[0] := 0.0;
 bluecmap2[0] := 0.0;
@@ -790,13 +794,13 @@ bluecmap1[252] := 0.9882;
 bluecmap2[252] := 0.9882;
 bluecmap3[252] := 0.1800;
 bluecmap1[253] := 1.0;
-bluecmap2[253] := 0.0;
+bluecmap2[253] := 1.0;
 bluecmap3[253] := 0.0;
 bluecmap1[254] := 1.0;
 bluecmap2[254] := 1.0;
 bluecmap3[254] := 0.0;
-bluecmap1[255] := 0.0;
-bluecmap2[255] := 1.000;
+bluecmap1[255] := 1.0;
+bluecmap2[255] := 1.0;
 bluecmap3[255] := 0.0;
 
 linradcmap1[0] := 0.0000;
@@ -1559,14 +1563,14 @@ linradcmap1[252] := 1.0000;
 linradcmap2[252] := 1.0000;
 linradcmap3[252] := 1.0000;
 linradcmap1[253] := 1.0;
-linradcmap2[253] := 0.0;
-linradcmap3[253] := 0.0;
+linradcmap2[253] := 1.0;
+linradcmap3[253] := 1.0;
 linradcmap1[254] := 1.0;
 linradcmap2[254] := 1.0;
-linradcmap3[254] := 0.0;
-linradcmap1[255] := 0.0;
-linradcmap2[255] := 1.000;
-linradcmap3[255] := 0.0;
+linradcmap3[254] := 1.0;
+linradcmap1[255] := 1.0;
+linradcmap2[255] := 1.0;
+linradcmap3[255] := 1.0;
 
 gray0cmap1[0] := 0.0000;
 gray0cmap2[0] := 0.0000;
@@ -2328,14 +2332,14 @@ gray0cmap1[252] := 0.9882;
 gray0cmap2[252] := 0.9882;
 gray0cmap3[252] := 0.9882;
 gray0cmap1[253] := 1.0;
-gray0cmap2[253] := 0.0;
-gray0cmap3[253] := 0.0;
+gray0cmap2[253] := 1.0;
+gray0cmap3[253] := 1.0;
 gray0cmap1[254] := 1.0;
 gray0cmap2[254] := 1.0;
-gray0cmap3[254] := 0.0;
-gray0cmap1[255] := 0.0;
-gray0cmap2[255] := 1.000;
-gray0cmap3[255] := 0.0;
+gray0cmap3[254] := 1.0;
+gray0cmap1[255] := 1.0;
+gray0cmap2[255] := 1.0;
+gray0cmap3[255] := 1.0;
 
 gray1cmap1[0] := 1.0000;
 gray1cmap2[0] := 1.0000;
@@ -3096,15 +3100,28 @@ gray1cmap3[251] := 0.0157;
 gray1cmap1[252] := 0.0118;
 gray1cmap2[252] := 0.0118;
 gray1cmap3[252] := 0.0118;
-gray1cmap1[253] := 1.0;
+gray1cmap1[253] := 0.0;
 gray1cmap2[253] := 0.0;
 gray1cmap3[253] := 0.0;
-gray1cmap1[254] := 1.0;
-gray1cmap2[254] := 1.0;
+gray1cmap1[254] := 0.0;
+gray1cmap2[254] := 0.0;
 gray1cmap3[254] := 0.0;
 gray1cmap1[255] := 0.0;
-gray1cmap2[255] := 1.000;
+gray1cmap2[255] := 0.0;
 gray1cmap3[255] := 0.0;
+
+g0map[0] := 0.0;
+for i := 1 to 65535 do
+begin
+     g0map[i] := 65535/i;
+end;
+g1map[0] := 1.0;
+j := 1;
+for i := 65535 to 1 do
+begin
+     g1map[j] := 65535/i;
+     inc(j);
+end;
 end;
 end.
 
