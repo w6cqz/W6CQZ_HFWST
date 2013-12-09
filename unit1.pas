@@ -29,7 +29,7 @@ uses
 
 Const
   JT_DLL = 'JT65v392.dll';
-  JT9_DLL = 'libjt9.dll';
+  //JT9_DLL = 'libjt9.dll';
   SYNC65 : array[0..125] of CTypes.cint =
         (1,0,0,1,1,0,0,0,1,1,1,1,1,1,0,1,0,1,0,0,0,1,0,1,1,0,0,1,0,0,0,1,1,1,0,0,1,1,1,1,0,1,1,0,1,1,1,1,0,0,0,1,1,0,1,0,1,0,1,1,
         0,0,1,1,0,1,0,1,0,1,0,0,1,0,0,0,0,0,0,1,1,0,0,0,0,0,0,0,1,1,0,1,0,0,1,0,1,1,0,1,0,1,0,1,0,0,1,1,0,0,1,0,0,1,0,0,0,0,1,1,
@@ -574,9 +574,9 @@ procedure graycode(Ptsyms : CTypes.pcint; Pcount : CTypes.pcint; Pdirection : CT
 procedure set65; cdecl; external JT_DLL name 'setup65_';
 procedure packgrid(saveGrid : PChar; ng : CTypes.pcint; text : CTypes.pcbool); cdecl; external JT_DLL name 'packgrid_';
 procedure packmsg(msg : Pointer; syms : Pointer); cdecl; external JT_DLL name 'packmsg_';
-procedure gen4fsk(mi, mo, mode, fsk, sym, dat, dgn : Pointer); cdecl; external JT_DLL name 'gen4jl_';
-procedure jtEntail4(a,b : Pointer); cdecl; external JT_DLL name 'entail_';
-procedure genjt9(msg,ichk,decoded,i4tone,itext : Pointer); cdecl; external JT9_DLL name 'genjt9_';
+//procedure gen4fsk(mi, mo, mode, fsk, sym, dat, dgn : Pointer); cdecl; external JT_DLL name 'gen4jl_';
+//procedure jtEntail4(a,b : Pointer); cdecl; external JT_DLL name 'entail_';
+//procedure genjt9(msg,ichk,decoded,i4tone,itext : Pointer); cdecl; external JT9_DLL name 'genjt9_';
 
 {$R *.lfm}
 
