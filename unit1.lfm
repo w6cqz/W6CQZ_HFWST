@@ -255,10 +255,10 @@ object Form1: TForm1
     Height = 243
     Top = 20
     Width = 803
-    ActivePage = TabSheet4
+    ActivePage = TabSheet6
     ParentBiDiMode = False
     ParentShowHint = False
-    TabIndex = 5
+    TabIndex = 2
     TabOrder = 5
     Visible = False
     object TabSheet1: TTabSheet
@@ -634,7 +634,7 @@ object Form1: TForm1
     object TabSheet6: TTabSheet
       Caption = 'PTT/Rig Control'
       ClientHeight = 214
-      ClientWidth = 739
+      ClientWidth = 795
       object GroupBox3: TGroupBox
         Left = 4
         Height = 136
@@ -746,10 +746,10 @@ object Form1: TForm1
         end
       end
       object Button5: TButton
-        Left = 604
-        Height = 40
-        Top = 143
-        Width = 129
+        Left = 580
+        Height = 28
+        Top = 155
+        Width = 153
         Caption = 'Save'
         Font.Height = -21
         Font.Name = 'Arial'
@@ -768,49 +768,63 @@ object Form1: TForm1
       end
       object groupRebelOptions: TGroupBox
         Left = 580
-        Height = 129
+        Height = 148
         Top = -1
-        Width = 153
+        Width = 161
         Caption = 'Rebel Options'
-        ClientHeight = 111
-        ClientWidth = 149
+        ClientHeight = 130
+        ClientWidth = 157
         TabOrder = 4
         object edRebRXOffset: TEdit
           Left = 6
           Height = 24
           Top = 26
-          Width = 48
+          Width = 40
           TabOrder = 0
-          Text = '711'
+          Text = '700'
         end
         object Label22: TLabel
           Left = 6
-          Height = 17
+          Height = 20
           Top = 5
-          Width = 55
-          Caption = 'RX Offset'
+          Width = 40
+          Alignment = taCenter
+          AutoSize = False
+          Caption = 'RX'
+          Font.Height = 20
+          Font.Name = 'Arial'
+          Font.Style = [fsBold]
           ParentColor = False
+          ParentFont = False
+          OptimalFill = True
         end
         object Label25: TLabel
-          Left = 70
-          Height = 17
+          Left = 62
+          Height = 20
           Top = 5
-          Width = 73
-          Caption = 'TX Offset Hz'
+          Width = 40
+          Alignment = taCenter
+          AutoSize = False
+          Caption = 'TX'
+          Font.Height = 20
+          Font.Name = 'Arial'
+          Font.Style = [fsBold]
           ParentColor = False
+          ParentFont = False
+          OptimalFill = True
         end
         object edRebTXOffset: TEdit
-          Left = 70
+          Left = 62
           Height = 24
-          Top = 26
-          Width = 48
+          Top = 25
+          Width = 40
           TabOrder = 1
-          Text = '-50'
+          Text = '0'
         end
         object rbRebBaud9600: TRadioButton
           Left = 6
           Height = 20
-          Top = 85
+          Top = 104
           Width = 48
           Caption = '9600'
           TabOrder = 2
@@ -818,7 +832,7 @@ object Form1: TForm1
         object rbRebBaud115200: TRadioButton
           Left = 81
           Height = 20
-          Top = 85
+          Top = 104
           Width = 62
           Caption = '115200'
           Checked = True
@@ -828,10 +842,50 @@ object Form1: TForm1
         object Label37: TLabel
           Left = 6
           Height = 17
-          Top = 64
+          Top = 88
           Width = 62
           Caption = 'Baud Rate'
           ParentColor = False
+        end
+        object edRebRXOffset40: TEdit
+          Left = 6
+          Height = 24
+          Top = 57
+          Width = 40
+          TabOrder = 4
+          Text = '-700'
+        end
+        object edRebTXOffset40: TEdit
+          Left = 62
+          Height = 24
+          Top = 57
+          Width = 40
+          TabOrder = 5
+          Text = '0'
+        end
+        object Label45: TLabel
+          Left = 110
+          Height = 23
+          Top = 26
+          Width = 40
+          Caption = '20M'
+          Font.Height = -19
+          Font.Name = 'Arial'
+          Font.Style = [fsBold]
+          ParentColor = False
+          ParentFont = False
+        end
+        object Label46: TLabel
+          Left = 110
+          Height = 23
+          Top = 57
+          Width = 40
+          Caption = '40M'
+          Font.Height = -19
+          Font.Name = 'Arial'
+          Font.Style = [fsBold]
+          ParentColor = False
+          ParentFont = False
         end
       end
     end

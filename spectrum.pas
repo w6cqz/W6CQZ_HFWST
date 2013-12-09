@@ -305,16 +305,17 @@ Begin
                   // Spectrum types 0..3 need conversion via colorMap()
                   If specColorMap < 4 then pColorMap(integerSpectra, pngSpectra);
                   // Spectrum types 4 is simple single color mapping.
-                  //If specColorMap = 4 Then
-                  //Begin
-                  //     for i := 0 to 929 do
-                  //     Begin
-                  //          pngSpectra[i].a := 65535;
-                  //          pngSpectra[i].g := integerSpectra[i]*255;
-                  //          pngSpectra[i].r := 0;
-                  //          pngSpectra[i].b := 0;
-                  //     end;
-                  //End;
+                  If specColorMap = 4 Then
+                  Begin
+                       for i := 0 to 929 do
+                       Begin
+                            pngSpectra[i].a := 65535;
+                            pngSpectra[i].g := integerSpectra[i]*255;
+                            pngSpectra[i].r := 0;
+                            pngSpectra[i].b := 0;
+                       end;
+                  End;
+
                   // Shift the lines and add new one then Build the PNG
                   // Now prepend the new spectra to the spectrum rolling off the former
           	  // oldest element.  This is held in specDisplayData :

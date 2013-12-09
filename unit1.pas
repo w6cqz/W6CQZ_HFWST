@@ -94,8 +94,12 @@ type
     Chart3LineSeries3: TLineSeries;
     Chart4: TChart;
     Chart4BarSeries1: TBarSeries;
+    edRebRXOffset40: TEdit;
+    edRebTXOffset40: TEdit;
     Label16: TLabel;
     Label44: TLabel;
+    Label45: TLabel;
+    Label46: TLabel;
     logEQSL: TButton;
     logClearComments: TButton;
     doLogQSO: TButton;
@@ -928,8 +932,8 @@ Begin
 
      foo := cfgpath;
 
-     // Changing this as of 10.21.2013 to force an update to DB
-     if not fileExists(cfgPath + 'hfwstI' + IntToStr(instance)) Then
+     // Changing this as of 12.08.2013 to force an update to DB
+     if not fileExists(cfgPath + 'hfwstJ' + IntToStr(instance)) Then
      Begin
           setupDB(cfgPath);
      end;
@@ -944,7 +948,7 @@ Begin
 
      // Query db for configuration with instance id = 1 and if it exists
      // read config, if not set to defaults and prompt for config update
-     sqlite3.DatabaseName := cfgPath + 'hfwstI' + IntToStr(instance);
+     sqlite3.DatabaseName := cfgPath + 'hfwstJ' + IntToStr(instance);
      query.Active := False;
      query.SQL.Clear;
      query.SQL.Add('SELECT * FROM config WHERE instance = ' + IntToStr(instance) + ';'); // This uses the 1..4 instance!
@@ -1055,6 +1059,8 @@ Begin
      cbTXEqRXDF.Checked := query.FieldByName('txeqrxdf').AsBoolean;
      edRebRXOffset.Text := query.FieldByName('rebrxoffset').AsString;
      edRebTXOffset.Text := query.FieldByName('rebtxoffset').AsString;
+     edRebRXOffset40.Text := query.FieldByName('rebrxoffset40').AsString;
+     edRebTXOffset40.Text := query.FieldByName('rebtxoffset40').AsString;
      query.Active := False;
      // Setup rigcontrol object (used even if not using "real" rig control)
      rigControlSet(useDeciAuto);
@@ -1738,20 +1744,40 @@ Begin
                // hardwired in Rebel.  If so - update Rebel as we assume HFWST
                // has the correct values (maybe not the best assumption, but, safest
                // one).
-               if not tryStrToInt(edRebTXOffset.Text,i) Then edRebTXOffset.Text := '0';
-               if clRebel.txOffset <> StrToInt(edRebTXOffset.Text) Then
+               if clRebel.band = 20 Then
                Begin
-                    // fix it
-                    if tryStrToInt(edRebTXOffset.Text,i) then clRebel.txOffset := i else clRebel.txOffset := 0;
-               end;
-               if not tryStrToInt(edRebRXOffset.Text,i) Then edRebRXOffset.Text := '0';
-               if clRebel.rxOffset <> StrToInt(edRebRXOffset.Text) Then
+                    if not tryStrToInt(edRebTXOffset.Text,i) Then edRebTXOffset.Text := '0';
+                    if clRebel.txOffset <> StrToInt(edRebTXOffset.Text) Then
+                    Begin
+                         // fix it
+                         if tryStrToInt(edRebTXOffset.Text,i) then clRebel.txOffset := i else clRebel.txOffset := 0;
+                    end;
+                    if not tryStrToInt(edRebRXOffset.Text,i) Then edRebRXOffset.Text := '0';
+                    if clRebel.rxOffset <> StrToInt(edRebRXOffset.Text) Then
+                    Begin
+                         // fix it
+                         if tryStrToInt(edRebRXOffset.Text,i) then clRebel.rxOffset := i else clRebel.rxOffset := 0;
+                    end;
+                    // push changes to Rebel
+                    if not clRebel.setOffsets Then ShowMessage('Could not set offsets.' + sLineBreak + clRebel.lerror);
+               end
+               else if clRebel.band = 40 Then
                Begin
-                    // fix it
-                    if tryStrToInt(edRebRXOffset.Text,i) then clRebel.rxOffset := i else clRebel.rxOffset := 0;
+                    if not tryStrToInt(edRebTXOffset40.Text,i) Then edRebTXOffset40.Text := '0';
+                    if clRebel.txOffset <> StrToInt(edRebTXOffset40.Text) Then
+                    Begin
+                         // fix it
+                         if tryStrToInt(edRebTXOffset40.Text,i) then clRebel.txOffset := i else clRebel.txOffset := 0;
+                    end;
+                    if not tryStrToInt(edRebRXOffset40.Text,i) Then edRebRXOffset40.Text := '0';
+                    if clRebel.rxOffset <> StrToInt(edRebRXOffset40.Text) Then
+                    Begin
+                         // fix it
+                         if tryStrToInt(edRebRXOffset40.Text,i) then clRebel.rxOffset := i else clRebel.rxOffset := 0;
+                    end;
+                    // push changes to Rebel
+                    if not clRebel.setOffsets Then ShowMessage('Could not set offsets.' + sLineBreak + clRebel.lerror);
                end;
-               // push changes to Rebel
-               if not clRebel.setOffsets Then ShowMessage('Could not set offsets.' + sLineBreak + clRebel.lerror);
           end;
           // Need to take into account Rebel may have had a band change since last run
           // so be sure band currently active fits last QRG setting.
@@ -2488,33 +2514,74 @@ Begin
           end;
           runDecode := True;
      end;
-     i := 0;
-     if haveRebel and tryStrToInt(edRebTXOffset.Text,i) and (clRebel.txOffset <> i) Then
+     if clRebel.band = 20 Then
      Begin
-          // fix it
-          if not clRebel.Busy then
-          begin
-               clRebel.txOffset := i;
-               clRebel.setOffsets;
-               if tryStrToInt(edDialQRG.Text,i) Then
-               Begin
-                    qsyQRG := i;
-                    setQRG := True;
+          i := 0;
+          if haveRebel and tryStrToInt(edRebTXOffset.Text,i) and (clRebel.txOffset <> i) Then
+          Begin
+               // fix it
+               if not clRebel.Busy then
+               begin
+                    clRebel.txOffset := i;
+                    clRebel.setOffsets;
+                    if tryStrToInt(edDialQRG.Text,i) Then
+                    Begin
+                         qsyQRG := i;
+                         setQRG := True;
+                    end;
+               end;
+          end;
+     end
+     else if clRebel.band = 40 Then
+     Begin
+          i := 0;
+          if haveRebel and tryStrToInt(edRebTXOffset40.Text,i) and (clRebel.txOffset <> i) Then
+          Begin
+               // fix it
+               if not clRebel.Busy then
+               begin
+                    clRebel.txOffset := i;
+                    clRebel.setOffsets;
+                    if tryStrToInt(edDialQRG.Text,i) Then
+                    Begin
+                         qsyQRG := i;
+                         setQRG := True;
+                    end;
                end;
           end;
      end;
      i := 0;
-     if haveRebel and tryStrToInt(edRebRXOffset.Text,i) and (clRebel.rxOffset <> i) Then
+     if clRebel.band = 20 Then
      Begin
-          // fix it
-          if not clRebel.busy then
-          begin
-               clRebel.rxOffset := i;
-               clRebel.setOffsets;
-               if tryStrToInt(edDialQRG.Text,i) Then
-               Begin
-                    qsyQRG := i;
-                    setQRG := True;
+          if haveRebel and tryStrToInt(edRebRXOffset.Text,i) and (clRebel.rxOffset <> i) Then
+          Begin
+               // fix it
+               if not clRebel.busy then
+               begin
+                    clRebel.rxOffset := i;
+                    clRebel.setOffsets;
+                    if tryStrToInt(edDialQRG.Text,i) Then
+                    Begin
+                         qsyQRG := i;
+                         setQRG := True;
+                    end;
+               end;
+          end;
+     end
+     else if clRebel.band = 40 Then
+     Begin
+          if haveRebel and tryStrToInt(edRebRXOffset40.Text,i) and (clRebel.rxOffset <> i) Then
+          Begin
+               // fix it
+               if not clRebel.busy then
+               begin
+                    clRebel.rxOffset := i;
+                    clRebel.setOffsets;
+                    if tryStrToInt(edDialQRG.Text,i) Then
+                    Begin
+                         qsyQRG := i;
+                         setQRG := True;
+                    end;
                end;
           end;
      end;
@@ -5972,8 +6039,8 @@ end;
 
 procedure TForm1.FormCreate(Sender: TObject);
 begin
-     // Need to eventually get instance from commnad line
-     instance   := 2; // Range 1..4
+     { TODO : Need to eventually get instance from commnad line }
+     instance   := 1; // Range 1..4
      srun       := 0.0;
      lrun       := 0.0;
      d65.dmarun := 0.0;
@@ -6184,7 +6251,8 @@ begin
      foo := foo + 'multioffqso=:MQSOOFF,automultion=:MAUTOON,halttxsetsmulti=:MHALTMON,defaultsetsmulti=:MDEFMON,';
      foo := foo + 'decimal=:DECI,cwid=:CWID,cwidcall=:CWCALL,disableoptfft=:NOOPTFFT,disablekv=:NOKV,';
      foo := foo + 'lastqrg=:LASTQRG,sbinspace=:SBIN,mbinspace=:MBIN,txlevel=:TXLEVEL,version=:VER,';
-     foo := foo + 'multion=:MON,txeqrxdf=:TXEQRX,needcfg=:NEEDCFG,rebrxoffset=:RXOFFSET,rebtxoffset=:TXOFFSET WHERE instance=:INSTANCE';
+     foo := foo + 'multion=:MON,txeqrxdf=:TXEQRX,needcfg=:NEEDCFG,rebrxoffset=:RXOFFSET,rebtxoffset=:TXOFFSET,';
+     foo := foo + 'rebrxoffset40=:RXOFFSET40,rebtxoffset40=:TXOFFSET40 WHERE instance=:INSTANCE';
 
      query.SQL.Text := foo;
      Query.Params.ParamByName('PREFIX').AsString     := t(edPrefix.Text);
@@ -6269,6 +6337,8 @@ begin
      Query.Params.ParamByName('INSTANCE').AsInteger := instance;
      Query.Params.ParamByName('RXOFFSET').AsString := t(edRebRXOffset.Text);
      Query.Params.ParamByName('TXOFFSET').AsString := t(edRebTXOffset.Text);
+     Query.Params.ParamByName('RXOFFSET40').AsString := t(edRebRXOffset40.Text);
+     Query.Params.ParamByName('TXOFFSET40').AsString := t(edRebTXOffset40.Text);
      transaction.StartTransaction;
      query.ExecSQL;
      transaction.Commit;
@@ -6280,7 +6350,7 @@ procedure TForm1.setupDB(const cfgPath : String);
 Var
    foo : String;
 Begin
-     sqlite3.DatabaseName := cfgPath + 'hfwstI' + IntToStr(instance);
+     sqlite3.DatabaseName := cfgPath + 'hfwstJ' + IntToStr(instance);
      query.SQL.Clear;
      query.SQL.Add('CREATE TABLE ngdb(id integer primary key, xlate string(5))');
      query.ExecSQL;
@@ -6338,15 +6408,6 @@ Begin
      query.SQL.Add('CREATE TABLE macro(id integer primary key, instance integer, text string(13))');
      query.ExecSQL;
      query.SQL.Clear;
-     // query.SQL.Text := 'INSERT INTO macro(instance, text) VALUES(:INSTANCE,:TEXT);';
-     // Defining the 3 shorthand types.
-     //query.Params.ParamByName('INSTANCE').AsInteger := instance;
-     //query.Params.ParamByName('TEXT').AsString := 'RRR';
-     //query.ExecSQL;
-     //query.Params.ParamByName('TEXT').AsString := 'RO';
-     //query.ExecSQL;
-     //query.Params.ParamByName('TEXT').AsString := '73';
-     //query.ExecSQL;
      transaction.Commit;
      // Configuration
      foo :='CREATE TABLE config(';
@@ -6363,7 +6424,8 @@ Begin
      foo := foo + 'multioffqso bool, automultion bool, halttxsetsmulti bool, defaultsetsmulti bool, ';
      foo := foo + 'decimal varchar(10), cwid varchar(10), cwidcall varchar(11), disableoptfft bool, disablekv bool, ';
      foo := foo + 'lastqrg varchar(10), sbinspace integer, mbinspace integer, txlevel integer, version integer, ';
-     foo := foo + 'multion bool, txeqrxdf bool, needcfg bool, rebrxoffset string, rebtxoffset string)';
+     foo := foo + 'multion bool, txeqrxdf bool, needcfg bool, rebrxoffset string, rebtxoffset string, rebrxoffset40 string, ';
+     foo := foo + 'rebtxoffset40 string)';
      query.SQL.Clear;
      query.SQL.Add(foo);
      query.ExecSQL;
@@ -6394,6 +6456,8 @@ Begin
      rbRebBaud115200.Checked:=True;
      edRebRXOffset.Text:='700';
      edRebTXOffset.Text:='0';
+     edRebRXOffset40.Text:='-700';
+     edRebTXOffset40.Text:='0';
      // Tabsheet 3
      cbDivideDecodes.Checked := True;
      cbCompactDivides.Checked := True;

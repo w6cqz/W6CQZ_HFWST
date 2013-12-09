@@ -600,6 +600,7 @@ function TRebel.poll : Boolean;
 Var
    ff  : Double;
    i,j : Integer;
+   foo : String;
 Begin
      prBusy := True;
      // Poll for various values
@@ -630,7 +631,8 @@ Begin
      prResponse := '';
      if ask Then
      Begin
-          i := wordcount(prResponse,[',',';']);
+          foo := prResponse;
+          i := wordcount(foo,[',',';']);
           if i > 1 Then if tryStrToInt(ExtractWord(2,prResponse,[',',';']),i) then prRXOffset := i else prRXOffset := 0;
      end;
 
@@ -638,7 +640,8 @@ Begin
      prResponse := '';
      if ask Then
      Begin
-          i := wordcount(prResponse,[',',';']);
+          foo := prResponse;
+          i := wordcount(foo,[',',';']);
           if i > 1 Then if tryStrToInt(ExtractWord(2,prResponse,[',',';']),i) then prTXOffset := i else prTXOffset := 0;
      end;
 
