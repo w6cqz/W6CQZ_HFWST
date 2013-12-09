@@ -1577,14 +1577,17 @@ object Form1: TForm1
     TabStop = False
   end
   object ListBox2: TListBox
-    AnchorSideTop.Control = Owner
+    AnchorSideRight.Control = Owner
+    AnchorSideRight.Side = asrBottom
     AnchorSideBottom.Control = Owner
     AnchorSideBottom.Side = asrBottom
     Left = 1000
-    Height = 179
+    Height = 258
     Top = 5
-    Width = 240
+    Width = 0
+    Anchors = [akTop, akLeft, akRight]
     BorderSpacing.Top = 5
+    BorderSpacing.Right = 10
     BorderSpacing.Bottom = 5
     Font.Height = -11
     Font.Name = 'Arial'
@@ -2760,17 +2763,18 @@ object Form1: TForm1
     end
   end
   object Memo2: TMemo
-    AnchorSideTop.Control = Owner
+    AnchorSideTop.Control = ListBox2
+    AnchorSideTop.Side = asrBottom
     AnchorSideRight.Control = Owner
     AnchorSideRight.Side = asrBottom
     AnchorSideBottom.Control = Owner
     AnchorSideBottom.Side = asrBottom
-    Left = 1248
-    Height = 179
-    Top = 5
+    Left = 1000
+    Height = 272
+    Top = 273
     Width = 0
-    Anchors = [akTop, akLeft, akRight]
-    BorderSpacing.Top = 5
+    Anchors = [akTop, akLeft, akRight, akBottom]
+    BorderSpacing.Top = 10
     BorderSpacing.Right = 10
     BorderSpacing.Bottom = 5
     Constraints.MinHeight = 130
@@ -2968,42 +2972,6 @@ object Form1: TForm1
     Caption = '-800'
     ParentColor = False
   end
-  object Chart1: TChart
-    AnchorSideTop.Side = asrBottom
-    AnchorSideRight.Control = Owner
-    AnchorSideRight.Side = asrBottom
-    AnchorSideBottom.Control = Owner
-    AnchorSideBottom.Side = asrBottom
-    Left = 1000
-    Height = 132
-    Top = 720
-    Width = 0
-    AxisList = <    
-      item
-        Minors = <>
-        Range.Min = -33
-        Title.LabelFont.Orientation = 900
-      end    
-      item
-        Alignment = calBottom
-        Minors = <>
-      end>
-    Foot.Brush.Color = clBtnFace
-    Foot.Font.Color = clBlue
-    Title.Brush.Color = clBtnFace
-    Title.Font.Color = clBlue
-    Title.Text.Strings = (
-      'TAChart'
-    )
-    Anchors = [akTop, akLeft, akRight]
-    BorderSpacing.Top = 5
-    BorderSpacing.Right = 10
-    BorderSpacing.Bottom = 5
-    ParentColor = False
-    OnDblClick = Chart1DblClick
-    object Chart1LineSeries1: TLineSeries
-    end
-  end
   object Label44: TLabel
     Left = 8
     Height = 22
@@ -3018,112 +2986,6 @@ object Form1: TForm1
     ParentColor = False
     ParentFont = False
     OptimalFill = True
-  end
-  object Chart2: TChart
-    AnchorSideRight.Control = Owner
-    AnchorSideRight.Side = asrBottom
-    Left = 1000
-    Height = 170
-    Top = 544
-    Width = 0
-    AxisList = <    
-      item
-        Minors = <>
-        Title.LabelFont.Orientation = 900
-      end    
-      item
-        Alignment = calBottom
-        Minors = <>
-      end>
-    Foot.Brush.Color = clBtnFace
-    Foot.Font.Color = clBlue
-    Title.Brush.Color = clBtnFace
-    Title.Font.Color = clBlue
-    Title.Text.Strings = (
-      'TAChart'
-    )
-    Anchors = [akTop, akLeft, akRight]
-    BorderSpacing.Right = 10
-    ParentColor = False
-    OnDblClick = Chart1DblClick
-    object Chart2LineSeries1: TLineSeries
-    end
-    object Chart2LineSeries2: TLineSeries
-      LinePen.Color = clMaroon
-    end
-    object Chart2LineSeries3: TLineSeries
-      LinePen.Color = clRed
-    end
-  end
-  object Chart3: TChart
-    AnchorSideRight.Control = Owner
-    AnchorSideRight.Side = asrBottom
-    Left = 1000
-    Height = 170
-    Top = 368
-    Width = 0
-    AxisList = <    
-      item
-        Minors = <>
-        Title.LabelFont.Orientation = 900
-      end    
-      item
-        Alignment = calBottom
-        Minors = <>
-      end>
-    Foot.Brush.Color = clBtnFace
-    Foot.Font.Color = clBlue
-    Title.Brush.Color = clBtnFace
-    Title.Font.Color = clBlue
-    Title.Text.Strings = (
-      'TAChart'
-    )
-    Anchors = [akTop, akLeft, akRight]
-    BorderSpacing.Right = 10
-    ParentColor = False
-    OnDblClick = Chart1DblClick
-    object Chart3LineSeries1: TLineSeries
-    end
-    object Chart3LineSeries2: TLineSeries
-      LinePen.Color = clBlue
-    end
-    object Chart3LineSeries3: TLineSeries
-      LinePen.Color = clGreen
-    end
-  end
-  object Chart4: TChart
-    AnchorSideRight.Control = Owner
-    AnchorSideRight.Side = asrBottom
-    Left = 1000
-    Height = 170
-    Top = 192
-    Width = 0
-    AxisList = <    
-      item
-        Minors = <>
-        Range.Min = -30
-        Range.UseMin = True
-        Title.LabelFont.Orientation = 900
-      end    
-      item
-        Alignment = calBottom
-        Minors = <>
-      end>
-    Foot.Brush.Color = clBtnFace
-    Foot.Font.Color = clBlue
-    Title.Brush.Color = clBtnFace
-    Title.Font.Color = clBlue
-    Title.Text.Strings = (
-      'TAChart'
-    )
-    Anchors = [akTop, akLeft, akRight]
-    BorderSpacing.Right = 10
-    ParentColor = False
-    OnDblClick = Chart1DblClick
-    object Chart4BarSeries1: TBarSeries
-      BarBrush.Color = clBlack
-      BarWidthStyle = bwPercentMin
-    end
   end
   object Timer1: TTimer
     Enabled = False

@@ -82,18 +82,6 @@ type
     bReport: TButton;
     bRReport: TButton;
     bRRR: TButton;
-    Chart1: TChart;
-    Chart1LineSeries1: TLineSeries;
-    Chart2: TChart;
-    Chart2LineSeries1: TLineSeries;
-    Chart2LineSeries2: TLineSeries;
-    Chart2LineSeries3: TLineSeries;
-    Chart3: TChart;
-    Chart3LineSeries1: TLineSeries;
-    Chart3LineSeries2: TLineSeries;
-    Chart3LineSeries3: TLineSeries;
-    Chart4: TChart;
-    Chart4BarSeries1: TBarSeries;
     edRebRXOffset40: TEdit;
     edRebTXOffset40: TEdit;
     Label16: TLabel;
@@ -356,7 +344,7 @@ type
     procedure audioChange(Sender: TObject);
     procedure bnSaveMacroClick(Sender: TObject);
     procedure cbMultiOnChange(Sender: TObject);
-    procedure Chart1DblClick(Sender: TObject);
+    //procedure Chart1DblClick(Sender: TObject);
     procedure doLogQSOClick(Sender: TObject);
     procedure buttonXferMacroClick(Sender: TObject);
     procedure cbNZLPFChange(Sender: TObject);
@@ -3040,7 +3028,7 @@ Var
    cfoo,ng  : String;
    srec     : Spot.spotRecord;
    nodteval : Boolean;
-   td,te,tf : CTypes.cdouble;
+   //td,te,tf : CTypes.cdouble;
 Begin
      periodDecodes := 0;
      k := 0;
@@ -3176,46 +3164,46 @@ Begin
      begin
           d65.gld65decodes[i].dtProcessed := True;
      end;
-     // Post msync results to Chart4BarSeries1
-     Chart4BarSeries1.Clear;
-     for i := 0 to 254 do if d65.glSynFreq[i] > -9999.0 Then Chart4BarSeries1.AddXY(d65.glSynFreq[i],d65.glSynDected[i]);
-
-     if plotCount <> d65.dmPlotCount Then
-     Begin
-          td := periodDecodes*1.0;
-          te := d65.dmSynPoints*1.0;
-          tf := d65.glBinCount *1.0;
-          if d65.dmPlotCount > 360 Then
-          Begin
-               Chart1LineSeries1.Clear;
-               Chart2LineSeries1.Clear;
-               Chart2LineSeries2.Clear;
-               Chart3LineSeries1.Clear;
-               Chart3LineSeries2.Clear;
-               Chart3LineSeries3.Clear;
-               Chart4BarSeries1.Clear;
-               d65.dmPlotCount := 0;
-               Chart1LineSeries1.AddXY(d65.dmPlotCount,d65.dmPlotAvgSq);
-               Chart2LineSeries1.AddXY(d65.dmPlotCount,d65.dmruntime/1000.0);
-               Chart2LineSeries2.AddXY(d65.dmPlotCount,(d65.dmarun/d65.dmrcount)/1000.0);
-               Chart2LineSeries3.AddXY(d65.dmPlotCount,(d65.dmnzrun)/1000.0);
-               Chart3LineSeries1.AddXY(d65.dmPlotCount,te);
-               Chart3LineSeries2.AddXY(d65.dmPlotCount,tf);
-               Chart3LineSeries3.AddXY(d65.dmPlotCount,td);
-               plotcount := d65.dmPlotCount;
-          end
-          else
-          begin
-               Chart1LineSeries1.AddXY(d65.dmPlotCount,d65.dmPlotAvgSq);
-               Chart2LineSeries1.AddXY(d65.dmPlotCount,d65.dmruntime/1000.0);
-               Chart2LineSeries2.AddXY(d65.dmPlotCount,(d65.dmarun/d65.dmrcount)/1000.0);
-               Chart2LineSeries3.AddXY(d65.dmPlotCount,(d65.dmnzrun)/1000.0);
-               Chart3LineSeries1.AddXY(d65.dmPlotCount,te);
-               Chart3LineSeries2.AddXY(d65.dmPlotCount,tf);
-               Chart3LineSeries3.AddXY(d65.dmPlotCount,td);
-               plotcount := d65.dmPlotCount;
-          end;
-     end;
+     //// Post msync results to Chart4BarSeries1
+     //Chart4BarSeries1.Clear;
+     //for i := 0 to 254 do if d65.glSynFreq[i] > -9999.0 Then Chart4BarSeries1.AddXY(d65.glSynFreq[i],d65.glSynDected[i]);
+     //
+     //if plotCount <> d65.dmPlotCount Then
+     //Begin
+     //     td := periodDecodes*1.0;
+     //     te := d65.dmSynPoints*1.0;
+     //     tf := d65.glBinCount *1.0;
+     //     if d65.dmPlotCount > 360 Then
+     //     Begin
+     //          Chart1LineSeries1.Clear;
+     //          Chart2LineSeries1.Clear;
+     //          Chart2LineSeries2.Clear;
+     //          Chart3LineSeries1.Clear;
+     //          Chart3LineSeries2.Clear;
+     //          Chart3LineSeries3.Clear;
+     //          Chart4BarSeries1.Clear;
+     //          d65.dmPlotCount := 0;
+     //          Chart1LineSeries1.AddXY(d65.dmPlotCount,d65.dmPlotAvgSq);
+     //          Chart2LineSeries1.AddXY(d65.dmPlotCount,d65.dmruntime/1000.0);
+     //          Chart2LineSeries2.AddXY(d65.dmPlotCount,(d65.dmarun/d65.dmrcount)/1000.0);
+     //          Chart2LineSeries3.AddXY(d65.dmPlotCount,(d65.dmnzrun)/1000.0);
+     //          Chart3LineSeries1.AddXY(d65.dmPlotCount,te);
+     //          Chart3LineSeries2.AddXY(d65.dmPlotCount,tf);
+     //          Chart3LineSeries3.AddXY(d65.dmPlotCount,td);
+     //          plotcount := d65.dmPlotCount;
+     //     end
+     //     else
+     //     begin
+     //          Chart1LineSeries1.AddXY(d65.dmPlotCount,d65.dmPlotAvgSq);
+     //          Chart2LineSeries1.AddXY(d65.dmPlotCount,d65.dmruntime/1000.0);
+     //          Chart2LineSeries2.AddXY(d65.dmPlotCount,(d65.dmarun/d65.dmrcount)/1000.0);
+     //          Chart2LineSeries3.AddXY(d65.dmPlotCount,(d65.dmnzrun)/1000.0);
+     //          Chart3LineSeries1.AddXY(d65.dmPlotCount,te);
+     //          Chart3LineSeries2.AddXY(d65.dmPlotCount,tf);
+     //          Chart3LineSeries3.AddXY(d65.dmPlotCount,td);
+     //          plotcount := d65.dmPlotCount;
+     //     end;
+     //end;
      d65.dmAveSQ := 0.0;
      d65.dmBaseVB := 0.0;
      d65.dmSynPoints := 0;
@@ -5820,18 +5808,18 @@ begin
      if cbMultiOn.Checked Then edRXDF.Text := '0' else edRXDF.Text := edTXDF.Text;
 end;
 
-procedure TForm1.Chart1DblClick(Sender: TObject);
-begin
-     Chart4BarSeries1.Clear;
-     Chart1LineSeries1.Clear;
-     Chart2LineSeries1.Clear;
-     Chart2LineSeries2.Clear;
-     Chart2LineSeries3.clear;
-     Chart3LineSeries1.Clear;
-     Chart3LineSeries2.Clear;
-     Chart3LineSeries3.Clear;
-     d65.dmPlotCount := 0;
-end;
+//procedure TForm1.Chart1DblClick(Sender: TObject);
+//begin
+//     Chart4BarSeries1.Clear;
+//     Chart1LineSeries1.Clear;
+//     Chart2LineSeries1.Clear;
+//     Chart2LineSeries2.Clear;
+//     Chart2LineSeries3.clear;
+//     Chart3LineSeries1.Clear;
+//     Chart3LineSeries2.Clear;
+//     Chart3LineSeries3.Clear;
+//     d65.dmPlotCount := 0;
+//end;
 
 procedure TForm1.comboQRGListChange(Sender: TObject);
 Var
