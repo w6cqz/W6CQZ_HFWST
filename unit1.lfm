@@ -255,10 +255,10 @@ object Form1: TForm1
     Height = 243
     Top = 20
     Width = 803
-    ActivePage = TabSheet6
+    ActivePage = TabSheet1
     ParentBiDiMode = False
     ParentShowHint = False
-    TabIndex = 2
+    TabIndex = 0
     TabOrder = 5
     Visible = False
     object TabSheet1: TTabSheet
@@ -1476,6 +1476,7 @@ object Form1: TForm1
       Caption = 'Debug'
       ClientHeight = 214
       ClientWidth = 795
+      TabVisible = False
       object Label73: TLabel
         Left = 52
         Height = 17
@@ -1603,7 +1604,7 @@ object Form1: TForm1
     Top = 2
     Width = 275
     Alignment = taRightJustify
-    Caption = 'HFWST by W6CQZ v0.93 - Phoenix'
+    Caption = 'HFWST by W6CQZ v0.94 - Phoenix'
     Font.Height = -17
     Font.Name = 'Arial'
     Font.Style = [fsBold]
