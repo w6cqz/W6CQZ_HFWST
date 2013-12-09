@@ -88,7 +88,7 @@ type
     Label44: TLabel;
     Label45: TLabel;
     Label46: TLabel;
-    logEQSL: TButton;
+    logExternal: TButton;
     logClearComments: TButton;
     doLogQSO: TButton;
     logCancel: TButton;
@@ -5560,7 +5560,7 @@ begin
           logTimeOff.Text := ldate;
      end;
      // Do logging
-     if (sender = logDXLab) or (sender = logQSO) or (sender = logEQSL) Then
+     if (sender = logDXLab) or (sender = logQSO) or (sender = logExternal) Then
      Begin
           // Build the ADIF string for direct DX Keeper or file logging.
           parm := '<CALL:' + IntToStr(Length(logCallSign.Text)) + '>' + UpCase(logCallSign.Text);
@@ -5626,14 +5626,27 @@ begin
                   // 127.0.0.1 port 52001
                   sock := TTCPBlockSocket.Create;
                   sock.Connect('127.0.0.1','52001');
-                  //if sender = logEQSL then cmd  := 'EQSLLOG' else cmd := 'LOG';
-                  cmd := 'LOG';
-                  sock.SendString('<command:'+IntToStr(length(cmd))+'>' + cmd + '<parameters:' + IntToStr(length(parm)) + '>' + parm);
-                  sock.CloseSocket;
+                  if sock.LastError = 0 Then
+                  Begin
+                       cmd := 'LOG';
+                       sock.SendString('<command:'+IntToStr(length(cmd))+'>' + cmd + '<parameters:' + IntToStr(length(parm)) + '>' + parm);
+                       sock.CloseSocket;
+                  end
+                  else
+                  begin
+                       ListBox1.Items.Insert(0,'Notice: DX Keeper failed. Saved to file');
+                  end;
                   sock.Destroy;
                except
-                  // Should show a message that this failed, but it is saved to the ADIF file so it's not a total loss.
+                  ListBox1.Items.Insert(0,'Notice: DX Keeper failed. Saved to file');
                end;
+          end
+          else if sender = logExternal Then
+          Begin
+               // Make logging data available to external program in standard format
+               // I make the standard format - someone else makes external program
+               // I will call hfwstlog.exe with the adif string.  That seems standard
+               // enough.
           end;
 
           // If this was a DX Keeper log it's been done - now push the ADIF string to flat file

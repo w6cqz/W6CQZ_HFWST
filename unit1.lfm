@@ -235,12 +235,12 @@ object Form1: TForm1
       OnClick = LogQSOClick
       TabOrder = 14
     end
-    object logEQSL: TButton
+    object logExternal: TButton
       Left = 422
       Height = 29
       Top = 96
       Width = 144
-      Caption = 'DX Keeper EQSL'
+      Caption = 'Custom Log'
       Font.Height = -16
       Font.Name = 'Arial'
       Font.Style = [fsBold]
@@ -251,9 +251,9 @@ object Form1: TForm1
     end
   end
   object PageControl: TPageControl
-    Left = 152
+    Left = 150
     Height = 243
-    Top = 20
+    Top = 24
     Width = 803
     ActivePage = TabSheet1
     ParentBiDiMode = False
@@ -579,7 +579,7 @@ object Form1: TForm1
     object TabSheet7: TTabSheet
       Caption = 'ADIF Logging Options'
       ClientHeight = 214
-      ClientWidth = 739
+      ClientWidth = 795
       object GroupBox8: TGroupBox
         Left = 4
         Height = 136
@@ -2018,6 +2018,7 @@ object Form1: TForm1
       Font.Name = 'Arial'
       ParentFont = False
       TabOrder = 2
+      TabStop = True
     end
     object rbMode4: TRadioButton
       Left = 6
@@ -2100,6 +2101,7 @@ object Form1: TForm1
       Font.Name = 'Arial'
       ParentFont = False
       TabOrder = 1
+      TabStop = True
     end
     object rbRX5K: TRadioButton
       Left = 6
