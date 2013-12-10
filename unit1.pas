@@ -1,5 +1,4 @@
 { TODO :
-
 Think about having RX move to keep passband centered for Rebel
 
 
@@ -82,12 +81,14 @@ type
     bReport: TButton;
     bRReport: TButton;
     bRRR: TButton;
+    cbSlowWF: TCheckBox;
     edRebRXOffset40: TEdit;
     edRebTXOffset40: TEdit;
     Label16: TLabel;
     Label44: TLabel;
     Label45: TLabel;
     Label46: TLabel;
+    Label47: TLabel;
     logExternal: TButton;
     logClearComments: TButton;
     doLogQSO: TButton;
@@ -282,7 +283,6 @@ type
     Label13: TLabel;
     Label15: TLabel;
     Label17: TLabel;
-    Label18: TLabel;
     Label2: TLabel;
     Label20: TLabel;
     Label21: TLabel;
@@ -418,7 +418,8 @@ type
 
     procedure genTX(const msg : String; const txdf : Integer);
     function  rebelTuning(const f : Double) : CTypes.cuint;
-
+    function  rebelSet : Boolean;
+    procedure fillQRGList(const b: Integer);
     procedure OncePerRuntime;
     procedure OncePerTick;
     procedure OncePerSecond;
@@ -563,6 +564,9 @@ var
   periodDecodes  : Integer;
   b20,b50        : Graphics.TBitMap; // Waterfall headers for 20,50,100 and 200 hz bin spacing
   b100,b200      : Graphics.TBitMap;
+  logShowing     : Boolean;
+  cfgShowing     : Boolean;
+  rebBandStart   : Integer;
 
 implementation
 
@@ -604,21 +608,17 @@ end;
 
 procedure TForm1.OncePerRuntime;
 Var
-   foo,foo2  : String;
-   cmd,parm  : String;
+   foo       : String;
    paInS     : String;
-   i,fi      : Integer;
+   i         : Integer;
    paResult  : TPaError;
    paDefApi  : Integer;
    paCount   : Integer;
-   fs,fsc    : String;
-   ff        : Double;
    cfgpath   : String;
    basedir   : String;
    mustcfg   : Boolean;
    l,fbl     : String;
    deci      : PChar;
-   //sock      : TTCPBLockSocket;
 Begin
      // This runs on first timer interrupt once per run session
      timer1.Enabled:=False;
@@ -650,6 +650,10 @@ Begin
      //// On QRG read if result = .000 or (I'm guessing) ,000 Then Commander isn't
      //// able to read the rig.
      //try
+     //   This will format an integer to Commander's specs.  Need to have determined
+     //   kilochar and decichar first though.
+     //   i := 1838000;
+     //   foo := formatFloat('000' + kiloString + '000' + deciString + '000',i/1000.0);
      //   // Direct TCP connect to DX Lab commander
      //   // For this I need to create a socket - connect to Commander at
      //   // 127.0.0.1 port 52002
@@ -703,8 +707,6 @@ Begin
      //         sock.Destroy;
      //   end;
 
-
-
      // Getting locale settings
      l := '';
      fbl := '';
@@ -718,6 +720,7 @@ Begin
      deciString := TrimLeft(TrimRight(StrPas(deci)));
      GetLocaleInfo(LOCALE_USER_DEFAULT,LOCALE_STHOUSAND,deci,255);
      kiloString := TrimLeft(TrimRight(StrPas(deci)));
+
      // Trying to fix an ANNOYING corruption to my GUI layout
      TabSheet1.PageIndex := 0;
      TabSheet6.PageIndex := 1;
@@ -732,6 +735,7 @@ Begin
 
      for i := 0 to 100 do d65.glDecTrace[i].trDIS := True;
 
+     rebBandStart := 0; // Tracks band change if a Rebel is in play
      plotcount := 0;
      dtrejects := 0;
      d65.glDecCount := 0;
@@ -1138,7 +1142,6 @@ Begin
           end;
      end;
      if cbSpecSmooth.Checked then spectrum.specSmooth := True else spectrum.specSmooth := False;
-     if cbSpecSmooth.Checked then spectrum.specuseagc := True else spectrum.specuseagc := False;
      spectrum.specColorMap := spColorMap.ItemIndex;
      //If TryStrToInt(TXLevel.Text,i) Then tbTXLevel.Position := i else tbTXLevel.Position := 16;
      if useDeciAmerican.Checked then
@@ -1191,7 +1194,6 @@ Begin
      thisTXmsg  := '';
      thisTXdf   := 0;
      spectrum.specFirstRun := True;
-     spectrum.specuseagc   := False;
      spectrum.specSmooth   := False;
      // Todo tie these to db vars
      spectrum.specVGain    := 7;  // 7 is "normal" can range from 1 to 13
@@ -1219,6 +1221,8 @@ Begin
      Waterfall.Parent := Self;
      Waterfall.OnMouseDown := waterfallMouseDown;
      Waterfall.DoubleBuffered := True;
+     waterfall1.counter := 0;
+     waterfall1.delayed := False;
 
      If mustcfg Then
      Begin
@@ -1571,84 +1575,226 @@ Begin
           //     end;
           //end;
      end;
-     // For multiple instances I need to work out a lock mechanism such the multiple instances don't
-     // attemp to attach to same Rebel.
+
+     { TODO : For multiple instances I need to work out a lock mechanism such the multiple instances don't attempt attach to same Rebel. }
      if rigRebel.Checked Then
      Begin
-          // put class clRebel to work
-          haveRebel := False;
-          if rbRebBaud9600.Checked then clRebel.baud := 9600 else clRebel.baud := 115200;
-          if length(edPort.Text)>0 Then
+          haveRebel := rebelSet;
+          if not haveRebel Then
           Begin
-               i := -2;
-               if tryStrToInt(TrimLeft(TrimRight(edPort.Text)),i) Then
-               Begin
-                    if i>0 then
-                    begin
-                         clRebel.port := 'COM'+TrimLeft(TrimRight(edPort.Text));
-                         ShowMessage('Connecting to Rebel on ' + clRebel.port + ' at ' + IntToStr(clRebel.baud) + ' baud' + sLineBreak + 'Please insure Rebel is connected and loaded with proper firmware.');
-                         if clRebel.connect Then
-                         Begin
-                              // We're connected need to see if there's a Rebel on the other side
-                              if clRebel.setup Then
-                              Begin
-                                   // Sure enough seem to have one
-                                   haveRebel := True;
-                                   ListBox2.Items.Insert(0,'Connected to Rebel');
-                              end
-                              else
-                              begin
-                                   haveRebel := False;
-                                   rigNone.Checked := True;
-                                   ShowMessage('Rebel did not respond at command port' + sLineBreak + 'Please check configuration.');
-                              end;
-                         end
-                         else
-                         begin
-                              haveRebel := False;
-                              rigNone.Checked := True;
-                              ShowMessage('Could not open Rebel command port - please check configuration.');
-                         end;
-                    end
-                    else
-                    begin
-                         haveRebel := False;
-                         rigNone.Checked := True;
-                         ShowMessage('Bad com port value - please check configuration.');
-                    end;
-               end;
-          end
-          else
-          begin
-               haveRebel := False;
-               rigNone.Checked := True;
-               ShowMessage('Bad com port value - please check configuration.');
-          end;
-     end;
-
-     if rigRebel.Checked and haveRebel Then
-     Begin
-          // Need to read in Rebel's band selection so we know how to act here.
-          if not clRebel.poll Then
-          Begin
-               ShowMessage('Unable to communicate with Rebel - will retry');
-          end
-          else
-          begin
-               ListBox2.Items.Insert(0,'Rebel firmare version = ' + clRebel.rebVer);
-               ListBox2.Items.Insert(0,'Rebel DDS Type = ' + clRebel.ddsVer);
+               rigNone.Checked := True;  // Disables Rebel in PTT/Rig Control setup.
+               ListBox1.Items.Insert(0,'Notice: Rig set to none');
           end;
      end;
 
      // Populate QRG list but after Rebel handler in case I need to do things
      // here based on Rebel's settings.
      comboQRGList.Clear;
+     if haveRebel then
+     begin
+          fillQRGList(clRebel.band);
+          rebBandStart := clRebel.band;
+     end
+     else
+     begin
+          fillQRGList(0);
+          rebBandStart := 0;
+     end;
+
+     d65.glnz := cbNZLPF.Checked;
+     spectrum.specWindow := cbSpecWindow.Checked;
+     readQRG   := True;
+     firstTick := False;
+end;
+
+function  TForm1.rebelSet;
+var
+   i : Integer;
+   r : Boolean;
+   fs : String;
+   ff : Double;
+   fi : Integer;
+   fsc : String;
+Begin
+     // put class clRebel to work
+     r := False;
+     if rbRebBaud9600.Checked then clRebel.baud := 9600 else clRebel.baud := 115200;
+     if length(edPort.Text)>0 Then
+     Begin
+          i := -2;
+          if tryStrToInt(TrimLeft(TrimRight(edPort.Text)),i) Then
+          Begin
+               if i>0 then
+               begin
+                    clRebel.port := 'COM'+TrimLeft(TrimRight(edPort.Text));
+                    //ShowMessage('Connecting to Rebel on ' + clRebel.port + ' at ' + IntToStr(clRebel.baud) + ' baud' + sLineBreak + 'Please insure Rebel is connected and loaded with proper firmware.');
+                    ListBox1.Items.Insert(0,'Notice:  Connecting to Rebel');
+                    if clRebel.connect Then
+                    Begin
+                         // We're connected need to see if there's a Rebel on the other side
+                         if clRebel.setup Then
+                         Begin
+                              // Sure enough seem to have one
+                              if not clRebel.busy Then clRebel.poll; // Read the Rebel's config
+                              r := True;
+                              ListBox1.Clear;
+                              ListBox2.Items.Insert(0,'Connected to Rebel');
+                         end
+                         else
+                         begin
+                              r := False;
+                              rigNone.Checked := True;
+                              ListBox1.Items.Insert(0,'Notice:  Rebel no response.');
+                              //ShowMessage('Rebel did not respond at command port' + sLineBreak + 'Please check configuration.');
+                         end;
+                    end
+                    else
+                    begin
+                         r := False;
+                         rigNone.Checked := True;
+                         ListBox1.Items.Insert(0,'Notice:  Rebel COM port busy.');
+                    end;
+               end
+               else
+               begin
+                    r := False;
+                    rigNone.Checked := True;
+                    ListBox1.Items.Insert(0,'Notice:  Rebel bad COM port value.');
+               end;
+          end;
+     end
+     else
+     begin
+          r := False;
+          rigNone.Checked := True;
+          ListBox1.Items.Insert(0,'Notice:  Rebel bad COM port value.');
+     end;
+
+     if r Then
+     Begin
+          // Need to read in Rebel's band selection so we know how to act here.
+          if clRebel.poll Then
+          begin
+               ListBox2.Items.Insert(0,'Rebel firmare version = ' + clRebel.rebVer);
+               ListBox2.Items.Insert(0,'Rebel DDS Type = ' + clRebel.ddsVer);
+               If tryStrToInt(clRebel.rebVer,i) Then
+               begin
+                    if i < 1000 Then
+                    begin
+                         ListBox1.Items.Insert(0,'Notice: Need version => 1000');
+                         ListBox1.Items.Insert(0,'Notice: Update Rebel Firmware');
+                         r := False;
+                    end;
+               end
+               else
+               begin
+                    ListBox1.Items.Insert(0,'Notice: Need version => 1000');
+                    ListBox1.Items.Insert(0,'Notice: Update Rebel Firmware');
+                    r := False;
+               end;
+          end;
+     end;
+
+     if r Then
+     Begin
+          //edDialQRG.Text := IntToStr(Round(clRebel.qrg));
+          // Check to see if offset is different for RX/TX than defaults
+          // hardwired in Rebel.  If so - update Rebel as we assume HFWST
+          // has the correct values (maybe not the best assumption, but, safest
+          // one).
+          if clRebel.band = 20 Then
+          Begin
+               if not tryStrToInt(edRebTXOffset.Text,i) Then edRebTXOffset.Text := '0';
+               if clRebel.txOffset <> StrToInt(edRebTXOffset.Text) Then
+               Begin
+                    // fix it
+                    if tryStrToInt(edRebTXOffset.Text,i) then clRebel.txOffset := i else clRebel.txOffset := 0;
+               end;
+               if not tryStrToInt(edRebRXOffset.Text,i) Then edRebRXOffset.Text := '0';
+               if clRebel.rxOffset <> StrToInt(edRebRXOffset.Text) Then
+               Begin
+                    // fix it
+                    if tryStrToInt(edRebRXOffset.Text,i) then clRebel.rxOffset := i else clRebel.rxOffset := 0;
+               end;
+               // push changes to Rebel
+               if not clRebel.setOffsets Then ShowMessage('Could not set offsets.' + sLineBreak + clRebel.lerror);
+          end
+          else if clRebel.band = 40 Then
+          Begin
+               if not tryStrToInt(edRebTXOffset40.Text,i) Then edRebTXOffset40.Text := '0';
+               if clRebel.txOffset <> StrToInt(edRebTXOffset40.Text) Then
+               Begin
+                    // fix it
+                    if tryStrToInt(edRebTXOffset40.Text,i) then clRebel.txOffset := i else clRebel.txOffset := 0;
+               end;
+               if not tryStrToInt(edRebRXOffset40.Text,i) Then edRebRXOffset40.Text := '0';
+               if clRebel.rxOffset <> StrToInt(edRebRXOffset40.Text) Then
+               Begin
+                    // fix it
+                    if tryStrToInt(edRebRXOffset40.Text,i) then clRebel.rxOffset := i else clRebel.rxOffset := 0;
+               end;
+               // push changes to Rebel
+               if not clRebel.setOffsets Then ShowMessage('Could not set offsets.' + sLineBreak + clRebel.lerror);
+          end;
+          // Need to take into account Rebel may have had a band change since last run
+          // so be sure band currently active fits last QRG setting.
+          if not tryStrToInt(lastQRG.Text,fi) then lastQRG.Text := '0';
+          if fi > 0 Then
+          Begin
+               if clRebel.band = 20 Then
+               Begin
+                    if (fi >= 14000000) and (fi <= 14350000) Then fi := fi else fi := 14076000;
+               end
+               else if clRebel.band = 40 Then
+               Begin
+                    if (fi >= 7000000) and (fi <= 7300000) Then fi := fi else fi := 7076000;
+               end
+               else
+               begin
+                    // Error
+                    fi := 0;
+               end;
+
+               lastQRG.Text := IntToStr(fi);
+               edDialQRG.Text := lastQRG.Text;
+
+               fs  := '';
+               ff  := 0.0;
+               fi  := 0;
+               fs  := edDialQRG.Text;
+               fsc := '';
+               mval.forceDecimalAmer := False;
+               mval.forceDecimalEuro := False;
+               if mval.evalQRG(fs,'STRICT',ff,fi,fsc) Then
+               Begin
+                    edDialQRG.Text := lastQRG.Text;
+                    qsyQRG := StrToInt(edDialQRG.Text);
+                    setQRG := True;
+                    editQRG.Text := fsc;
+               end;
+          end;
+     end
+     else
+     begin
+          // No rebel so (for now) invalidate last QRG
+          edDialQRG.Text := '0';
+          lastQRG.Text := '0';
+     end;
+
+     Result := r;
+end;
+
+procedure TForm1.fillQRGList(const b : Integer);
+Var
+   i : Integer;
+   fs : String;
+   ff : Double;
+   fi : Integer;
+   fsc : String;
+Begin
      query.Active := False;
      query.SQL.Clear;
-     { TODO : Limit even more with Rebel based on band selected by jumpers }
-
-     // Limit QRG list to 40/20M ranges for now if Rebel is on
-     if not rigRebel.Checked Then query.SQL.Add('SELECT fqrg FROM qrg WHERE instance = ' + IntToStr(instance) + ' ORDER BY fqrg DESC;') else query.SQL.Add('SELECT fqrg FROM qrg WHERE instance = ' + IntToStr(instance) + ' AND fqrg > 6999999.9 AND fqrg < 14350000.1 ORDER BY fqrg DESC;');
+     query.SQL.Add('SELECT fqrg FROM qrg WHERE instance = ' + IntToStr(instance) + ' ORDER BY fqrg DESC;');
      query.Active := True;
      if query.RecordCount > 0 Then
      Begin
@@ -1659,10 +1805,58 @@ Begin
                ff  := 0.0;
                fi  := 0;
                fsc := '';
-               if rigRebel.Checked Then
+               if b > 0 Then
                Begin
-                    // This cuts out 30M entries for Rebel
-                    if (mval.evalQRG(fs,'STRICT',ff,fi,fsc)) and ((fi < 10100000) or (fi > 10150000)) Then comboQRGList.Items.Add(fsc);
+                    if b = 6 Then
+                    Begin
+                         // 6M Only
+                         if (mval.evalQRG(fs,'STRICT',ff,fi,fsc)) and ((fi >= 50000000) and (fi <= 54000000)) Then comboQRGList.Items.Add(fsc);
+                    end
+                    else if b = 10 Then
+                    Begin
+                         // 10M Only
+                         if (mval.evalQRG(fs,'STRICT',ff,fi,fsc)) and ((fi >= 28000000) and (fi <= 29700000)) Then comboQRGList.Items.Add(fsc);
+                    end
+                    else if b = 12 Then
+                    Begin
+                         // 12M Only
+                         if (mval.evalQRG(fs,'STRICT',ff,fi,fsc)) and ((fi >= 24890000) and (fi <= 24990000)) Then comboQRGList.Items.Add(fsc);
+                    end
+                    else if b = 15 Then
+                    Begin
+                         // 15M Only
+                         if (mval.evalQRG(fs,'STRICT',ff,fi,fsc)) and ((fi >= 21000000) and (fi <= 21450000)) Then comboQRGList.Items.Add(fsc);
+                    end
+                    else if b = 17 Then
+                    Begin
+                         // 17M Only
+                         if (mval.evalQRG(fs,'STRICT',ff,fi,fsc)) and ((fi >= 18068000) and (fi <= 18168000)) Then comboQRGList.Items.Add(fsc);
+                    end
+                    else if b = 20 Then
+                    Begin
+                         // 20M Only
+                         if (mval.evalQRG(fs,'STRICT',ff,fi,fsc)) and ((fi >= 14000000) and (fi <= 14350000)) Then comboQRGList.Items.Add(fsc);
+                    end
+                    else if b = 30 Then
+                    Begin
+                         // 30M Only
+                         if (mval.evalQRG(fs,'STRICT',ff,fi,fsc)) and ((fi >= 10100000) and (fi <= 1015000)) Then comboQRGList.Items.Add(fsc);
+                    end
+                    else if b = 40 Then
+                    Begin
+                         // 40M Only
+                         if (mval.evalQRG(fs,'STRICT',ff,fi,fsc)) and ((fi >= 7000000) and (fi <= 7300000)) Then comboQRGList.Items.Add(fsc);
+                    end
+                    else if b = 80 Then
+                    Begin
+                         // 80M Only
+                         if (mval.evalQRG(fs,'STRICT',ff,fi,fsc)) and ((fi >= 3500000) and (fi <= 4000000)) Then comboQRGList.Items.Add(fsc);
+                    end
+                    else if b = 160 Then
+                    Begin
+                         // 80M Only
+                         if (mval.evalQRG(fs,'STRICT',ff,fi,fsc)) and ((fi >= 1800000) and (fi <= 2000000)) Then comboQRGList.Items.Add(fsc);
+                    end;
                end
                else
                begin
@@ -1672,147 +1866,6 @@ Begin
           end;
      end;
      query.Active := False;
-
-     // Moved routines to deal with QRG down so I can know if this is a Rebel setup or not and react properly
-     // Validate initial QRG
-     //fs  := '';
-     //ff  := 0.0;
-     //fi  := 0;
-     //fs  := edDialQRG.Text;
-     //fsc := '';
-     //mval.forceDecimalAmer := False;
-     //mval.forceDecimalEuro := False;
-     //if mval.evalQRG(fs,'STRICT',ff,fi,fsc) Then qrgValid := True else qrgValid := False;
-
-     // Read in defaults if Rebel is on
-     if haveRebel Then
-     Begin
-          //if clRebel.poll Then
-          Begin
-               //edDialQRG.Text := IntToStr(Round(clRebel.qrg));
-               // Check to see if offset is different for RX/TX than defaults
-               // hardwired in Rebel.  If so - update Rebel as we assume HFWST
-               // has the correct values (maybe not the best assumption, but, safest
-               // one).
-               if clRebel.band = 20 Then
-               Begin
-                    if not tryStrToInt(edRebTXOffset.Text,i) Then edRebTXOffset.Text := '0';
-                    if clRebel.txOffset <> StrToInt(edRebTXOffset.Text) Then
-                    Begin
-                         // fix it
-                         if tryStrToInt(edRebTXOffset.Text,i) then clRebel.txOffset := i else clRebel.txOffset := 0;
-                    end;
-                    if not tryStrToInt(edRebRXOffset.Text,i) Then edRebRXOffset.Text := '0';
-                    if clRebel.rxOffset <> StrToInt(edRebRXOffset.Text) Then
-                    Begin
-                         // fix it
-                         if tryStrToInt(edRebRXOffset.Text,i) then clRebel.rxOffset := i else clRebel.rxOffset := 0;
-                    end;
-                    // push changes to Rebel
-                    if not clRebel.setOffsets Then ShowMessage('Could not set offsets.' + sLineBreak + clRebel.lerror);
-               end
-               else if clRebel.band = 40 Then
-               Begin
-                    if not tryStrToInt(edRebTXOffset40.Text,i) Then edRebTXOffset40.Text := '0';
-                    if clRebel.txOffset <> StrToInt(edRebTXOffset40.Text) Then
-                    Begin
-                         // fix it
-                         if tryStrToInt(edRebTXOffset40.Text,i) then clRebel.txOffset := i else clRebel.txOffset := 0;
-                    end;
-                    if not tryStrToInt(edRebRXOffset40.Text,i) Then edRebRXOffset40.Text := '0';
-                    if clRebel.rxOffset <> StrToInt(edRebRXOffset40.Text) Then
-                    Begin
-                         // fix it
-                         if tryStrToInt(edRebRXOffset40.Text,i) then clRebel.rxOffset := i else clRebel.rxOffset := 0;
-                    end;
-                    // push changes to Rebel
-                    if not clRebel.setOffsets Then ShowMessage('Could not set offsets.' + sLineBreak + clRebel.lerror);
-               end;
-          end;
-          // Need to take into account Rebel may have had a band change since last run
-          // so be sure band currently active fits last QRG setting.
-          if not tryStrToInt(lastQRG.Text,fi) then lastQRG.Text := '0';
-          if fi > 0 Then
-          Begin
-               edDialQRG.Text := lastQRG.Text;
-               fs  := '';
-               ff  := 0.0;
-               fi  := 0;
-               fs  := edDialQRG.Text;
-               fsc := '';
-               mval.forceDecimalAmer := False;
-               mval.forceDecimalEuro := False;
-               if mval.evalQRG(fs,'STRICT',ff,fi,fsc) Then qrgValid := True else qrgValid := False;
-               if qrgValid Then
-               Begin
-                    // Set Rebel to last session QRG (maybe)
-                    if clRebel.band = 20 Then
-                    Begin
-                         if (fi>=14000000) and (fi<=14350000) Then
-                         Begin
-                              edDialQRG.Text := lastQRG.Text;
-                              if not tryStrToInt(edDialQRG.Text,i) Then edDialQRG.Text := '14076000';
-                              qsyQRG := StrToInt(edDialQRG.Text);
-                              setQRG := True;
-                              editQRG.Text := fsc;
-                         end
-                         else
-                         begin
-                              edDialQRG.Text := '14076000';
-                              qsyQRG := 14076000;
-                              setQRG := True;
-                              editQRG.Text := '14076';
-                         end;
-                    end
-                    else if clRebel.band = 40 Then
-                    Begin
-                         if (fi>=7000000) and (fi<=7300000) Then
-                         Begin
-                              edDialQRG.Text := lastQRG.Text;
-                              if not tryStrToInt(edDialQRG.Text,i) Then edDialQRG.Text := '7076000';
-                              qsyQRG := StrToInt(edDialQRG.Text);
-                              setQRG := True;
-                              editQRG.Text := fsc;
-                         end
-                         else
-                         begin
-                              edDialQRG.Text := '7076000';
-                              qsyQRG := 7076000;
-                              setQRG := True;
-                              editQRG.Text := '7076';
-                         end;
-                    end;
-               end
-               else
-               begin
-                    if clRebel.band = 20 Then
-                    Begin
-                         edDialQRG.Text := '14076000';
-                         qsyQRG := 14076000;
-                         setQRG := True;
-                         editQRG.Text := '14076';
-                    end
-                    else if clRebel.band = 40 Then
-                    begin
-                         edDialQRG.Text := '7076000';
-                         qsyQRG := 7076000;
-                         setQRG := True;
-                         editQRG.Text := '7076';
-                    end;
-               end;
-          end;
-     end
-     else
-     begin
-          // No rebel so (for now) invalidate last QRG
-          edDialQRG.Text := '';
-          lastQRG.Text := '0';
-     end;
-
-     d65.glnz := cbNZLPF.Checked;
-     spectrum.specWindow := cbSpecWindow.Checked;
-     readQRG   := True;
-     firstTick := False;
 end;
 
 procedure TForm1.OncePerTick;
@@ -1820,7 +1873,7 @@ Var
    i,fi,dti   : Integer;
    fs,fsc     : String;
    s1,s2,foo  : String;
-   ff,dta,tot : Double;
+   ff,dta     : Double;
    valid      : Boolean;
    c1,c2,c3   : Array[0..125] of String;
    adjtime    : Boolean;
@@ -1833,6 +1886,46 @@ Begin
      thisUTC     := utcTime;
      thisSecond  := thisUTC.Second;
      thisADCTick := adc.adcTick;
+
+     // This is a high priortiy item.
+     if not toggleTX.Checked Then
+     Begin
+          txInProgress := false;
+          if clRebel.txStat and (not clRebel.busy) then clRebel.pttOff;
+     end;
+
+     // Checking for change to Rebel band since startup
+     if haveRebel Then
+     Begin
+          if rebBandStart <> clRebel.band Then
+          Begin
+               // Need to process a band change
+               comboQRGList.Clear;
+               fillQRGList(clRebel.band);
+               if clRebel.band = 20 Then
+               Begin
+                    // Switch to 20M standard QRG
+                    edDialQRG.Text := '14076000';
+                    qsyQRG := 14076000;
+                    setQRG := True;
+                    editQRG.Text := '14076';
+                    rebBandStart := 20;
+               end
+               else if clRebel.band = 40 Then
+               Begin
+                    // Switch to 40M standard QRG
+                    edDialQRG.Text := '7076000';
+                    qsyQRG := 7076000;
+                    setQRG := True;
+                    editQRG.Text := '7076';
+                    rebBandStart := 40;
+               end
+               else
+               begin
+                    { TODO : Handle this error condition }
+               end;
+          end;
+     end;
 
      if cbNoKV.Checked Then d65.glUseKV := False else d65.glUseKV := True;
      if cbNoOptFFT.Checked Then d65.glUseWisdom := False else d65.glUseWisdom := True;
@@ -1857,12 +1950,7 @@ Begin
           qsycount := 0;
      end;
 
-     // This is a high priortiy item.
-     if not toggleTX.Checked Then
-     Begin
-          txInProgress := false;
-          if clRebel.txStat and (not clRebel.busy) then clRebel.pttOff;
-     end;
+     if cbSlowWF.Checked Then Waterfall1.delayed := True else Waterfall1.delayed := False;
      // This is mainly for me.  :)
      If cbWFTX.Checked Then
      Begin
@@ -1870,7 +1958,7 @@ Begin
      end
      else
      begin
-          If not clRebel.txStat then Waterfall.repaint;
+          If not clRebel.txStat then Waterfall.Repaint;
      end;
 
      If toggleTX.Checked then toggleTX.state := cbChecked else toggleTX.state := cbUnchecked;
@@ -1889,7 +1977,7 @@ Begin
      if tryStrToInt(edTXDF.Text,i) Then txdf := i else txdf := 0;
 
      Label121.Caption := 'Decoder Resolution:  ' + IntToStr(d65.glbinspace) + ' Hz';
-     if d65.glRunCount < 2 Then
+     if d65.glRunCount < 1 Then
      Begin
           // Reject first decode cycle data.
           d65.glDecCount := 0;
@@ -1916,11 +2004,10 @@ Begin
      end;
      adjtime := False;
      if (d65.glDecCount > 19) and ((d65.glDTAvg < -0.5) or (d65.glDTAvg > 0.5)) Then adjtime := True else adjtime := false;
-     //if not adjtime and (d65.glDecCount > 99) Then adjtime := True;
      if not adjtime and (d65.glDecCount > 49) Then adjtime := True;
      if adjtime Then
      Begin
-          // Lets see about moving the average DT error every 100 receptions
+          // Lets see about moving the average DT error every 50 receptions
           // maybe a stupid idea, but, I wanna know.  :)
           // Samples fed to the decoder go in with an offset to start of data
           // with 4096 being default.  At 11025 samples per second this is
@@ -1999,7 +2086,6 @@ Begin
 
      spectrum.specSpeed2 := tbWFSpeed.Position;
      if cbSpecSmooth.Checked Then spectrum.specSmooth := True else spectrum.specSmooth := False;
-     if cbSpecSmooth.Checked Then spectrum.specuseagc := True else spectrum.specuseagc := False;
      spectrum.specColorMap := spColorMap.ItemIndex;
 
      if rbUseLeftAudio.Checked Then adc.adcChan  := 1;
@@ -2205,8 +2291,9 @@ Begin
           end
           else
           begin
-               // Need firmware >=99 to do this.
-               if StrToInt(clRebel.rebVer) > 98 Then
+               { TODO : Can do away with this firmware check }
+               // Need firmware >=1000 to do this.
+               if StrToInt(clRebel.rebVer) >= 1000 Then
                Begin
                     // Late TX start - first see if it could even happen this late.
                     // Not sure I could get here if thisSecond <= 1, but lets be sure.
@@ -2364,7 +2451,7 @@ Begin
      Begin
           if FileExists(homedir+'KVASD.DAT') Then
           Begin
-               if kvdatdel = 0 Then ListBox2.Items.Add('Had to delete kvasd.dat in main loop');
+               //if kvdatdel = 0 Then ListBox2.Items.Add('Had to delete kvasd.dat in main loop');
                // kill kill kill kill and kill it again
                try
                   if not FileUtil.DeleteFileUTF8(homedir+'KVASD.DAT') Then inc(kvdatdel) else kvdatdel :=0;
@@ -2374,27 +2461,27 @@ Begin
           end;
      end;
 
-     if not d65.glinprog Then
-     begin
-          tot := 0.0;
-          fi := 0;
-          for i := 0 to 100 do
-          begin
-               if not d65.glDecTrace[i].trDIS Then
-               Begin
-                    Memo2.Append(FormatFloat('####',d65.glDecTrace[i].trTIM) + ' mS Bin:  ' + IntToStr(d65.glDecTrace[i].trBIN) + '  DF:  ' + IntToStr(Round(d65.glDecTrace[i].trDFX)) + '  db:  ' + IntToStr(Round(d65.glDecTrace[i].trSNR)) + '  DT:  ' + FormatFloat('##.#',d65.glDecTrace[i].trDTX) + ' [' + d65.glDecTrace[i].trDEC + ']');
-                    tot := tot + d65.glDecTrace[i].trTIM;
-                    d65.glDecTrace[i].trDIS := True;
-                    inc(fi);
-               end;
-          end;
-          if fi>0 Then
-          Begin
-               Memo2.Append('');
-               Memo2.Append(FormatFloat('##.###',tot) + ' mS');
-               Memo2.Append('--------------------------------------------------------');
-          end;
-     end;
+     //if not d65.glinprog Then
+     //begin
+     //     tot := 0.0;
+     //     fi := 0;
+     //     for i := 0 to 100 do
+     //     begin
+     //          if not d65.glDecTrace[i].trDIS Then
+     //          Begin
+     //               Memo2.Append(FormatFloat('####',d65.glDecTrace[i].trTIM) + ' mS Bin:  ' + IntToStr(d65.glDecTrace[i].trBIN) + '  DF:  ' + IntToStr(Round(d65.glDecTrace[i].trDFX)) + '  db:  ' + IntToStr(Round(d65.glDecTrace[i].trSNR)) + '  DT:  ' + FormatFloat('##.#',d65.glDecTrace[i].trDTX) + ' [' + d65.glDecTrace[i].trDEC + ']');
+     //               tot := tot + d65.glDecTrace[i].trTIM;
+     //               d65.glDecTrace[i].trDIS := True;
+     //               inc(fi);
+     //          end;
+     //     end;
+     //     if fi>0 Then
+     //     Begin
+     //          Memo2.Append('');
+     //          Memo2.Append(FormatFloat('##.###',tot) + ' mS');
+     //          Memo2.Append('--------------------------------------------------------');
+     //     end;
+     //end;
 end;
 
 procedure TForm1.OncePerSecond;
@@ -2464,6 +2551,7 @@ Begin
           end;
           runDecode := True;
      end;
+     // Keep rebel TRX offsets in sync
      if clRebel.band = 20 Then
      Begin
           i := 0;
@@ -2642,57 +2730,25 @@ Begin
      Begin
           clRebel.disconnect;
           haveRebel := False;
+          comboQRGList.Clear;
+          if haveRebel then fillQRGList(clRebel.band) else fillQRGList(0);
      end;
+
+
      // Now deal with connecting to one
      if rigRebel.Checked and not clRebel.connected Then
      Begin
-          haveRebel := False;
-          if rbRebBaud9600.Checked then clRebel.baud := 9600 else clRebel.baud := 115200;
-          if length(edPort.Text)>0 Then
+          haveRebel := rebelSet;
+          if not haveRebel Then
           Begin
-               i := -2;
-               if tryStrToInt(TrimLeft(TrimRight(edPort.Text)),i) Then
-               Begin
-                    if i>0 then
-                    begin
-                         clRebel.port := 'COM'+TrimLeft(TrimRight(edPort.Text));
-                         ShowMessage('Connecting to Rebel on ' + clRebel.port + ' at ' + IntToStr(clRebel.baud) + ' baud' + sLineBreak + 'Please insure Rebel is connected and loaded with proper firmware.');
-                         if clRebel.connect Then
-                         Begin
-                              // We're connected need to see if there's a Rebel on the other side
-                              if clRebel.setup Then
-                              Begin
-                                   // Sure enough seem to have one
-                                   haveRebel := True;
-                              end
-                              else
-                              begin
-                                   haveRebel := False;
-                                   rigNone.Checked := True;
-                                   ShowMessage('Rebel did not respond at command port' + sLineBreak + 'Please check configuration.');
-                              end;
-                         end
-                         else
-                         begin
-                              haveRebel := False;
-                              rigNone.Checked := True;
-                              ShowMessage('Could not open Rebel command port - please check configuration.');
-                         end;
-                    end
-                    else
-                    begin
-                         haveRebel := False;
-                         rigNone.Checked := True;
-                         ShowMessage('Bad com port value - please check configuration.');
-                    end;
-               end;
-          end
-          else
-          begin
-               haveRebel := False;
-               rigNone.Checked := True;
-               ShowMessage('Bad com port value - please check configuration.');
+               rigNone.Checked := True;  // Disables Rebel in PTT/Rig Control setup.
+               ListBox1.Items.Insert(0,'Notice: Rig set to none');
           end;
+          // Populate QRG list but after Rebel handler in case I need to do things
+          // here based on Rebel's settings.
+          comboQRGList.Clear;
+          if haveRebel then fillQRGList(clRebel.band) else fillQRGList(0);
+
           inSync := False;  // Have almost certainly lost stream sync during this so resync so act as if it's all new again
           adc.adcFirst := True;
           adc.d65rxBufferIdx := 0;
@@ -2700,6 +2756,7 @@ Begin
           adc.adcTick := 0;
           adc.adcECount := 0;
      end;
+
      // Deal with Rebel
      // Changing this to defer any CAT work while busy or TX in progress for setting QRG
      if rigRebel.Checked and haveRebel and setQRG and (not clRebel.busy) and (not clRebel.txStat) Then
@@ -2739,13 +2796,14 @@ Begin
           readQRG := False;
           setQRG := False;
      end;
+
      // Update Rebel debug information
      if catMethod = 'Rebel' Then groupRebelOptions.Visible := True else groupRebelOptions.Visible := False;
+
      // Paint a line for second = 51
      if (thisSecond = 51) and (lastSecond = 50) Then
      Begin
           Try
-             //for i := 0 to 749 do
              for i := 0 to 929 do
              Begin
                   spectrum.specPNG[0][i].r := 65535;
@@ -2764,7 +2822,6 @@ Begin
      Begin
           if tryStrToInt(edDialQRG.Text,i) Then sopQRG := i else sopQRG := 0;
           Try
-             //for i := 0 to 749 do
              for i := 0 to 929
              do
              Begin
@@ -2812,12 +2869,7 @@ Begin
              ListBox2.Items.Insert(0,'Exception in prune list');
           end;
      end;
-     // This resets AGC action in Spectrum if it's on - keeps it from getting stuck and leading to a no smooth display.
-     Try
-        if spectrum.specagc > 0 Then spectrum.specagc := 0;
-     Except
-        ListBox2.Items.Insert(0,'Exception in reset agc');
-     end;
+
      // Display any RB Errors
      //if rb.errLog.Count > 0 Then for i := 0 to rb.errLog.Count-1 do Memo2.Append(rb.errlog.Strings[i]);
      rb.clearErr;
@@ -2834,7 +2886,7 @@ Begin
      // Compute spectrum and audio levels.
      if cbWFTX.Checked Then
      Begin
-          If adc.haveSpec And (not d65.glinprog) Then
+          If adc.haveSpec And (not d65.glinprog) and (not cfgShowing) and (not logShowing) Then
           Begin
                spectrum.specWindow := cbSpecWindow.Checked;
                spectrum.computeSpectrum(adc.adclast4k1);
@@ -3422,8 +3474,8 @@ end;
 function  TForm1.gCall(const Call : String) : LongWord;
 Var
    foo : String;
-   ci  : Array[1..6] Of LongWord;
-   ct  : LongWord;
+   ci  : Array[1..6] Of qword;
+   ct  : qword;
    i,j : Integer;
 Begin
      foo := TrimLeft(TrimRight(UpCase(Call)));
@@ -3465,7 +3517,7 @@ Begin
      ct := 27 * ct + LongWord(ci[4])-10;
      ct := 27 * ct + LongWord(ci[5])-10;
      ct := 27 * ct + LongWord(ci[6])-10;
-     result := ct;
+     result := LongWord(ct);
 end;
 
 function  TForm1.gPrefix(const form : String; const pfx : String) : LongWord;
@@ -5653,6 +5705,7 @@ begin
           buttonConfig.Visible := True;
           PageControl.Visible  := False;
           groupLogQSO.visible  := False;
+          logShowing := False;
      end;
 end;
 
@@ -5853,6 +5906,7 @@ begin
      buttonConfig.Visible := False;
      PageControl.Visible  := False;
      groupLogQSO.visible  := True;
+     logShowing := True;
 end;
 
 procedure TForm1.buttonXferMacroClick(Sender: TObject);
@@ -5911,11 +5965,12 @@ end;
 
 procedure TForm1.buttonConfigClick(Sender: TObject);
 begin
-     Waterfall.Visible   := False;
+     Waterfall.Visible    := False;
      PaintBox1.Visible    := False;
      buttonConfig.Visible := False;
      Button4.Visible      := True;
      PageControl.Visible  := True;
+     cfgShowing           := True;
 end;
 
 procedure TForm1.Button4Click(Sender: TObject);
@@ -5961,12 +6016,13 @@ begin
 
      //if canTX Then ListBox2.Items.Insert(0,'After config save CAN transmit') else ListBox2.Items.Insert(0,'After config save CAN NOT transmit.');
 
-     Waterfall.Visible   := True;
+     updateDB;
+     Waterfall.Visible    := True;
      PaintBox1.Visible    := True;
      buttonConfig.Visible := True;
      Button4.Visible      := False;
      PageControl.Visible  := False;
-     updateDB;
+     cfgShowing           := False;
 end;
 
 procedure TForm1.comboTTYPortsChange(Sender: TObject);
@@ -6026,6 +6082,8 @@ begin
      qrgValid    := False;
      jtencode    := SysUtils.StrAlloc(32);
      jtdecode    := SysUtils.StrAlloc(32);
+     logShowing  := False;
+     cfgShowing  := False;
      Timer1.Enabled := True;
 end;
 
@@ -6096,18 +6154,24 @@ end;
 procedure TForm1.WaterFallMouseDown(Sender: TObject; Button: TMouseButton; Shift: TShiftState; X, Y: Integer);
 Var
    df : Single;
+   sh : Boolean;
 begin
      if x = 0 then df := -1019;
-     if x > 0 Then df := X*2.7027;
+     if x > 0 Then df := X*2.7027; // 11025/4096? No.  Now is this a mistake or not?
      df := -1018.9189 + df;
 
-     if Button = mbLeft Then
+     // Next 3 lines are stupid but shuts up compiler warnings that drive me nuts
+     If Shift=Shift Then sh := true else sh := true;
+     If y > 0 then sh := true else sh := true;
+     sh := True;
+
+     if (Button = mbLeft) and sh Then
      Begin
           edTXDF.Text := IntToStr(round(df));
           if cbTXeqRXDF.Checked Then edRXDF.Text := edTXDF.Text;
      End;
 
-     if Button = mbRight Then
+     if (Button = mbRight) and sh Then
      Begin
           edRXDF.Text := IntToStr(round(df));
           if cbTXeqRXDF.Checked Then edTXDF.Text := edRXDF.Text;

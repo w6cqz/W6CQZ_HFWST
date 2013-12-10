@@ -36,8 +36,6 @@ Var
    specfftCount    : Integer;
    specSmooth      : Boolean;
    specWindow      : Boolean;
-   specagc         : CTypes.cuint64;
-   specuseagc      : Boolean;
    audiocomputing  : Boolean;
    spectrumComputing65 : Boolean;
    specNewSpec65   : Boolean;
@@ -229,7 +227,6 @@ Begin
      nh := 2048;
      If specFirstRun Then
      Begin
-          specagc := 0;
           // clear ss65
           for i := 0 to 2047 do
           Begin
@@ -272,7 +269,7 @@ Begin
              // Keep track of accumulations
              inc(specfftCount);
              // iadj sets the lower bin to F = iadj * (11025/4096) = iadj * 2.691650390625
-             iadj := 97;
+             iadj := 97; // 97 * (11025/4096) = 261.090087890625
              // Maps PS to pixels - these can vary based on user choices for contrast and gain.
              gamma := 1.3 + 0.01*specContrast;
              //offset := (specGain+64.0)/2;

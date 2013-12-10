@@ -17,6 +17,10 @@ type
      procedure Paint; override;
   end;
 
+var
+   counter : Integer=0;
+   delayed : Boolean=false;
+
 implementation
 
   procedure TWaterfallControl1.EraseBackground(DC: HDC);
@@ -35,64 +39,65 @@ implementation
      specPMs65 : TMemoryStream;
      i,j       : Integer;
   begin
-       if spectrum.specNewSpec65 Then
+       if spectrum.specNewSpec65 and not delayed Then counter := 30;
+       if counter > 29 Then
        Begin
-            Try
-               specPMs65 := TMemoryStream.Create;
-               specPMs65.Position := 0;
-
-               Bitmap := TBitmap.Create;
-               //Bitmap.Height := 180;
-               //Bitmap.Width  := 750;
-               Bitmap.Height := 180;
-               Bitmap.Width  := 930;
-
-               //image   := TFPMemoryImage.Create (750,180);
-               image   := TFPMemoryImage.Create (930,180);
-               ccanvas := TFPImageCanvas.create(image);
-               writer  := TFPWriterBMP.Create;
-
-               ccanvas.Pen.Mode  := pmCopy;
-               ccanvas.Pen.Style := psSolid;
-               ccanvas.Pen.Width := 1;
-               ccolor.alpha := 65535;
-               ccolor.red := 0;
-               ccolor.blue := 0;
-               // Build a png then convert to a bmp then paint it - awesome (sarcasm++++) but it's way it has to be done with custom control
-               //for i := 0 to 749 do
-               for i := 0 to 929 do
-               Begin
-                    for j := 0 to 179 do
+            if not spectrum.spectrumComputing65 Then
+            Begin
+                 counter := 0;
+                 Try
+                    specPMs65 := TMemoryStream.Create;
+                    specPMs65.Position := 0;
+                    Bitmap := TBitmap.Create;
+                    Bitmap.Height := 180;
+                    Bitmap.Width  := 930;
+                    image   := TFPMemoryImage.Create (930,180);
+                    ccanvas := TFPImageCanvas.create(image);
+                    writer  := TFPWriterBMP.Create;
+                    ccanvas.Pen.Mode  := pmCopy;
+                    ccanvas.Pen.Style := psSolid;
+                    ccanvas.Pen.Width := 1;
+                    ccolor.alpha := 65535;
+                    ccolor.red := 0;
+                    ccolor.blue := 0;
+                    // Build a png then convert to a bmp then paint it - awesome (sarcasm++++) but it's way it has to be done with custom control
+                    for i := 0 to 929 do
                     Begin
-                         ccolor.green := spectrum.specPNG[j][i].g;
-                         ccolor.red   := spectrum.specPNG[j][i].r;
-                         ccolor.blue  := spectrum.specPNG[j][i].b;
-                         ccanvas.Pen.FPColor := ccolor;
-                         ccanvas.Line(i,j,i,j);
+                         for j := 0 to 179 do
+                         Begin
+                              ccolor.green := spectrum.specPNG[j][i].g;
+                              ccolor.red   := spectrum.specPNG[j][i].r;
+                              ccolor.blue  := spectrum.specPNG[j][i].b;
+                              ccanvas.Pen.FPColor := ccolor;
+                              ccanvas.Line(i,j,i,j);
+                         end;
                     end;
-               end;
-               specPMs65.Position:=0;
-               image.SaveToStream(specPMS65,writer);
-               specPMs65.Position:=0;
-               bitmap.LoadFromStream(specPMs65);
-               Canvas.Draw(0,0,Bitmap);
-               inherited Paint;
-               writer.Free;
-               ccanvas.Free;
-               image.Free;
-               Bitmap.Free;
-               specpms65.Free;
-            Except
-               // Do nothing for now...
-               //dlog.fileDebug('Exception raised in waterfall unit');
-               inherited Paint;
-               writer.Free;
-               ccanvas.Free;
-               image.Free;
-               Bitmap.Free;
-               specpms65.Free;
-            End;
-       End;
+                    specPMs65.Position:=0;
+                    image.SaveToStream(specPMS65,writer);
+                    specPMs65.Position:=0;
+                    bitmap.LoadFromStream(specPMs65);
+                    Canvas.Draw(0,0,Bitmap);
+                    inherited Paint;
+                    writer.Free;
+                    ccanvas.Free;
+                    image.Free;
+                    Bitmap.Free;
+                    specpms65.Free;
+                 Except
+                       // Do nothing for now...
+                       inherited Paint;
+                       writer.Free;
+                       ccanvas.Free;
+                       image.Free;
+                       Bitmap.Free;
+                       specpms65.Free;
+                 End;
+            end;
+       End
+       Else
+       Begin
+            inc(counter);
+       end;
   end;
 end.
 
