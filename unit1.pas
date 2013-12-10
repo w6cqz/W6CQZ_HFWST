@@ -1,15 +1,21 @@
 { TODO :
 Think about having RX move to keep passband centered for Rebel
-
-
-Less urgent
-Order fields in logging panel
-Shorthand decoder core dumped
-Begin to graft sound output code in
-Add macro edit/define Partially done
+Implement fast decode at working DF
 Add qrg edit/define
+Enhance macro editor
+Begin to graft sound output code in
+
+(Far) Less urgent
+
+JT9 support
+
 Add worked call tracking taking into consideration a call worked in one grid is not
 worked if in a new one.
+
+Shorthand decoder core dumped - Nope. Not doing SH - done with that crap.  Let them scream.
+Expanding on SH stuff.  I *****am not***** adding support for TX of SH messages.  I **may**
+add a visual indicator to demark an RRR or 73, but, that's it.  SH on HF must die.  Those
+that support it (my own old code included) can go jump in a lake.  Done with it.
 }
 
 // (c) 2013 CQZ Electronics
@@ -2021,7 +2027,6 @@ Begin
                d65.glSampOffset := d65.glSampOffset+dti;
                if d65.glSampOffset < 0 Then d65.glSampOffset := 0;
                if d65.glSampOffset > 8192 Then d65.glSampOffset := 8192;
-               ListBox2.Items.Add('Changing decoder sample offset to ' + IntToStr(d65.glSampOffset));
           end;
           d65.glDecCount := 0;
           d65.glDTAvg := 0.0;
@@ -2329,7 +2334,7 @@ Begin
                                    lastTXMsg := thisTXmsg;
                                    sameTXCount := 0;
                               end;
-                              ListBox2.Items.Insert(0,'TX On at offset = ' + IntToStr(i));
+                              //ListBox2.Items.Insert(0,'TX On at offset = ' + IntToStr(i));
                               clRebel.lateOffset := i;
                               // PTT on
                               clRebel.latePTTOn;
@@ -2353,7 +2358,7 @@ Begin
                          else
                          begin
                               // Was too late
-                              ListBox2.Items.Insert(0,'Too late for TX to start');
+                              ListBox1.Items.Insert(0,'Notice: Too late for TX to start');
                          end;
                     end;
                end
@@ -2451,7 +2456,6 @@ Begin
      Begin
           if FileExists(homedir+'KVASD.DAT') Then
           Begin
-               //if kvdatdel = 0 Then ListBox2.Items.Add('Had to delete kvasd.dat in main loop');
                // kill kill kill kill and kill it again
                try
                   if not FileUtil.DeleteFileUTF8(homedir+'KVASD.DAT') Then inc(kvdatdel) else kvdatdel :=0;
@@ -5778,8 +5782,13 @@ begin
                Halt;
           end;
           ListBox2.Items.Insert(0,'Changed input to device:  ' + IntToStr(paInParams.device));
+          inSync := False;  // Have almost certainly lost stream sync during this so resync so act as if it's all new again
+          adc.adcFirst := True;
+          adc.d65rxBufferIdx := 0;
+          adc.d65rxBufferIdx := 0;
+          adc.adcTick := 0;
+          adc.adcECount := 0;
      end;
-
 end;
 
 procedure TForm1.bnSaveMacroClick(Sender: TObject);
@@ -6013,8 +6022,6 @@ begin
           canTX := False;
           showmessage('The entered grid square is not valid' + sLineBreak + 'TX is disabled.');
      end;
-
-     //if canTX Then ListBox2.Items.Insert(0,'After config save CAN transmit') else ListBox2.Items.Insert(0,'After config save CAN NOT transmit.');
 
      updateDB;
      Waterfall.Visible    := True;

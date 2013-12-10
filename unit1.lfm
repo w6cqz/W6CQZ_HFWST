@@ -1822,13 +1822,13 @@ object Form1: TForm1
     AnchorSideBottom.Control = Owner
     AnchorSideBottom.Side = asrBottom
     Left = 8
-    Height = 224
-    Top = 321
+    Height = 225
+    Top = 320
     Width = 520
     Anchors = [akTop, akLeft, akBottom]
     BorderSpacing.Bottom = 5
     Constraints.MaxWidth = 520
-    Constraints.MinHeight = 220
+    Constraints.MinHeight = 210
     Constraints.MinWidth = 520
     Font.Height = -19
     Font.Name = 'Courier New'
