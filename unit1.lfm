@@ -16,262 +16,22 @@ object Form1: TForm1
   OnClose = FormClose
   OnCreate = FormCreate
   LCLVersion = '1.0.12.0'
-  object groupLogQSO: TGroupBox
-    Left = 152
-    Height = 269
-    Top = 0
-    Width = 801
-    Caption = 'Log QSO'
-    ClientHeight = 251
-    ClientWidth = 797
-    TabOrder = 10
-    Visible = False
-    object LogQSO: TButton
-      Left = 422
-      Height = 28
-      Top = 19
-      Width = 144
-      Caption = 'Save ADIF'
-      Font.Height = -16
-      Font.Name = 'Arial'
-      Font.Style = [fsBold]
-      OnClick = LogQSOClick
-      ParentFont = False
-      TabOrder = 1
-      TabStop = False
-    end
-    object logCallsign: TEdit
-      Left = 6
-      Height = 24
-      Top = 19
-      Width = 80
-      CharCase = ecUppercase
-      TabOrder = 0
-    end
-    object logSigReport: TEdit
-      Left = 6
-      Height = 24
-      Top = 100
-      Width = 57
-      MaxLength = 3
-      TabOrder = 7
-    end
-    object logQRG: TEdit
-      Left = 102
-      Height = 24
-      Top = 19
-      Width = 86
-      TabOrder = 2
-    end
-    object logMySig: TEdit
-      Left = 78
-      Height = 24
-      Top = 100
-      Width = 59
-      MaxLength = 3
-      TabOrder = 8
-    end
-    object logTimeOn: TEdit
-      Left = 6
-      Height = 24
-      Top = 60
-      Width = 120
-      TabOrder = 5
-    end
-    object Label99: TLabel
-      Left = 6
-      Height = 17
-      Top = 44
-      Width = 81
-      Caption = 'Date/Time On'
-      ParentColor = False
-    end
-    object Label100: TLabel
-      Left = 6
-      Height = 17
-      Top = 3
-      Width = 72
-      Caption = 'Call Worked'
-      ParentColor = False
-    end
-    object Label101: TLabel
-      Left = 102
-      Height = 17
-      Top = 3
-      Width = 93
-      Caption = 'Frequency MHz'
-      ParentColor = False
-    end
-    object Label102: TLabel
-      Left = 6
-      Height = 17
-      Top = 84
-      Width = 57
-      Caption = 'Report TX'
-      ParentColor = False
-    end
-    object Label103: TLabel
-      Left = 78
-      Height = 17
-      Top = 84
-      Width = 59
-      Caption = 'Report RX'
-      ParentColor = False
-    end
-    object logTimeOff: TEdit
-      Left = 142
-      Height = 24
-      Top = 60
-      Width = 122
-      TabOrder = 6
-    end
-    object Label104: TLabel
-      Left = 142
-      Height = 17
-      Top = 44
-      Width = 80
-      Caption = 'Date/Time Off'
-      ParentColor = False
-    end
-    object logComments: TEdit
-      Left = 6
-      Height = 24
-      Top = 140
-      Width = 600
-      TabOrder = 10
-    end
-    object Label105: TLabel
-      Left = 6
-      Height = 17
-      Top = 124
-      Width = 64
-      Caption = 'Comments'
-      ParentColor = False
-    end
-    object logPower: TEdit
-      Left = 219
-      Height = 24
-      Top = 19
-      Width = 45
-      TabOrder = 3
-    end
-    object Label106: TLabel
-      Left = 219
-      Height = 17
-      Top = 3
-      Width = 37
-      Caption = 'Power'
-      ParentColor = False
-    end
-    object logDXLab: TButton
-      Left = 422
-      Height = 29
-      Top = 60
-      Width = 144
-      Caption = 'DX Keeper'
-      Font.Height = -16
-      Font.Name = 'Arial'
-      Font.Style = [fsBold]
-      OnClick = LogQSOClick
-      ParentFont = False
-      TabOrder = 9
-      TabStop = False
-    end
-    object logGrid: TEdit
-      Left = 278
-      Height = 24
-      Top = 19
-      Width = 80
-      MaxLength = 6
-      TabOrder = 4
-    end
-    object Label107: TLabel
-      Left = 278
-      Height = 17
-      Top = 3
-      Width = 25
-      Caption = 'Grid'
-      ParentColor = False
-    end
-    object logClearCancel: TButton
-      Left = 582
-      Height = 29
-      Top = 60
-      Width = 148
-      Caption = 'Clear and Cancel'
-      Font.Height = -16
-      Font.Name = 'Arial'
-      Font.Style = [fsBold]
-      OnClick = LogQSOClick
-      ParentFont = False
-      TabOrder = 11
-      TabStop = False
-    end
-    object logCancel: TButton
-      Left = 614
-      Height = 29
-      Top = 18
-      Width = 116
-      Caption = 'Cancel'
-      Font.Height = -16
-      Font.Name = 'Arial'
-      Font.Style = [fsBold]
-      OnClick = LogQSOClick
-      ParentFont = False
-      TabOrder = 12
-      TabStop = False
-    end
-    object logEndTime: TButton
-      Left = 278
-      Height = 24
-      Top = 60
-      Width = 104
-      Caption = 'Off Time = Now'
-      OnClick = LogQSOClick
-      TabOrder = 13
-      TabStop = False
-    end
-    object logClearComments: TButton
-      Left = 618
-      Height = 24
-      Top = 140
-      Width = 112
-      Caption = 'Clear Comments'
-      OnClick = LogQSOClick
-      TabOrder = 14
-      TabStop = False
-    end
-    object logExternal: TButton
-      Left = 422
-      Height = 29
-      Top = 96
-      Width = 144
-      Caption = 'Custom Log'
-      Font.Height = -16
-      Font.Name = 'Arial'
-      Font.Style = [fsBold]
-      OnClick = LogQSOClick
-      ParentFont = False
-      TabOrder = 15
-      TabStop = False
-      Visible = False
-    end
-  end
   object PageControl: TPageControl
+    AnchorSideTop.Control = Owner
     Left = 150
-    Height = 265
-    Top = 2
+    Height = 228
+    Top = 0
     Width = 803
     TabStop = False
-    ActivePage = TabSheet9
+    ActivePage = TabSheet1
     ParentBiDiMode = False
     ParentShowHint = False
-    TabIndex = 8
-    TabOrder = 5
+    TabIndex = 0
+    TabOrder = 7
     Visible = False
     object TabSheet1: TTabSheet
       Caption = 'Basic'
-      ClientHeight = 236
+      ClientHeight = 199
       ClientWidth = 795
       object Button4: TButton
         Left = 204
@@ -590,7 +350,7 @@ object Form1: TForm1
     end
     object TabSheet7: TTabSheet
       Caption = 'ADIF Logging Options'
-      ClientHeight = 236
+      ClientHeight = 199
       ClientWidth = 795
       object GroupBox8: TGroupBox
         Left = 4
@@ -648,7 +408,7 @@ object Form1: TForm1
     end
     object TabSheet6: TTabSheet
       Caption = 'PTT/Rig Control'
-      ClientHeight = 236
+      ClientHeight = 199
       ClientWidth = 795
       object GroupBox3: TGroupBox
         Left = 4
@@ -914,7 +674,7 @@ object Form1: TForm1
     end
     object TabSheet2: TTabSheet
       Caption = 'Spectrum Display/GUI Options'
-      ClientHeight = 236
+      ClientHeight = 199
       ClientWidth = 795
       object GroupBox1: TGroupBox
         Left = 4
@@ -1174,7 +934,7 @@ object Form1: TForm1
     end
     object TabSheet3: TTabSheet
       Caption = 'Spotting Networks'
-      ClientHeight = 236
+      ClientHeight = 199
       ClientWidth = 795
       object GroupBox6: TGroupBox
         Left = 4
@@ -1277,7 +1037,7 @@ object Form1: TForm1
     end
     object TabSheet4: TTabSheet
       Caption = 'Other Options'
-      ClientHeight = 236
+      ClientHeight = 199
       ClientWidth = 795
       object GroupBox9: TGroupBox
         Left = 4
@@ -1469,7 +1229,7 @@ object Form1: TForm1
     end
     object TabSheet5: TTabSheet
       Caption = 'Macros'
-      ClientHeight = 236
+      ClientHeight = 199
       ClientWidth = 795
       TabVisible = False
       object Button10: TButton
@@ -1497,11 +1257,11 @@ object Form1: TForm1
     end
     object TabSheet8: TTabSheet
       Caption = 'QRG List'
-      ClientHeight = 236
+      ClientHeight = 199
       ClientWidth = 795
       TabVisible = False
       object Button11: TButton
-        Left = 636
+        Left = 494
         Height = 40
         Top = 142
         Width = 129
@@ -1525,7 +1285,7 @@ object Form1: TForm1
     end
     object TabSheet9: TTabSheet
       Caption = 'Debug'
-      ClientHeight = 236
+      ClientHeight = 199
       ClientWidth = 795
       TabVisible = False
       object Label73: TLabel
@@ -1596,12 +1356,258 @@ object Form1: TForm1
       end
     end
   end
+  object groupLogQSO: TGroupBox
+    AnchorSideTop.Control = Owner
+    Left = 152
+    Height = 194
+    Top = 22
+    Width = 801
+    BorderSpacing.Top = 22
+    Caption = 'Log QSO'
+    ClientHeight = 176
+    ClientWidth = 797
+    TabOrder = 12
+    Visible = False
+    object LogQSO: TButton
+      Left = 422
+      Height = 28
+      Top = 19
+      Width = 144
+      Caption = 'Save ADIF'
+      Font.Height = -16
+      Font.Name = 'Arial'
+      Font.Style = [fsBold]
+      OnClick = LogQSOClick
+      ParentFont = False
+      TabOrder = 1
+      TabStop = False
+    end
+    object logCallsign: TEdit
+      Left = 6
+      Height = 24
+      Top = 19
+      Width = 80
+      CharCase = ecUppercase
+      TabOrder = 0
+    end
+    object logSigReport: TEdit
+      Left = 6
+      Height = 24
+      Top = 100
+      Width = 57
+      MaxLength = 3
+      TabOrder = 7
+    end
+    object logQRG: TEdit
+      Left = 102
+      Height = 24
+      Top = 19
+      Width = 86
+      TabOrder = 2
+    end
+    object logMySig: TEdit
+      Left = 78
+      Height = 24
+      Top = 100
+      Width = 59
+      MaxLength = 3
+      TabOrder = 8
+    end
+    object logTimeOn: TEdit
+      Left = 6
+      Height = 24
+      Top = 60
+      Width = 120
+      TabOrder = 5
+    end
+    object Label99: TLabel
+      Left = 6
+      Height = 17
+      Top = 44
+      Width = 81
+      Caption = 'Date/Time On'
+      ParentColor = False
+    end
+    object Label100: TLabel
+      Left = 6
+      Height = 17
+      Top = 3
+      Width = 72
+      Caption = 'Call Worked'
+      ParentColor = False
+    end
+    object Label101: TLabel
+      Left = 102
+      Height = 17
+      Top = 3
+      Width = 93
+      Caption = 'Frequency MHz'
+      ParentColor = False
+    end
+    object Label102: TLabel
+      Left = 6
+      Height = 17
+      Top = 84
+      Width = 57
+      Caption = 'Report TX'
+      ParentColor = False
+    end
+    object Label103: TLabel
+      Left = 78
+      Height = 17
+      Top = 84
+      Width = 59
+      Caption = 'Report RX'
+      ParentColor = False
+    end
+    object logTimeOff: TEdit
+      Left = 142
+      Height = 24
+      Top = 60
+      Width = 122
+      TabOrder = 6
+    end
+    object Label104: TLabel
+      Left = 142
+      Height = 17
+      Top = 44
+      Width = 80
+      Caption = 'Date/Time Off'
+      ParentColor = False
+    end
+    object logComments: TEdit
+      Left = 6
+      Height = 24
+      Top = 140
+      Width = 600
+      TabOrder = 10
+    end
+    object Label105: TLabel
+      Left = 6
+      Height = 17
+      Top = 124
+      Width = 64
+      Caption = 'Comments'
+      ParentColor = False
+    end
+    object logPower: TEdit
+      Left = 219
+      Height = 24
+      Top = 19
+      Width = 45
+      TabOrder = 3
+    end
+    object Label106: TLabel
+      Left = 219
+      Height = 17
+      Top = 3
+      Width = 37
+      Caption = 'Power'
+      ParentColor = False
+    end
+    object logDXLab: TButton
+      Left = 422
+      Height = 29
+      Top = 60
+      Width = 144
+      Caption = 'DX Keeper'
+      Font.Height = -16
+      Font.Name = 'Arial'
+      Font.Style = [fsBold]
+      OnClick = LogQSOClick
+      ParentFont = False
+      TabOrder = 9
+      TabStop = False
+    end
+    object logGrid: TEdit
+      Left = 278
+      Height = 24
+      Top = 19
+      Width = 80
+      MaxLength = 6
+      TabOrder = 4
+    end
+    object Label107: TLabel
+      Left = 278
+      Height = 17
+      Top = 3
+      Width = 25
+      Caption = 'Grid'
+      ParentColor = False
+    end
+    object logClearCancel: TButton
+      Left = 582
+      Height = 29
+      Top = 60
+      Width = 148
+      Caption = 'Clear and Cancel'
+      Font.Height = -16
+      Font.Name = 'Arial'
+      Font.Style = [fsBold]
+      OnClick = LogQSOClick
+      ParentFont = False
+      TabOrder = 11
+      TabStop = False
+    end
+    object logCancel: TButton
+      Left = 614
+      Height = 29
+      Top = 18
+      Width = 116
+      Caption = 'Cancel'
+      Font.Height = -16
+      Font.Name = 'Arial'
+      Font.Style = [fsBold]
+      OnClick = LogQSOClick
+      ParentFont = False
+      TabOrder = 12
+      TabStop = False
+    end
+    object logEndTime: TButton
+      Left = 278
+      Height = 24
+      Top = 60
+      Width = 104
+      Caption = 'Off Time = Now'
+      OnClick = LogQSOClick
+      TabOrder = 13
+      TabStop = False
+    end
+    object logClearComments: TButton
+      Left = 618
+      Height = 24
+      Top = 140
+      Width = 112
+      Caption = 'Clear Comments'
+      OnClick = LogQSOClick
+      TabOrder = 14
+      TabStop = False
+    end
+    object logExternal: TButton
+      Left = 422
+      Height = 29
+      Top = 96
+      Width = 144
+      Caption = 'Custom Log'
+      Font.Height = -16
+      Font.Name = 'Arial'
+      Font.Style = [fsBold]
+      OnClick = LogQSOClick
+      ParentFont = False
+      TabOrder = 15
+      TabStop = False
+      Visible = False
+    end
+  end
   object Label15: TLabel
+    AnchorSideBottom.Control = cbNZLPF
+    AnchorSideBottom.Side = asrBottom
     Left = 8
-    Height = 38
+    Height = 35
     Top = 217
     Width = 133
     Alignment = taCenter
+    Anchors = [akTop, akLeft, akBottom]
     AutoSize = False
     BorderSpacing.Top = 5
     Caption = '12:34:56'
@@ -1629,7 +1635,7 @@ object Form1: TForm1
     OnChange = comboQRGListChange
     ParentFont = False
     Style = csDropDownList
-    TabOrder = 9
+    TabOrder = 11
     TabStop = False
   end
   object ListBox2: TListBox
@@ -1654,7 +1660,7 @@ object Form1: TForm1
     TabStop = False
   end
   object Label20: TLabel
-    Left = 685
+    Left = 678
     Height = 20
     Top = 0
     Width = 275
@@ -1690,10 +1696,10 @@ object Form1: TForm1
     ParentFont = False
     OptimalFill = True
   end
-  object ListBox3: TListBox
+  object lbDecodesHeader: TListBox
     Left = 8
     Height = 25
-    Top = 296
+    Top = 295
     Width = 520
     Enabled = False
     Font.Height = -19
@@ -1720,17 +1726,25 @@ object Form1: TForm1
     ParentFont = False
   end
   object btnClearDecodes: TButton
+    AnchorSideLeft.Control = lbDecodesHeader
+    AnchorSideTop.Control = cbNZLPF
+    AnchorSideTop.Side = asrBottom
+    AnchorSideBottom.Control = lbDecodesHeader
     Left = 8
     Height = 28
-    Top = 266
-    Width = 133
-    Caption = 'Clear Decodes'
+    Top = 262
+    Width = 60
+    Anchors = [akTop, akLeft, akBottom]
+    AutoSize = True
+    BorderSpacing.Top = 10
+    BorderSpacing.Bottom = 5
+    Caption = 'Clear'
     Font.Height = -13
     Font.Name = 'Arial'
     Font.Style = [fsBold]
     OnClick = btnClearDecodesClick
     ParentFont = False
-    TabOrder = 3
+    TabOrder = 5
     TabStop = False
   end
   object Label27: TLabel
@@ -1754,31 +1768,48 @@ object Form1: TForm1
     OptimalFill = True
   end
   object buttonConfig: TButton
-    Left = 152
+    AnchorSideTop.Control = cbNZLPF
+    AnchorSideTop.Side = asrBottom
+    AnchorSideRight.Control = rbOn
+    AnchorSideBottom.Control = lbDecodesHeader
+    Left = 320
     Height = 28
-    Top = 266
-    Width = 80
+    Top = 262
+    Width = 55
+    Anchors = [akTop, akLeft, akRight, akBottom]
+    AutoSize = True
+    BorderSpacing.Top = 10
+    BorderSpacing.Right = 20
+    BorderSpacing.Bottom = 5
     Caption = 'Setup'
     Font.Height = -13
     Font.Name = 'Arial'
     Font.Style = [fsBold]
     OnClick = buttonConfigClick
     ParentFont = False
-    TabOrder = 4
+    TabOrder = 6
     TabStop = False
   end
   object rbOn: TCheckBox
-    Left = 256
-    Height = 26
-    Top = 266
+    AnchorSideTop.Control = cbNZLPF
+    AnchorSideTop.Side = asrBottom
+    AnchorSideRight.Control = lbDecodesHeader
+    AnchorSideRight.Side = asrBottom
+    AnchorSideBottom.Control = lbDecodesHeader
+    Left = 395
+    Height = 28
+    Top = 262
     Width = 133
+    Anchors = [akTop, akLeft, akRight, akBottom]
+    BorderSpacing.Top = 10
+    BorderSpacing.Bottom = 5
     Caption = 'RB Disabled'
     Font.Height = -19
     Font.Name = 'Arial'
     Font.Style = [fsBold]
     OnChange = rbOnChange
     ParentFont = False
-    TabOrder = 6
+    TabOrder = 8
     TabStop = False
   end
   object editQRG: TEdit
@@ -1793,7 +1824,7 @@ object Form1: TForm1
     ParentShowHint = False
     ShowHint = True
     TabStop = False
-    TabOrder = 7
+    TabOrder = 9
   end
   object btnsetQRG: TButton
     Left = 8
@@ -1806,7 +1837,7 @@ object Form1: TForm1
     Font.Style = [fsBold]
     OnClick = btnsetQRGClick
     ParentFont = False
-    TabOrder = 8
+    TabOrder = 10
     TabStop = False
   end
   object Label90: TLabel
@@ -1818,7 +1849,7 @@ object Form1: TForm1
     ParentColor = False
     Visible = False
   end
-  object ListBox1: TListBox
+  object lbDecodes: TListBox
     AnchorSideBottom.Control = Owner
     AnchorSideBottom.Side = asrBottom
     Left = 8
@@ -1828,14 +1859,13 @@ object Form1: TForm1
     Anchors = [akTop, akLeft, akBottom]
     BorderSpacing.Bottom = 5
     Constraints.MaxWidth = 520
-    Constraints.MinHeight = 210
     Constraints.MinWidth = 520
     Font.Height = -19
     Font.Name = 'Courier New'
     Font.Style = [fsBold]
     ItemHeight = 26
-    OnDblClick = ListBox1DblClick
-    OnDrawItem = ListBox1DrawItem
+    OnDblClick = lbDecodesDblClick
+    OnDrawItem = lbDecodesDrawItem
     ParentShowHint = False
     ParentFont = False
     Style = lbOwnerDrawFixed
@@ -1859,7 +1889,7 @@ object Form1: TForm1
     Font.Height = -13
     Font.Name = 'Arial'
     ParentFont = False
-    TabOrder = 11
+    TabOrder = 13
     object Label24: TLabel
       Left = 35
       Height = 17
@@ -2061,7 +2091,7 @@ object Form1: TForm1
     Font.Height = -9
     Font.Name = 'Arial'
     ParentFont = False
-    TabOrder = 12
+    TabOrder = 14
     object rbMode65: TRadioButton
       Left = 6
       Height = 33
@@ -2144,7 +2174,7 @@ object Form1: TForm1
     Font.Height = -11
     Font.Name = 'Arial'
     ParentFont = False
-    TabOrder = 13
+    TabOrder = 15
     object rbRX2K: TRadioButton
       Left = 6
       Height = 29
@@ -2186,7 +2216,7 @@ object Form1: TForm1
     Constraints.MaxHeight = 360
     Constraints.MinHeight = 279
     ParentColor = False
-    TabOrder = 14
+    TabOrder = 16
     object bCQ: TButton
       AnchorSideTop.Control = edTXMsg
       AnchorSideTop.Side = asrBottom
@@ -2838,7 +2868,7 @@ object Form1: TForm1
     Constraints.MinHeight = 130
     OnDblClick = Memo2DblClick
     ScrollBars = ssAutoBoth
-    TabOrder = 15
+    TabOrder = 17
     TabStop = False
   end
   object ProgressBar1: TProgressBar
@@ -2850,7 +2880,7 @@ object Form1: TForm1
     Orientation = pbVertical
     Smooth = True
     Step = 1
-    TabOrder = 16
+    TabOrder = 18
   end
   object Label53: TLabel
     AnchorSideTop.Control = GroupBox16
@@ -2866,13 +2896,13 @@ object Form1: TForm1
   object cbNZLPF: TCheckBox
     Left = 152
     Height = 20
-    Top = 231
+    Top = 232
     Width = 156
     Caption = 'Higher Speed Decoding'
     Checked = True
     OnChange = cbNZLPFChange
     State = cbChecked
-    TabOrder = 17
+    TabOrder = 19
     TabStop = False
   end
   object cbWFTX: TCheckBox
@@ -2884,7 +2914,7 @@ object Form1: TForm1
     Width = 100
     BorderSpacing.Top = 5
     Caption = 'WF During TX'
-    TabOrder = 18
+    TabOrder = 20
     TabStop = False
   end
   object Image1: TImage
@@ -2939,7 +2969,7 @@ object Form1: TForm1
     Caption = 'Extra Smooth Waterfall'
     Checked = True
     State = cbChecked
-    TabOrder = 19
+    TabOrder = 21
     TabStop = False
   end
   object Label55: TLabel
@@ -3051,7 +3081,76 @@ object Form1: TForm1
     Top = 800
     Width = 203
     Caption = 'Reduce Spectrum Display Load'
-    TabOrder = 20
+    TabOrder = 22
+    TabStop = False
+  end
+  object lbFastDecode: TListBox
+    Left = 8
+    Height = 50
+    Top = 320
+    Width = 520
+    Font.Height = -19
+    Font.Name = 'Courier New'
+    Font.Style = [fsBold]
+    ItemHeight = 0
+    ParentFont = False
+    TabOrder = 23
+    Visible = False
+  end
+  object cbFastDFDecode: TCheckBox
+    Left = 536
+    Height = 20
+    Top = 832
+    Width = 167
+    Caption = 'Fast Working DF Decode'
+    TabOrder = 24
+  end
+  object btnClearDecodesFast: TButton
+    AnchorSideLeft.Control = btnClearDecodes
+    AnchorSideLeft.Side = asrBottom
+    AnchorSideTop.Control = cbNZLPF
+    AnchorSideTop.Side = asrBottom
+    AnchorSideBottom.Control = lbDecodesHeader
+    Left = 78
+    Height = 28
+    Top = 262
+    Width = 90
+    Anchors = [akTop, akLeft, akBottom]
+    AutoSize = True
+    BorderSpacing.Left = 10
+    BorderSpacing.Top = 10
+    BorderSpacing.Bottom = 5
+    Caption = 'Clear Fast'
+    Font.Height = -13
+    Font.Name = 'Arial'
+    Font.Style = [fsBold]
+    OnClick = btnClearDecodesClick
+    ParentFont = False
+    TabOrder = 4
+    TabStop = False
+  end
+  object btnHideFast: TButton
+    AnchorSideLeft.Control = btnClearDecodesFast
+    AnchorSideLeft.Side = asrBottom
+    AnchorSideTop.Control = cbNZLPF
+    AnchorSideTop.Side = asrBottom
+    AnchorSideBottom.Control = lbDecodesHeader
+    Left = 178
+    Height = 28
+    Top = 262
+    Width = 85
+    Anchors = [akTop, akLeft, akBottom]
+    AutoSize = True
+    BorderSpacing.Left = 10
+    BorderSpacing.Top = 10
+    BorderSpacing.Bottom = 5
+    Caption = 'Hide Fast'
+    Font.Height = -13
+    Font.Name = 'Arial'
+    Font.Style = [fsBold]
+    OnClick = btnHideFastClick
+    ParentFont = False
+    TabOrder = 3
     TabStop = False
   end
   object Timer1: TTimer

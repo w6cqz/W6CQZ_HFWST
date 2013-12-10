@@ -87,7 +87,10 @@ type
     bReport: TButton;
     bRReport: TButton;
     bRRR: TButton;
+    btnClearDecodesFast: TButton;
+    btnHideFast: TButton;
     cbSlowWF: TCheckBox;
+    cbFastDFDecode: TCheckBox;
     edRebRXOffset40: TEdit;
     edRebTXOffset40: TEdit;
     Label16: TLabel;
@@ -95,6 +98,7 @@ type
     Label45: TLabel;
     Label46: TLabel;
     Label47: TLabel;
+    lbFastDecode: TListBox;
     logExternal: TButton;
     logClearComments: TButton;
     doLogQSO: TButton;
@@ -314,9 +318,9 @@ type
     Label6: TLabel;
     Label7: TLabel;
     Label8: TLabel;
-    ListBox1: TListBox;
+    lbDecodes: TListBox;
     ListBox2: TListBox;
-    ListBox3: TListBox;
+    lbDecodesHeader: TListBox;
     PageControl: TPageControl;
     rigNone: TRadioButton;
     rbNoCWID: TRadioButton;
@@ -349,6 +353,7 @@ type
     Waterfall: TWaterfallControl1;
     procedure audioChange(Sender: TObject);
     procedure bnSaveMacroClick(Sender: TObject);
+    procedure btnHideFastClick(Sender: TObject);
     procedure cbMultiOnChange(Sender: TObject);
     //procedure Chart1DblClick(Sender: TObject);
     procedure doLogQSOClick(Sender: TObject);
@@ -370,12 +375,12 @@ type
     procedure LogQSOClick(Sender: TObject);
     procedure Memo2DblClick(Sender: TObject);
     procedure edTXMsgDblClick(Sender: TObject);
-    procedure ListBox1DrawItem(Control: TWinControl; Index: Integer; ARect: TRect; State: TOwnerDrawState);
+    procedure lbDecodesDrawItem(Control: TWinControl; Index: Integer; ARect: TRect; State: TOwnerDrawState);
     procedure mgenClick(Sender: TObject);
     procedure rbOnChange(Sender: TObject);
     procedure FormClose(Sender: TObject; var CloseAction: TCloseAction);
     procedure FormCreate(Sender: TObject);
-    procedure ListBox1DblClick(Sender: TObject);
+    procedure lbDecodesDblClick(Sender: TObject);
     procedure ListBox2DblClick(Sender: TObject);
     procedure rbTXEvenChange(Sender: TObject);
     procedure rigControlSet(Sender: TObject);
@@ -561,8 +566,8 @@ var
   psTick         : Integer = 1;
   timeString     : String;  // Format of time, date, decimal character and thousands sep
   dateString     : String;  // Set using system functions to get localized settings.
-  deciString     : String;
-  kiloString     : String;
+  deciString     : String = '';
+  kiloString     : String = '';
   plotCount      : CTypes.cint;
   headerRes      : CTypes.cint = 0; // Keeps track of resolution for spectrum header display
   lastTXDFMark   : CTypes.cint = -9000; // Keeps track of last painting for TX Marker
@@ -570,9 +575,13 @@ var
   periodDecodes  : Integer;
   b20,b50        : Graphics.TBitMap; // Waterfall headers for 20,50,100 and 200 hz bin spacing
   b100,b200      : Graphics.TBitMap;
-  logShowing     : Boolean;
-  cfgShowing     : Boolean;
-  rebBandStart   : Integer;
+  logShowing     : Boolean = false;
+  cfgShowing     : Boolean = false;
+  rebBandStart   : Integer = 0;
+  workingDF      : Integer = 0; // Will use this to track where user is working for a fast decode at the single point (eventually)
+  canSlowDecode  : Boolean = False; // Used with fast decode at working DF code
+  doFastDecode   : Boolean = False; // Used with fast decode at working DF code
+  isFastDecode   : Boolean = False; // Used with fast decode at working DF code
 
 implementation
 
@@ -648,6 +657,42 @@ Begin
      b200.Width  := 748;
      b200.LoadFromLazarusResource('header200');
 
+     {
+     Thinking about fast decode pass at working DF.  Working DF needs to be defined
+     first.  If calling CQ then working DF is TXDF - otherwise it is the RXDF of a
+     station answered using decoder double click.  There's only so far I can go with
+     guessing where to do the fast decode... if the user is running "split" TRX then
+     I could use RXDF as the determining value.
+
+     So....
+     If multi on then....
+     Decoder tolerance = SINGLE decode tolerance.
+     If Matching TX/RX DF is ****off**** fast decode df = TXDF
+     If Matching TX/RX DF is ****on***** fast decode df = RXDF **** OF STATION BEING WORKED ****
+
+     If multi off it's moot.  :)
+
+     I think the way to do this is if multi on
+
+     Determine working DF
+     Run single decode pass
+     Display result
+     Run multi decode pass
+     Display result but filter out any result gotten in single pass
+
+     Will likely be tedious to work out but well worth effort.
+
+     For the GUI I have an element for the single decode in place that
+     will appear when necessary so I don't have to muck around with the
+     normal decoder output area other than sliding it down 24 pixels when
+     the fast decode output area needs to show.
+
+     }
+
+     //lbDecodes.Top := 344;
+     //lbFastDecode.Visible := True;
+     //lbFastDecode.Items.Insert(0,'Fast working DF output');
+
      //// This now works fine.  Just need to be sure I can format a string for
      //// setting the QRG properly. It ***must be*** ###,###.### or I guess
      //// ###.###,### for Euro convention
@@ -708,7 +753,7 @@ Begin
      //   end;
      //   sock.Destroy;
      //   except
-     //         //ListBox1.Items.Insert(0,'Notice: DX Keeper failed. Saved to file');
+     //         //lbDecodes.Items.Insert(0,'Notice: DX Keeper failed. Saved to file');
      //         foo := foo;
      //         sock.Destroy;
      //   end;
@@ -741,6 +786,7 @@ Begin
 
      for i := 0 to 100 do d65.glDecTrace[i].trDIS := True;
 
+     workingDF := 0; // Tracks current working DF for (eventual) fast single decode pass with multi on.
      rebBandStart := 0; // Tracks band change if a Rebel is in play
      plotcount := 0;
      dtrejects := 0;
@@ -1215,7 +1261,7 @@ Begin
      adc.haveAU  := False;
      adc.haveSpec := False;
      txOn := False;
-     ListBox1.Clear;
+     lbDecodes.Clear;
      ListBox2.Clear;
      // Create and initialize TWaterfallControl
      Waterfall := TWaterfallControl1.Create(self);
@@ -1589,7 +1635,7 @@ Begin
           if not haveRebel Then
           Begin
                rigNone.Checked := True;  // Disables Rebel in PTT/Rig Control setup.
-               ListBox1.Items.Insert(0,'Notice: Rig set to none');
+               lbDecodes.Items.Insert(0,'Notice: Rig set to none');
           end;
      end;
 
@@ -1613,7 +1659,7 @@ Begin
      firstTick := False;
 end;
 
-function  TForm1.rebelSet;
+function TForm1.rebelSet: Boolean;
 var
    i : Integer;
    r : Boolean;
@@ -1634,7 +1680,7 @@ Begin
                begin
                     clRebel.port := 'COM'+TrimLeft(TrimRight(edPort.Text));
                     //ShowMessage('Connecting to Rebel on ' + clRebel.port + ' at ' + IntToStr(clRebel.baud) + ' baud' + sLineBreak + 'Please insure Rebel is connected and loaded with proper firmware.');
-                    ListBox1.Items.Insert(0,'Notice:  Connecting to Rebel');
+                    lbDecodes.Items.Insert(0,'Notice:  Connecting to Rebel');
                     if clRebel.connect Then
                     Begin
                          // We're connected need to see if there's a Rebel on the other side
@@ -1643,14 +1689,14 @@ Begin
                               // Sure enough seem to have one
                               if not clRebel.busy Then clRebel.poll; // Read the Rebel's config
                               r := True;
-                              ListBox1.Clear;
+                              lbDecodes.Clear;
                               ListBox2.Items.Insert(0,'Connected to Rebel');
                          end
                          else
                          begin
                               r := False;
                               rigNone.Checked := True;
-                              ListBox1.Items.Insert(0,'Notice:  Rebel no response.');
+                              lbDecodes.Items.Insert(0,'Notice:  Rebel no response.');
                               //ShowMessage('Rebel did not respond at command port' + sLineBreak + 'Please check configuration.');
                          end;
                     end
@@ -1658,14 +1704,14 @@ Begin
                     begin
                          r := False;
                          rigNone.Checked := True;
-                         ListBox1.Items.Insert(0,'Notice:  Rebel COM port busy.');
+                         lbDecodes.Items.Insert(0,'Notice:  Rebel COM port busy.');
                     end;
                end
                else
                begin
                     r := False;
                     rigNone.Checked := True;
-                    ListBox1.Items.Insert(0,'Notice:  Rebel bad COM port value.');
+                    lbDecodes.Items.Insert(0,'Notice:  Rebel bad COM port value.');
                end;
           end;
      end
@@ -1673,7 +1719,7 @@ Begin
      begin
           r := False;
           rigNone.Checked := True;
-          ListBox1.Items.Insert(0,'Notice:  Rebel bad COM port value.');
+          lbDecodes.Items.Insert(0,'Notice:  Rebel bad COM port value.');
      end;
 
      if r Then
@@ -1687,15 +1733,15 @@ Begin
                begin
                     if i < 1000 Then
                     begin
-                         ListBox1.Items.Insert(0,'Notice: Need version => 1000');
-                         ListBox1.Items.Insert(0,'Notice: Update Rebel Firmware');
+                         lbDecodes.Items.Insert(0,'Notice: Need version => 1000');
+                         lbDecodes.Items.Insert(0,'Notice: Update Rebel Firmware');
                          r := False;
                     end;
                end
                else
                begin
-                    ListBox1.Items.Insert(0,'Notice: Need version => 1000');
-                    ListBox1.Items.Insert(0,'Notice: Update Rebel Firmware');
+                    lbDecodes.Items.Insert(0,'Notice: Need version => 1000');
+                    lbDecodes.Items.Insert(0,'Notice: Update Rebel Firmware');
                     r := False;
                end;
           end;
@@ -1968,8 +2014,12 @@ Begin
      end;
 
      If toggleTX.Checked then toggleTX.state := cbChecked else toggleTX.state := cbUnchecked;
+     // For the coming new fast single decode at working DF I need to insure this has ran
+     // for the fast decode **** before **** triggering the multiple decode.  If I don't
+     // then it won't display the fast decode as it will be glinprog = true doing the multi.
+     { TODO : Fast decode work }
      if not d65.glinprog and d65.gld65HaveDecodes Then DisplayDecodes3;
-     if cbUseColor.Checked Then ListBox1.Style := lbOwnerDrawFixed else ListBox1.Style := lbStandard;
+     if cbUseColor.Checked Then lbDecodes.Style := lbOwnerDrawFixed else lbDecodes.Style := lbStandard;
      multion := cbMultiOn.Checked;
      fs  := '';
      ff  := 0.0;
@@ -2232,7 +2282,7 @@ Begin
                if not valid then
                Begin
                     { TODO : Don't let this continue forever if it fails repeatedly. }
-                    ListBox1.Items.Insert(0,'WARNING: Rebel refused message');
+                    lbDecodes.Items.Insert(0,'WARNING: Rebel refused message');
                     // Changing this to delete the TX buffer message so it doesn't go
                     // into an infinite loop should the Rebel be in distress for some
                     // reason.
@@ -2266,7 +2316,7 @@ Begin
                                    toggleTX.state := cbUnchecked;
                                    lastTXMsg := '';
                                    sameTXCount := 0;
-                                   ListBox1.Items.Insert(0,'Notice: Same TX Message ' + edTXWD.Text + ' times.  TX is OFF');
+                                   lbDecodes.Items.Insert(0,'Notice: Same TX Message ' + edTXWD.Text + ' times.  TX is OFF');
                               end;
                          end;
                     end;
@@ -2324,7 +2374,7 @@ Begin
                                                   toggleTX.state := cbUnchecked;
                                                   lastTXMsg := '';
                                                   sameTXCount := 0;
-                                                  ListBox1.Items.Insert(0,'Notice: Same TX Message ' + edTXWD.Text + ' times.  TX is OFF');
+                                                  lbDecodes.Items.Insert(0,'Notice: Same TX Message ' + edTXWD.Text + ' times.  TX is OFF');
                                              end;
                                         end;
                                    end;
@@ -2358,7 +2408,7 @@ Begin
                          else
                          begin
                               // Was too late
-                              ListBox1.Items.Insert(0,'Notice: Too late for TX to start');
+                              lbDecodes.Items.Insert(0,'Notice: Too late for TX to start');
                          end;
                     end;
                end
@@ -2383,7 +2433,7 @@ Begin
           transmitting := '';
      end;
 
-     if rbOn.Checked then rbOn.Caption := 'RB Spots:  ' + IntToStr(rb.rbCount) else rbOn.Caption := 'RB Enable';
+     if rbOn.Checked then rbOn.Caption := 'RB Enabled' else rbOn.Caption := 'RB Enable';
      if length(edRBCall.Text) < 3 Then rbOn.Caption := 'Disabled';
 
      if rbOn.Checked and (not rb.rbOn) Then
@@ -2746,7 +2796,7 @@ Begin
           if not haveRebel Then
           Begin
                rigNone.Checked := True;  // Disables Rebel in PTT/Rig Control setup.
-               ListBox1.Items.Insert(0,'Notice: Rig set to none');
+               lbDecodes.Items.Insert(0,'Notice: Rig set to none');
           end;
           // Populate QRG list but after Rebel handler in case I need to do things
           // here based on Rebel's settings.
@@ -2842,6 +2892,26 @@ Begin
 
      if cbMultiOn.Checked Then edRXDF.Text := '0';
      specHeader;  // Update spectrum display header
+
+     //workingDF      : Integer = 0; // Will use this to track where user is working for a fast decode at the single point (eventually)
+     //canSlowDecode  : Boolean = False; // Used with fast decode at working DF code
+     //doFastDecode   : Boolean = False; // Used with fast decode at working DF code
+
+     // This handles showing/not showing the special fast decode at working DF display area.
+     doFastDecode := cbFastDFDecode.Checked;
+     if not cbMultiOn.Checked Then doFastDecode := False;
+
+     if doFastDecode Then
+     Begin
+          lbDecodes.Top := 370;
+          lbFastDecode.Visible := True;
+     end
+     else if (not doFastDecode) and (lbDecodes.Top <> 320) Then
+     Begin
+          lbFastDecode.Visible := False;
+          lbDecodes.Top := 320;
+     end;
+
 end;
 
 procedure TForm1.OncePerMinute;
@@ -2862,12 +2932,12 @@ Begin
      end;
 
      // Prune decoder output display
-     if ListBox1.Items.Count > 250 Then
+     if lbDecodes.Items.Count > 250 Then
      Begin
           Try
-             for i := ListBox1.Items.Count-1 downto 99 do
+             for i := lbDecodes.Items.Count-1 downto 99 do
              begin
-                  ListBox1.Items.Delete(i);
+                  lbDecodes.Items.Delete(i);
              end;
           except
              ListBox2.Items.Insert(0,'Exception in prune list');
@@ -3064,7 +3134,7 @@ Begin
           if not IsZero(srun) Then Label84.Caption := FormatFloat('0.000',(srun/1000.0));
           if not isZero(d65.dmarun) Then Label86.Caption := FormatFloat('0.000',((d65.dmarun/d65.dmrcount)/1000.0));
 
-          if cbDivideDecodes.Checked Then ListBox1.Items.Insert(0,'------------------------------------------------------------');
+          if cbDivideDecodes.Checked Then lbDecodes.Items.Insert(0,'------------------------------------------------------------');
           for i := 0 to 49 do
           begin
                if not d65.gld65decodes[i].dtProcessed Then
@@ -3102,7 +3172,7 @@ Begin
                          // 12:34  -##   1000  MESSAGE
                          if not AnsiContainsText(d65.gld65decodes[i].dtDeltaFreq,'-') Then d65.gld65decodes[i].dtDeltaFreq := ' ' + d65.gld65decodes[i].dtDeltaFreq;
                          if length(d65.gld65decodes[i].dtSigLevel)=2 Then d65.gld65decodes[i].dtSigLevel := d65.gld65decodes[i].dtSigLevel[1] + '0' + d65.gld65decodes[i].dtSigLevel[2];
-                         ListBox1.Items.Insert(0, d65.gld65decodes[i].dtTimeStamp + '  ' + PadRight(d65.gld65decodes[i].dtSigLevel,3) + '  ' + PadRight(d65.gld65decodes[i].dtDeltaFreq,5) + '   ' + d65.gld65decodes[i].dtDecoded);
+                         lbDecodes.Items.Insert(0, d65.gld65decodes[i].dtTimeStamp + '  ' + PadRight(d65.gld65decodes[i].dtSigLevel,3) + '  ' + PadRight(d65.gld65decodes[i].dtDeltaFreq,5) + '   ' + d65.gld65decodes[i].dtDecoded);
                          // Look at exchange - it should be their_call my_call -## or their_call my_call R-##
                          // if seen that should be the signal report value
                          wc := WordCount(d65.gld65decodes[i].dtDecoded,[' ']);
@@ -3163,14 +3233,14 @@ Begin
           Begin
                // Remove extra --- divider lines
                j := 0;
-               for i := 0 to ListBox1.Items.Count-1 do if ListBox1.Items.Strings[i] = '------------------------------------------------------------' Then inc(j);
+               for i := 0 to lbDecodes.Items.Count-1 do if lbDecodes.Items.Strings[i] = '------------------------------------------------------------' Then inc(j);
                if j>1 then
                Begin
-                    for i := ListBox1.Items.Count-1 downto 0 do
+                    for i := lbDecodes.Items.Count-1 downto 0 do
                     begin
-                         if ListBox1.Items.Strings[i] = '------------------------------------------------------------' Then
+                         if lbDecodes.Items.Strings[i] = '------------------------------------------------------------' Then
                          Begin
-                              ListBox1.Items.Delete(i);
+                              lbDecodes.Items.Delete(i);
                               dec(j);
                               if j < 2 Then break;
                          end;
@@ -3227,6 +3297,9 @@ Begin
      d65.dmSynPoints := 0;
      d65.dmMerged := 0;
      d65.dmkvhangs := 0;
+     canSlowDecode := True; // This means a decoder output display pass has been done allowing the second decode
+                            // pass when doing fast decode at working DF method.  When that's not in play this
+                            // doesn't otherwise matter.
 end;
 
 function  TForm1.db(x : CTypes.cfloat) : CTypes.cfloat;
@@ -3978,7 +4051,7 @@ Begin
                hisGrid   := ng;
                isBreakIn := False;
                response  := '';
-               ListBox1.Items.Insert(0,'Notice: Setup your Grid');
+               lbDecodes.Items.Insert(0,'Notice: Setup your Grid');
                wc := 0;
           end;
 
@@ -4013,8 +4086,8 @@ Begin
                          isValid   := False;
                          fullCall  := '';
                          connectTo := '';
-                         ListBox1.Items.Insert(0,'Notice: both calls to have /');
-                         ListBox1.Items.Insert(0,'Notice: JT65V1 does not allow');
+                         lbDecodes.Items.Insert(0,'Notice: both calls to have /');
+                         lbDecodes.Items.Insert(0,'Notice: JT65V1 does not allow');
                     end
                     else
                     begin
@@ -4039,8 +4112,8 @@ Begin
                          isValid   := False;
                          fullCall  := '';
                          connectTo := '';
-                         ListBox1.Items.Insert(0,'Notice: both calls to have /');
-                         ListBox1.Items.Insert(0,'Notice: JT65V1 does not allow');
+                         lbDecodes.Items.Insert(0,'Notice: both calls to have /');
+                         lbDecodes.Items.Insert(0,'Notice: JT65V1 does not allow');
                     end
                     else
                     begin
@@ -4114,7 +4187,7 @@ Begin
                          begin
                               response  := '';
                               isValid   := False;
-                              ListBox1.Items.Insert(0,'Notice: No response calculated');
+                              lbDecodes.Items.Insert(0,'Notice: No response calculated');
                          end;
                     end
                     else
@@ -4123,7 +4196,7 @@ Begin
                          isValid   := False;
                          fullCall  := '';
                          connectTo := '';
-                         ListBox1.Items.Insert(0,'Notice: No response calculated');
+                         lbDecodes.Items.Insert(0,'Notice: No response calculated');
                     end;
                end;
           end;
@@ -4143,8 +4216,8 @@ Begin
                     fullCall  := '';
                     connectTo := '';
                     logGrid.Text := '';
-                    ListBox1.Items.Insert(0,'Notice: both calls to have /');
-                    ListBox1.Items.Insert(0,'Notice: JT65V1 does not allow');
+                    lbDecodes.Items.Insert(0,'Notice: both calls to have /');
+                    lbDecodes.Items.Insert(0,'Notice: JT65V1 does not allow');
                end
                else
                begin
@@ -4175,8 +4248,8 @@ Begin
                     isValid   := False;
                     fullCall  := '';
                     connectTo := '';
-                    ListBox1.Items.Insert(0,'Notice: both calls to have /');
-                    ListBox1.Items.Insert(0,'Notice: JT65V1 does not allow');
+                    lbDecodes.Items.Insert(0,'Notice: both calls to have /');
+                    lbDecodes.Items.Insert(0,'Notice: JT65V1 does not allow');
                end
                else
                begin
@@ -4230,8 +4303,8 @@ Begin
                     isValid   := False;
                     fullCall  := '';
                     connectTo := '';
-                    ListBox1.Items.Insert(0,'Notice: both calls to have /');
-                    ListBox1.Items.Insert(0,'Notice: JT65V1 does not allow');
+                    lbDecodes.Items.Insert(0,'Notice: both calls to have /');
+                    lbDecodes.Items.Insert(0,'Notice: JT65V1 does not allow');
                end
                else
                begin
@@ -4324,7 +4397,7 @@ Begin
           isValid  := False;
           fullCall  := '';
           connectTo := '';
-          ListBox1.Items.Insert(0,'Notice: No response calculated');
+          lbDecodes.Items.Insert(0,'Notice: No response calculated');
      end;
 
 end;
@@ -4392,7 +4465,7 @@ Begin
      result := t1;
 end;
 
-procedure TForm1.ListBox1DblClick(Sender: TObject);
+procedure TForm1.lbDecodesDblClick(Sender: TObject);
 Var
   foo,ldate : String;
   i, txp    : Integer;
@@ -4405,11 +4478,11 @@ Var
   hisGrid   : String;
   sdb, sdf  : String;
 begin
-     i := Form1.ListBox1.ItemIndex;
+     i := lbDecodes.ItemIndex;
      if i > -1 Then
      Begin
           // Get the decode to parse
-          foo := Form1.ListBox1.Items[i];
+          foo := lbDecodes.Items[i];
           foo := DelSpace1(foo);
           tvalid    := False;
           hisGrid   := '';
@@ -4482,7 +4555,7 @@ begin
      End;
 end;
 
-procedure TForm1.ListBox1DrawItem(Control: TWinControl; Index: Integer; ARect: TRect; State: TOwnerDrawState);
+procedure TForm1.lbDecodesDrawItem(Control: TWinControl; Index: Integer; ARect: TRect; State: TOwnerDrawState);
 Var
    myColor            : TColor;
    myBrush            : TBrush;
@@ -4498,7 +4571,7 @@ begin
      lineMyCall := False;
      if Index > -1 Then
      Begin
-          foo := Form1.ListBox1.Items[Index];
+          foo := lbDecodes.Items[Index];
           if IsWordPresent('WARNING:', foo, [' ']) Then
           Begin
                lineWarn := True;
@@ -5257,8 +5330,8 @@ begin
                     // A locally slashed call can't send its slashed call to another slashed call
                     if isSlashedCall(edTXtoCall.Text) And isSlashedCall(myscall) Then
                     Begin
-                         ListBox1.Items.Insert(0,'Notice: both calls to have /');
-                         ListBox1.Items.Insert(0,'Notice: JT65V1 does not allow');
+                         lbDecodes.Items.Insert(0,'Notice: both calls to have /');
+                         lbDecodes.Items.Insert(0,'Notice: JT65V1 does not allow');
                          thisTXMsg := '';
                          edTXMSg.Text := '';
                     end
@@ -5271,7 +5344,7 @@ begin
                          end
                          else
                          begin
-                              ListBox1.Items.Insert(0,'Notice: TX to Call does not compute');
+                              lbDecodes.Items.Insert(0,'Notice: TX to Call does not compute');
                               thisTXmsg := '';
                               edTXMsg.Text := '';
                          end;
@@ -5289,7 +5362,7 @@ begin
                     begin
                          thisTXmsg := '';
                          edTXMsg.Text := '';
-                         ListBox1.Items.Insert(0,'Notice: TX to Call does not compute');
+                         lbDecodes.Items.Insert(0,'Notice: TX to Call does not compute');
                     end;
                end;
           end;
@@ -5303,7 +5376,7 @@ begin
                begin
                     thisTXmsg := '';
                     edTXMsg.Text := '';
-                    ListBox1.Items.Insert(0,'Notice: Signal report does not compute');
+                    lbDecodes.Items.Insert(0,'Notice: Signal report does not compute');
                end
                else
                begin
@@ -5319,7 +5392,7 @@ begin
                          begin
                               thisTXmsg := '';
                               edTXMsg.Text := '';
-                              ListBox1.Items.Insert(0,'Notice: TX to Call does not compute');
+                              lbDecodes.Items.Insert(0,'Notice: TX to Call does not compute');
                          end;
                     end
                     else
@@ -5334,7 +5407,7 @@ begin
                          begin
                               thisTXmsg := '';
                               edTXMsg.Text := '';
-                              ListBox1.Items.Insert(0,'Notice: TX to Call does not compute');
+                              lbDecodes.Items.Insert(0,'Notice: TX to Call does not compute');
                          end;
                     end;
                end;
@@ -5347,7 +5420,7 @@ begin
                begin
                     thisTXmsg := '';
                     edTXMsg.Text := '';
-                    ListBox1.Items.Insert(0,'Notice: Signal report does not compute');
+                    lbDecodes.Items.Insert(0,'Notice: Signal report does not compute');
                end
                else
                begin
@@ -5363,7 +5436,7 @@ begin
                          begin
                               thisTXmsg := '';
                               edTXMsg.Text := '';
-                              ListBox1.Items.Insert(0,'Notice: TX to Call does not compute');
+                              lbDecodes.Items.Insert(0,'Notice: TX to Call does not compute');
                          end;
                     end
                     else
@@ -5378,7 +5451,7 @@ begin
                          begin
                               thisTXmsg := '';
                               edTXMsg.Text := '';
-                              ListBox1.Items.Insert(0,'Notice: TX to Call does not compute');
+                              lbDecodes.Items.Insert(0,'Notice: TX to Call does not compute');
                          end;
                     end;
                end;
@@ -5397,7 +5470,7 @@ begin
                     begin
                          thisTXmsg := '';
                          edTXMsg.Text := '';
-                         ListBox1.Items.Insert(0,'Notice: TX to Call does not compute');
+                         lbDecodes.Items.Insert(0,'Notice: TX to Call does not compute');
                     end;
                end
                else
@@ -5412,7 +5485,7 @@ begin
                     begin
                          thisTXmsg := '';
                          edTXMsg.Text := '';
-                         ListBox1.Items.Insert(0,'Notice: TX to Call does not compute');
+                         lbDecodes.Items.Insert(0,'Notice: TX to Call does not compute');
                     end;
                end;
           end;
@@ -5444,7 +5517,7 @@ begin
                     begin
                          thisTXmsg := '';
                          edTXMsg.Text := '';
-                         ListBox1.Items.Insert(0,'Notice: TX to Call does not compute');
+                         lbDecodes.Items.Insert(0,'Notice: TX to Call does not compute');
                     end;
                end;
                //if rbCWID73.Checked Then doCWID := True else doCWID := False;
@@ -5652,11 +5725,11 @@ begin
                   end
                   else
                   begin
-                       ListBox1.Items.Insert(0,'Notice: DX Keeper failed. Saved to file');
+                       lbDecodes.Items.Insert(0,'Notice: DX Keeper failed. Saved to file');
                   end;
                   sock.Destroy;
                except
-                  ListBox1.Items.Insert(0,'Notice: DX Keeper failed. Saved to file');
+                  lbDecodes.Items.Insert(0,'Notice: DX Keeper failed. Saved to file');
                end;
           end
           else if sender = logExternal Then
@@ -5720,7 +5793,14 @@ end;
 
 procedure TForm1.btnClearDecodesClick(Sender: TObject);
 begin
-     ListBox1.Clear;
+     If sender = btnClearDecodes Then
+     Begin
+          lbDecodes.Clear;
+     end
+     else if sender = btnClearDecodesFast Then
+     Begin
+          lbFastDecode.Clear;
+     end;
 end;
 
 procedure TForm1.audioChange(Sender: TObject);
@@ -5838,6 +5918,11 @@ begin
           query.Active := False;
           ComboMacroList.Text := foo;
      end;
+end;
+
+procedure TForm1.btnHideFastClick(Sender: TObject);
+begin
+     { TODO : Working on Fast working DF decoding }
 end;
 
 procedure TForm1.cbMultiOnChange(Sender: TObject);
@@ -6132,6 +6217,7 @@ begin
      begin
           if runDecode then
           Begin
+               canSlowDecode := False; // Used with new fast decode at working DF method.  If that's not in play this is of no concern.
                decoderBusy := True;
                i := 0;
                while adc.adcRunning do
