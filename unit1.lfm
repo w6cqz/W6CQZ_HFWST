@@ -263,7 +263,7 @@ object Form1: TForm1
     AnchorSideBottom.Control = cbNZLPF
     AnchorSideBottom.Side = asrBottom
     Left = 8
-    Height = 35
+    Height = 33
     Top = 217
     Width = 133
     Alignment = taCenter
@@ -396,7 +396,7 @@ object Form1: TForm1
     Width = 60
     Anchors = [akTop, akLeft, akBottom]
     AutoSize = True
-    BorderSpacing.Top = 10
+    BorderSpacing.Top = 12
     BorderSpacing.Bottom = 5
     Caption = 'Clear'
     Font.Height = -13
@@ -429,19 +429,16 @@ object Form1: TForm1
   end
   object buttonConfig: TButton
     AnchorSideTop.Control = cbNZLPF
-    AnchorSideTop.Side = asrBottom
     AnchorSideRight.Control = rbOn
     AnchorSideBottom.Control = lbDecodesHeader
     Left = 320
-    Height = 28
-    Top = 262
-    Width = 60
-    Anchors = [akTop, akLeft, akRight, akBottom]
+    Height = 26
+    Top = 230
+    Width = 114
     AutoSize = True
-    BorderSpacing.Top = 10
     BorderSpacing.Right = 15
     BorderSpacing.Bottom = 5
-    Caption = 'Setup'
+    Caption = 'HFWST Setup'
     Font.Height = -13
     Font.Name = 'Arial'
     Font.Style = [fsBold]
@@ -461,7 +458,7 @@ object Form1: TForm1
     Top = 262
     Width = 133
     Anchors = [akTop, akLeft, akRight, akBottom]
-    BorderSpacing.Top = 10
+    BorderSpacing.Top = 12
     BorderSpacing.Bottom = 5
     Caption = 'RB Disabled'
     Font.Height = -19
@@ -1516,7 +1513,7 @@ object Form1: TForm1
   object cbNZLPF: TCheckBox
     Left = 152
     Height = 20
-    Top = 232
+    Top = 230
     Width = 148
     Caption = 'Experimental Decoder'
     Checked = True
@@ -1690,7 +1687,7 @@ object Form1: TForm1
     Anchors = [akTop, akLeft, akBottom]
     AutoSize = True
     BorderSpacing.Left = 10
-    BorderSpacing.Top = 10
+    BorderSpacing.Top = 12
     BorderSpacing.Bottom = 5
     Caption = 'Clear Fast'
     Font.Height = -13
@@ -1710,13 +1707,13 @@ object Form1: TForm1
     Left = 178
     Height = 28
     Top = 262
-    Width = 103
+    Width = 200
     Anchors = [akTop, akLeft, akBottom]
     AutoSize = True
     BorderSpacing.Left = 10
-    BorderSpacing.Top = 10
+    BorderSpacing.Top = 12
     BorderSpacing.Bottom = 5
-    Caption = 'Disable Fast'
+    Caption = 'Disable Fast Single Decode'
     Font.Height = -13
     Font.Name = 'Arial'
     Font.Style = [fsBold]
@@ -3082,6 +3079,13 @@ object Form1: TForm1
         ParentColor = False
       end
     end
+  end
+  object Bevel1: TBevel
+    Left = 10
+    Height = 6
+    Top = 375
+    Width = 516
+    Style = bsRaised
   end
   object Timer1: TTimer
     Enabled = False

@@ -1,6 +1,5 @@
 { TODO :
 Spectrum speed still not always restoring to correct value
-Implement fast decode at working DF
 Think about having RX move to keep passband centered for Rebel
 Make logging robust in that it requires data in specific fields
 Add qrg edit/define
@@ -14,6 +13,8 @@ Add worked call tracking taking into consideration a call worked in one grid is 
 worked if in a new one.
 
 JT9 support
+
+Implement fast decode at working DF - Done (needs testing testing testing)
 
 Shorthand decoder core dumped - Nope. Not doing SH - done with that crap.  Let them scream.
 Expanding on SH stuff.  I *****am not***** adding support for TX of SH messages.  I **may**
@@ -85,6 +86,7 @@ type
     b73: TButton;
     bACQ: TButton;
     bCQ: TButton;
+    Bevel1: TBevel;
     bnSaveMacro: TButton;
     bQRZ: TButton;
     bReport: TButton;
@@ -3002,12 +3004,12 @@ Begin
 
      if not doFastDecode Then btnClearDecodesFast.Visible := False else btnClearDecodesFast.Visible := True;
 
-     if doFastDecode and (btnDoFast.Caption <> 'Disable Fast') Then btnDoFast.Caption := 'Disable Fast';
-     if (not doFastDecode) and (btnDoFast.Caption <> 'Enable Fast') Then btnDoFast.Caption := 'Enable Fast';
+     if doFastDecode and (btnDoFast.Caption <> 'Disable Fast Single Decode') Then btnDoFast.Caption := 'Disable Fast Single Decode';
+     if (not doFastDecode) and (btnDoFast.Caption <> 'Enable Fast Single Decode') Then btnDoFast.Caption := 'Enable Fast Single Decode';
 
-     if doFastDecode and cbMultiOn.Checked Then
+     if doFastDecode and cbMultiOn.Checked and (lbDecodes.Top <> 384) Then
      Begin
-          lbDecodes.Top := 395;
+          lbDecodes.Top := 384;
           lbFastDecode.Visible := True;
      end
      else if (not doFastDecode or not cbMultiOn.Checked) and (lbDecodes.Top <> 320) Then
