@@ -431,7 +431,7 @@ object Form1: TForm1
     AnchorSideTop.Control = cbNZLPF
     AnchorSideRight.Control = rbOn
     AnchorSideBottom.Control = lbDecodesHeader
-    Left = 320
+    Left = 152
     Height = 26
     Top = 230
     Width = 114
@@ -535,13 +535,13 @@ object Form1: TForm1
     Left = 536
     Height = 155
     Top = 550
-    Width = 288
+    Width = 256
     BorderSpacing.Top = 5
     Caption = 'Decoder Statistics'
     ClientHeight = 137
-    ClientWidth = 284
-    Constraints.MaxWidth = 288
-    Constraints.MinWidth = 288
+    ClientWidth = 252
+    Constraints.MaxWidth = 256
+    Constraints.MinWidth = 256
     Font.Height = -13
     Font.Name = 'Arial'
     ParentFont = False
@@ -748,10 +748,10 @@ object Form1: TForm1
   object groupTXMode: TRadioGroup
     AnchorSideTop.Control = Panel1
     AnchorSideTop.Side = asrBottom
-    Left = 832
+    Left = 808
     Height = 155
     Top = 550
-    Width = 64
+    Width = 65
     AutoFill = True
     BorderSpacing.Top = 5
     Caption = 'Primary'
@@ -764,7 +764,7 @@ object Form1: TForm1
     ChildSizing.Layout = cclLeftToRightThenTopToBottom
     ChildSizing.ControlsPerLine = 1
     ClientHeight = 137
-    ClientWidth = 60
+    ClientWidth = 61
     Enabled = False
     Font.Height = -9
     Font.Name = 'Arial'
@@ -774,7 +774,7 @@ object Form1: TForm1
       Left = 6
       Height = 25
       Top = 6
-      Width = 48
+      Width = 49
       Caption = '65a'
       Checked = True
       Font.Height = -13
@@ -787,7 +787,7 @@ object Form1: TForm1
       Left = 6
       Height = 25
       Top = 31
-      Width = 48
+      Width = 49
       Caption = '4a'
       Font.Height = -13
       Font.Name = 'Arial'
@@ -798,7 +798,7 @@ object Form1: TForm1
       Left = 6
       Height = 25
       Top = 56
-      Width = 48
+      Width = 49
       Caption = '9a'
       Font.Height = -13
       Font.Name = 'Arial'
@@ -809,7 +809,7 @@ object Form1: TForm1
       Left = 6
       Height = 25
       Top = 81
-      Width = 48
+      Width = 49
       Caption = 'R'
       Font.Height = -13
       Font.Name = 'Arial'
@@ -820,7 +820,7 @@ object Form1: TForm1
       Left = 6
       Height = 25
       Top = 106
-      Width = 48
+      Width = 49
       Caption = 'P'
       Font.Height = -13
       Font.Name = 'Arial'
@@ -1511,7 +1511,7 @@ object Form1: TForm1
     TabOrder = 17
   end
   object cbNZLPF: TCheckBox
-    Left = 152
+    Left = 380
     Height = 20
     Top = 230
     Width = 148
@@ -1660,7 +1660,7 @@ object Form1: TForm1
   end
   object lbFastDecode: TListBox
     Left = 8
-    Height = 50
+    Height = 75
     Top = 320
     Width = 520
     Font.Height = -19
@@ -1724,10 +1724,10 @@ object Form1: TForm1
   end
   object PageControl: TPageControl
     AnchorSideTop.Control = Owner
-    Left = 150
+    Left = 152
     Height = 228
     Top = 0
-    Width = 803
+    Width = 802
     TabStop = False
     ActivePage = TabSheet1
     ParentBiDiMode = False
@@ -1738,7 +1738,7 @@ object Form1: TForm1
     object TabSheet1: TTabSheet
       Caption = 'Basic'
       ClientHeight = 199
-      ClientWidth = 795
+      ClientWidth = 794
       object Button4: TButton
         Left = 204
         Height = 40
@@ -2381,7 +2381,7 @@ object Form1: TForm1
     object TabSheet2: TTabSheet
       Caption = 'Spectrum Display/GUI Options'
       ClientHeight = 199
-      ClientWidth = 795
+      ClientWidth = 794
       object GroupBox1: TGroupBox
         Left = 4
         Height = 68
@@ -2397,10 +2397,29 @@ object Form1: TForm1
           Width = 102
           Color = clLime
           ItemHeight = 16
+          ItemIndex = 8
+          Items.Strings = (
+            'Green'
+            'Olive'
+            'Light Blue'
+            'Purple'
+            'Teal'
+            'Gray'
+            'Silver'
+            'Red'
+            'Lime'
+            'Yellow'
+            'Light Green'
+            'Fuchsia'
+            'Aqua'
+            'Cream'
+            'Medium Gray'
+            'White'
+          )
           OnChange = rigControlSet
           TabOrder = 0
           TabStop = False
-          Text = 'cbCQCOlor'
+          Text = 'Lime'
         end
         object Label17: TLabel
           Left = 254
@@ -2425,10 +2444,29 @@ object Form1: TForm1
           Width = 125
           Color = clRed
           ItemHeight = 16
+          ItemIndex = 7
+          Items.Strings = (
+            'Green'
+            'Olive'
+            'Light Blue'
+            'Purple'
+            'Teal'
+            'Gray'
+            'Silver'
+            'Red'
+            'Lime'
+            'Yellow'
+            'Light Green'
+            'Fuchsia'
+            'Aqua'
+            'Cream'
+            'Medium Gray'
+            'White'
+          )
           OnChange = rigControlSet
           TabOrder = 1
           TabStop = False
-          Text = 'cbMyCallColor'
+          Text = 'Red'
         end
         object Label23: TLabel
           Left = 534
@@ -2445,10 +2483,29 @@ object Form1: TForm1
           Width = 141
           Color = clSilver
           ItemHeight = 16
+          ItemIndex = 6
+          Items.Strings = (
+            'Green'
+            'Olive'
+            'Light Blue'
+            'Purple'
+            'Teal'
+            'Gray'
+            'Silver'
+            'Red'
+            'Lime'
+            'Yellow'
+            'Light Green'
+            'Fuchsia'
+            'Aqua'
+            'Cream'
+            'Medium Gray'
+            'White'
+          )
           OnChange = rigControlSet
           TabOrder = 2
           TabStop = False
-          Text = 'cbQSOColor'
+          Text = 'Silver'
         end
         object cbUseColor: TCheckBox
           Left = 6
@@ -3081,11 +3138,94 @@ object Form1: TForm1
     end
   end
   object Bevel1: TBevel
-    Left = 10
+    Left = 8
     Height = 6
-    Top = 375
+    Top = 398
     Width = 516
     Style = bsRaised
+  end
+  object groupRXMode: TRadioGroup
+    AnchorSideTop.Control = Panel1
+    AnchorSideTop.Side = asrBottom
+    Left = 888
+    Height = 155
+    Top = 550
+    Width = 65
+    AutoFill = True
+    BorderSpacing.Top = 5
+    Caption = 'Secondary'
+    ChildSizing.LeftRightSpacing = 6
+    ChildSizing.TopBottomSpacing = 6
+    ChildSizing.EnlargeHorizontal = crsHomogenousChildResize
+    ChildSizing.EnlargeVertical = crsHomogenousChildResize
+    ChildSizing.ShrinkHorizontal = crsScaleChilds
+    ChildSizing.ShrinkVertical = crsScaleChilds
+    ChildSizing.Layout = cclLeftToRightThenTopToBottom
+    ChildSizing.ControlsPerLine = 1
+    ClientHeight = 137
+    ClientWidth = 61
+    Enabled = False
+    Font.Height = -9
+    Font.Name = 'Arial'
+    ParentFont = False
+    TabOrder = 20
+    object rbMode66: TRadioButton
+      Left = 6
+      Height = 25
+      Top = 6
+      Width = 49
+      Caption = '65a'
+      Checked = True
+      Font.Height = -13
+      Font.Name = 'Arial'
+      ParentFont = False
+      TabOrder = 2
+      TabStop = True
+    end
+    object rbMode5: TRadioButton
+      Left = 6
+      Height = 25
+      Top = 31
+      Width = 49
+      Caption = '4a'
+      Font.Height = -13
+      Font.Name = 'Arial'
+      ParentFont = False
+      TabOrder = 0
+    end
+    object rbMode10: TRadioButton
+      Left = 6
+      Height = 25
+      Top = 56
+      Width = 49
+      Caption = '9a'
+      Font.Height = -13
+      Font.Name = 'Arial'
+      ParentFont = False
+      TabOrder = 1
+    end
+    object rbModeR1: TRadioButton
+      Left = 6
+      Height = 25
+      Top = 81
+      Width = 49
+      Caption = 'R'
+      Font.Height = -13
+      Font.Name = 'Arial'
+      ParentFont = False
+      TabOrder = 3
+    end
+    object rbModeP1: TRadioButton
+      Left = 6
+      Height = 25
+      Top = 106
+      Width = 49
+      Caption = 'P'
+      Font.Height = -13
+      Font.Name = 'Arial'
+      ParentFont = False
+      TabOrder = 4
+    end
   end
   object Timer1: TTimer
     Enabled = False

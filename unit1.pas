@@ -2,6 +2,7 @@
 Spectrum speed still not always restoring to correct value
 Think about having RX move to keep passband centered for Rebel
 Make logging robust in that it requires data in specific fields
+Disable Save Macro button if field is empty
 Add qrg edit/define
 Enhance macro editor
 Begin to graft sound output code in
@@ -99,6 +100,7 @@ type
     cbSpecWindow: TCheckBox;
     edRebRXOffset40: TEdit;
     edRebTXOffset40: TEdit;
+    groupRXMode: TRadioGroup;
     Label108: TLabel;
     Label109: TLabel;
     Label16: TLabel;
@@ -141,6 +143,11 @@ type
     Label65: TLabel;
     PaintBox1: TPaintBox;
     ProgressBar1: TProgressBar;
+    rbMode10: TRadioButton;
+    rbMode5: TRadioButton;
+    rbMode66: TRadioButton;
+    rbModeP1: TRadioButton;
+    rbModeR1: TRadioButton;
     rbRebBaud9600: TRadioButton;
     rbRebBaud115200: TRadioButton;
     rigCommander: TRadioButton;
@@ -588,6 +595,9 @@ var
   doFastDone     : Boolean = False;
   doSlowDecode   : Boolean = False;
   isFastDecode   : Boolean = False;
+  glCQColor      : TColor;
+  glMyColor      : TColor;
+  glQSOColor     : TColor;
 
 implementation
 
@@ -1035,6 +1045,10 @@ Begin
      cbCQColor.ItemIndex := query.FieldByName('cqcolor').AsInteger;
      cbMyCallColor.ItemIndex := query.FieldByName('mycallcolor').AsInteger;
      cbQSOColor.ItemIndex := query.FieldByName('qsocolor').AsInteger;
+     // Run an update to be sure this all sets correct
+     rigControlSet(cbCQColor);
+     rigControlSet(cbMyCallColor);
+     rigControlSet(cbQSOColor);
      spColorMap.ItemIndex := query.FieldByName('wfcmap').AsInteger;
      tbWFSpeed.Position := query.FieldByName('wfspeed').AsInteger;
      tbWFContrast.Position := query.FieldByName('wfcontrast').AsInteger;
@@ -2020,10 +2034,9 @@ Begin
      end;
 
      If toggleTX.Checked then toggleTX.state := cbChecked else toggleTX.state := cbUnchecked;
-     // For the coming new fast single decode at working DF I need to insure this has ran
-     // for the fast decode **** before **** triggering the multiple decode.  If I don't
-     // then it won't display the fast decode as it will be glinprog = true doing the multi.
-     { TODO : Fast decode work }
+     // New fast single decode at working DF.  I need to insure this has ran for the fast decode
+     // **** before **** triggering the multiple decode.  If I don't then it won't display the
+     // fast decode as it will be glinprog = true doing the multi.
      if not d65.glinprog and d65.gld65HaveDecodes Then DisplayDecodes3;
      if cbUseColor.Checked Then lbDecodes.Style := lbOwnerDrawFixed else lbDecodes.Style := lbStandard;
      multion := cbMultiOn.Checked;
@@ -3007,9 +3020,9 @@ Begin
      if doFastDecode and (btnDoFast.Caption <> 'Disable Fast Single Decode') Then btnDoFast.Caption := 'Disable Fast Single Decode';
      if (not doFastDecode) and (btnDoFast.Caption <> 'Enable Fast Single Decode') Then btnDoFast.Caption := 'Enable Fast Single Decode';
 
-     if doFastDecode and cbMultiOn.Checked and (lbDecodes.Top <> 384) Then
+     if doFastDecode and cbMultiOn.Checked and (lbDecodes.Top <> 408) Then
      Begin
-          lbDecodes.Top := 384;
+          lbDecodes.Top := 408;
           lbFastDecode.Visible := True;
      end
      else if (not doFastDecode or not cbMultiOn.Checked) and (lbDecodes.Top <> 320) Then
@@ -4752,13 +4765,11 @@ begin
           myBrush := TBrush.Create;
           with (Control as TListBox).Canvas do
           begin
-               //myColor := cfgvtwo.glqsoColor;
-               { TODO : Add back custom color choices }
                If cbUseColor.Checked Then
                Begin
-                    myColor := clSilver;
-                    if lineCQ Then myColor := clLime;
-                    if lineMyCall Then myColor := clRed;
+                    myColor := glQSOColor;
+                    if lineCQ Then myColor := glCQColor;
+                    if lineMyCall Then myColor := glMyColor;
                     if lineWarn then myColor := clRed;
                end
                else
@@ -4829,6 +4840,85 @@ begin
      Begin
           catMethod := 'Commander';
           groupRebelOptions.Visible := False;
+     end;
+
+     //glCQColor      : TColor;
+     //glMyColor      : TColor;
+     //glQSOColor     : TColor;
+
+     If Sender = cbCQColor Then
+     Begin
+          glCQColor := clLime;
+          Case cbCQColor.ItemIndex of
+               0  : glCQColor := clGreen;
+               1  : glCQColor := clOlive;
+               2  : glCQColor := clSkyBlue;
+               3  : glCQColor := clPurple;
+               4  : glCQColor := clTeal;
+               5  : glCQColor := clGray;
+               6  : glCQColor := clSilver;
+               7  : glCQColor := clRed;
+               8  : glCQColor := clLime;
+               9  : glCQColor := clYellow;
+               10 : glCQColor := clMoneyGreen;
+               11 : glCQColor := clFuchsia;
+               12 : glCQColor := clAqua;
+               13 : glCQColor := clCream;
+               14 : glCQColor := clMedGray;
+               15 : glCQColor := clWhite;
+          End;
+          cbCQColor.Color := glCQColor;
+          Label17.Color := glCQColor;
+     end;
+
+     If Sender = cbMyCallColor Then
+     Begin
+          glMyColor := clRed;
+          Case cbMyCallColor.ItemIndex of
+               0  : glMyColor := clGreen;
+               1  : glMyColor := clOlive;
+               2  : glMyColor := clSkyBlue;
+               3  : glMyColor := clPurple;
+               4  : glMyColor := clTeal;
+               5  : glMyColor := clGray;
+               6  : glMyColor := clSilver;
+               7  : glMyColor := clRed;
+               8  : glMyColor := clLime;
+               9  : glMyColor := clYellow;
+               10 : glMyColor := clMoneyGreen;
+               11 : glMyColor := clFuchsia;
+               12 : glMyColor := clAqua;
+               13 : glMyColor := clCream;
+               14 : glMyColor := clMedGray;
+               15 : glMyColor := clWhite;
+          End;
+          cbMyCallColor.Color := glMyColor;
+          Label21.Color := glMyColor;
+     end;
+
+     If Sender = cbQSOColor Then
+     Begin
+          glQSOColor := clSilver;
+          Case cbQSOColor.ItemIndex of
+               0  : glQSOColor := clGreen;
+               1  : glQSOColor := clOlive;
+               2  : glQSOColor := clSkyBlue;
+               3  : glQSOColor := clPurple;
+               4  : glQSOColor := clTeal;
+               5  : glQSOColor := clGray;
+               6  : glQSOColor := clSilver;
+               7  : glQSOColor := clRed;
+               8  : glQSOColor := clLime;
+               9  : glQSOColor := clYellow;
+               10 : glQSOColor := clMoneyGreen;
+               11 : glQSOColor := clFuchsia;
+               12 : glQSOColor := clAqua;
+               13 : glQSOColor := clCream;
+               14 : glQSOColor := clMedGray;
+               15 : glQSOColor := clWhite;
+          End;
+          cbQSOColor.Color := glQSOColor;
+          Label23.Color := glQSOColor;
      end;
 end;
 
@@ -5920,13 +6010,11 @@ begin
           myBrush := TBrush.Create;
           with (Control as TListBox).Canvas do
           begin
-               //myColor := cfgvtwo.glqsoColor;
-               { TODO : Add back custom color choices }
                If cbUseColor.Checked Then
                Begin
-                    myColor := clSilver;
-                    if lineCQ Then myColor := clLime;
-                    if lineMyCall Then myColor := clRed;
+                    myColor := glQSOColor;
+                    if lineCQ Then myColor := glCQColor;
+                    if lineMyCall Then myColor := glMyColor;
                     if lineWarn then myColor := clRed;
                end
                else
@@ -6264,7 +6352,6 @@ end;
 
 procedure TForm1.btnDoFastClick(Sender: TObject);
 begin
-     { TODO : Working on Fast working DF decoding }
      if doFastDecode then doFastDecode := False else doFastDecode := True;
      if doFastDecode then btnClearDecodesFast.Visible := true else btnClearDecodesFast.Visible := False;
 end;
@@ -12173,3 +12260,4 @@ Begin
      PageControl.Visible := True;
 end;
 end.
+
