@@ -1115,7 +1115,12 @@ begin
                     else if glnz and (syncount > 29) and (binspace < 100) Then
                     Begin
                          binspace := 100;
+                    end
+                    else if glnz and (syncount > 59) and (binspace < 200) Then
+                    Begin
+                         binspace := 200;
                     end;
+                    if glnz and (syncount < 3) and (binspace > 20) then binspace := 20;
                     // Now... take the syncount list and place a 'tick' in each
                     // 'bin' where a sync detect has been found.
                     // 2000 Hz / 20 Hz = 100 bins. (101 actually)

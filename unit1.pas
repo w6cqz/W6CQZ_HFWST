@@ -1,16 +1,19 @@
 { TODO :
-Think about having RX move to keep passband centered for Rebel
+Spectrum speed still not always restoring to correct value
 Implement fast decode at working DF
+Think about having RX move to keep passband centered for Rebel
+Make logging robust in that it requires data in specific fields
 Add qrg edit/define
 Enhance macro editor
 Begin to graft sound output code in
 
 (Far) Less urgent
 
-JT9 support
 
 Add worked call tracking taking into consideration a call worked in one grid is not
 worked if in a new one.
+
+JT9 support
 
 Shorthand decoder core dumped - Nope. Not doing SH - done with that crap.  Let them scream.
 Expanding on SH stuff.  I *****am not***** adding support for TX of SH messages.  I **may**
@@ -88,11 +91,14 @@ type
     bRReport: TButton;
     bRRR: TButton;
     btnClearDecodesFast: TButton;
-    btnHideFast: TButton;
+    btnDoFast: TButton;
     cbSlowWF: TCheckBox;
-    cbFastDFDecode: TCheckBox;
+    cbWFTX: TCheckBox;
+    cbSpecWindow: TCheckBox;
     edRebRXOffset40: TEdit;
     edRebTXOffset40: TEdit;
+    Label108: TLabel;
+    Label109: TLabel;
     Label16: TLabel;
     Label44: TLabel;
     Label45: TLabel;
@@ -110,8 +116,6 @@ type
     logDXLab: TButton;
     buttonXferMacro: TButton;
     cbNZLPF: TCheckBox;
-    cbWFTX: TCheckBox;
-    cbSpecWindow: TCheckBox;
     comboTTYPorts: TComboBox;
     edRebTXOffset: TEdit;
     edRebRXOffset: TEdit;
@@ -122,8 +126,6 @@ type
     Label22: TLabel;
     Label25: TLabel;
     Label37: TLabel;
-    Label53: TLabel;
-    Label54: TLabel;
     Label55: TLabel;
     Label56: TLabel;
     Label57: TLabel;
@@ -148,7 +150,6 @@ type
     cbTXEqRXDF: TCheckBox;
     cbUseSerial: TCheckBox;
     cbAttenuateRight: TCheckBox;
-    cbSpecSmooth: TCheckBox;
     cbUseMono: TCheckBox;
     cbUseColor: TCheckBox;
     cbDivideDecodes: TCheckBox;
@@ -186,12 +187,9 @@ type
     rbTXOdd: TRadioButton;
     rbMode4: TRadioButton;
     rbMode9: TRadioButton;
-    rbRX2K: TRadioButton;
-    rbRX5K: TRadioButton;
     rbModeR: TRadioButton;
     rbModeP: TRadioButton;
     groupTXMode: TRadioGroup;
-    groupBW: TRadioGroup;
     rigRebel: TRadioButton;
     lastQRG: TEdit;
     tbMultiBin: TTrackBar;
@@ -353,7 +351,7 @@ type
     Waterfall: TWaterfallControl1;
     procedure audioChange(Sender: TObject);
     procedure bnSaveMacroClick(Sender: TObject);
-    procedure btnHideFastClick(Sender: TObject);
+    procedure btnDoFastClick(Sender: TObject);
     procedure cbMultiOnChange(Sender: TObject);
     //procedure Chart1DblClick(Sender: TObject);
     procedure doLogQSOClick(Sender: TObject);
@@ -372,6 +370,9 @@ type
     procedure edTXDFDblClick(Sender: TObject);
     procedure edTXReportDblClick(Sender: TObject);
     procedure edTXtoCallDblClick(Sender: TObject);
+    procedure lbFastDecodeDblClick(Sender: TObject);
+    procedure lbFastDecodeDrawItem(Control: TWinControl; Index: Integer;
+      ARect: TRect; State: TOwnerDrawState);
     procedure LogQSOClick(Sender: TObject);
     procedure Memo2DblClick(Sender: TObject);
     procedure edTXMsgDblClick(Sender: TObject);
@@ -578,10 +579,13 @@ var
   logShowing     : Boolean = false;
   cfgShowing     : Boolean = false;
   rebBandStart   : Integer = 0;
+  // Used with fast decode at working DF code
   workingDF      : Integer = 0; // Will use this to track where user is working for a fast decode at the single point (eventually)
-  canSlowDecode  : Boolean = False; // Used with fast decode at working DF code
-  doFastDecode   : Boolean = False; // Used with fast decode at working DF code
-  isFastDecode   : Boolean = False; // Used with fast decode at working DF code
+  canSlowDecode  : Boolean = False;
+  doFastDecode   : Boolean = False;
+  doFastDone     : Boolean = False;
+  doSlowDecode   : Boolean = False;
+  isFastDecode   : Boolean = False;
 
 implementation
 
@@ -1034,7 +1038,7 @@ Begin
      tbWFContrast.Position := query.FieldByName('wfcontrast').AsInteger;
      tbWFBright.Position := query.FieldByName('wfbright').AsInteger;
      tbWFGain.Position := query.FieldByName('wfgain').AsInteger;
-     cbSpecSmooth.Checked := query.FieldByName('wfsmooth').AsBoolean;
+     //cbSpecSmooth.Checked := query.FieldByName('wfsmooth').AsBoolean;
      edRBCall.Text := query.FieldByName('spotcall').AsString;
      edStationInfo.Text := query.FieldByName('spotinfo').AsString;
      cbSaveToCSV.Checked := query.FieldByName('usecsv').AsBoolean;
@@ -1193,7 +1197,7 @@ Begin
                inIcal := 1;
           end;
      end;
-     if cbSpecSmooth.Checked then spectrum.specSmooth := True else spectrum.specSmooth := False;
+     spectrum.specSmooth := True;
      spectrum.specColorMap := spColorMap.ItemIndex;
      //If TryStrToInt(TXLevel.Text,i) Then tbTXLevel.Position := i else tbTXLevel.Position := 16;
      if useDeciAmerican.Checked then
@@ -2045,8 +2049,6 @@ Begin
      end;
      if kvcount > 0 Then Label95.Caption := PadLeft(IntToStr(kvcount),5) + '  ' + FormatFloat('0.0',(100.0*(kvcount/(kvcount+bmcount)))) + '%';
      if bmcount > 0 Then Label96.Caption := PadLeft(IntToStr(bmcount),5) + '  ' + FormatFloat('0.0',(100.0*(bmcount/(kvcount+bmcount)))) + '%';
-     Label53.Caption := 'DT Samples = ' + IntToStr(d65.glDecCount);
-     Label54.Caption := 'Rejected DT Samples = ' + IntToStr(dtrejects);
      Label98.Caption := PadLeft(FormatFloat('0.000',(d65.glDTAvg)),5);
      If AnsiContainsText(Label98.Caption,'nan') Then
      Begin
@@ -2140,7 +2142,6 @@ Begin
      If tbSingleBin.Position = 4 then d65.glDFTolerance := 200;
 
      spectrum.specSpeed2 := tbWFSpeed.Position;
-     if cbSpecSmooth.Checked Then spectrum.specSmooth := True else spectrum.specSmooth := False;
      spectrum.specColorMap := spColorMap.ItemIndex;
 
      if rbUseLeftAudio.Checked Then adc.adcChan  := 1;
@@ -2536,6 +2537,37 @@ Begin
      //          Memo2.Append('--------------------------------------------------------');
      //     end;
      //end;
+
+     if doSlowDecode and doFastDone Then
+     Begin
+          // Attempt a decode with V3 Decoder
+          for i := 0 to length(adc.d65rxIBuffer)-1 do d65.glinBuffer[i] := adc.d65rxIBuffer[i];
+          //d65.dmtimestamp := '';
+          //d65.dmtimestamp := d65.dmtimestamp + IntToStr(thisUTC.Year);
+          //if thisUTC.Month < 10 Then d65.dmtimestamp := d65.dmtimestamp + '0' + IntToStr(thisUTC.Month) else d65.dmtimestamp := d65.dmtimestamp + IntToStr(thisUTC.Month);
+          //if thisUTC.Day < 10 Then d65.dmtimestamp := d65.dmtimestamp + '0' + IntToStr(thisUTC.Day) else d65.dmtimestamp := d65.dmtimestamp + IntToStr(thisUTC.Day);
+          //if thisUTC.Hour < 10 Then d65.dmtimestamp := d65.dmtimestamp + '0' + IntToStr(thisUTC.Hour) else d65.dmtimestamp := d65.dmtimestamp + IntToStr(thisUTC.Hour);
+          //if thisUTC.Minute < 10 Then d65.dmtimestamp := d65.dmtimestamp + '0' + IntToStr(thisUTC.Minute) else d65.dmtimestamp := d65.dmtimestamp + IntToStr(thisUTC.Minute);
+          //d65.dmtimestamp := d65.dmtimestamp + '00';
+          //if thisUTC.Hour < 10 then d65.gld65timestamp := '0' + IntToStr(thisUTC.Hour) else d65.gld65timestamp := IntToStr(thisUTC.Hour);
+          //if thisUTC.Minute < 10 then d65.gld65timestamp := d65.gld65timestamp + ':0' + IntToStr(thisUTC.Minute) else d65.gld65timestamp := d65.gld65timestamp + ':' + IntToStr(thisUTC.Minute);
+          if multion then
+          Begin
+               glSteps := 1;
+               d65.glMouseDF := 0;
+               If tbMultiBin.Position = 1 then d65.glbinspace := 20 else If tbMultiBin.Position = 2 then d65.glbinspace := 50 else If tbMultiBin.Position = 3 then d65.glbinspace := 100 else If tbMultiBin.Position = 4 then d65.glbinspace := 200 else d65.glbinspace := 100;
+          end
+          else
+          begin
+               glSteps := 0;
+               d65.glMouseDF := rxdf;
+               If tbMultiBin.Position = 1 then d65.glbinspace := 20 else If tbMultiBin.Position = 2 then d65.glbinspace := 50 else If tbMultiBin.Position = 3 then d65.glbinspace := 100 else If tbMultiBin.Position = 4 then d65.glbinspace := 200 else d65.glbinspace := 100;
+          end;
+          doFastDone   := True;
+          doSlowDecode := False;
+          isFastDecode := False;
+          runDecode    := True;
+     end;
 end;
 
 procedure TForm1.OncePerSecond;
@@ -2585,26 +2617,85 @@ Begin
           d65.dmtimestamp := d65.dmtimestamp + '00';
           if thisUTC.Hour < 10 then d65.gld65timestamp := '0' + IntToStr(thisUTC.Hour) else d65.gld65timestamp := IntToStr(thisUTC.Hour);
           if thisUTC.Minute < 10 then d65.gld65timestamp := d65.gld65timestamp + ':0' + IntToStr(thisUTC.Minute) else d65.gld65timestamp := d65.gld65timestamp + ':' + IntToStr(thisUTC.Minute);
-          if multion then
+          // Ok - now I have to work out doing the fast single decode followed by
+          // slow(er) multiple decode.
+          // All the following variables come into play here.
+          //workingDF      : Integer = 0; // Will use this to track where user is working for a fast decode at the single point (eventually)
+          //canSlowDecode  : Boolean = False;
+          //doFastDecode   : Boolean = False;
+          //doFastDone     : Boolean = False;
+          //doSlowDecode   : Boolean = False;
+          //isFastDecode   : Boolean = False;
+          // First thing is to see if doFastDecode is set
+          if doFastDecode Then
           Begin
-               glSteps := 1;
-               d65.glMouseDF := 0;
-               If tbMultiBin.Position = 1 then d65.glbinspace := 20;
-               If tbMultiBin.Position = 2 then d65.glbinspace := 50;
-               If tbMultiBin.Position = 3 then d65.glbinspace := 100;
-               If tbMultiBin.Position = 4 then d65.glbinspace := 200;
+               // This will be a fast followed by slow multi decode.
+               isFastDecode := True;
+               doFastDone   := False;
+               doSlowDecode := True;
           end
           else
           begin
+               doSlowDecode := False;
+               doFastDone   := True;
+               isFastDecode := False;
+          end;
+
+          if isFastDecode Then
+          Begin
+               // workingDF is RXDF if matching (cbTXeqRXDF) enabled and TXDF otherwise.
+               if cbTXeqRXDF.Checked Then
+               Begin
+                    if tryStrToInt(edRXDF.Text,i) Then
+                    Begin
+                         workingDF := i;
+                    end
+                    else
+                    begin
+                         edRXDF.Text := '0';
+                         workingDF := 0;
+                    end;
+               end
+               else
+               begin
+                    if tryStrToInt(edTXDF.Text,i) Then
+                    Begin
+                         workingDF := i;
+                    end
+                    else
+                    begin
+                         edTXDF.Text := '0';
+                         workingDF := 0;
+                    end;
+               end;
                glSteps := 0;
-               d65.glMouseDF := rxdf;
+               If tbSingleBin.Position = 1 then d65.glDFTolerance := 20 else if tbSingleBin.Position = 2 then d65.glDFTolerance := 50 else If tbSingleBin.Position = 3 then d65.glDFTolerance := 100 else If tbSingleBin.Position = 4 then d65.glDFTolerance := 200 else d65.glDFTolerance := 100;
+               d65.glMouseDF := workingDF;
                If tbSingleBin.Position = 1 then d65.glDFTolerance := 20;
                If tbSingleBin.Position = 2 then d65.glDFTolerance := 50;
                If tbSingleBin.Position = 3 then d65.glDFTolerance := 100;
                If tbSingleBin.Position = 4 then d65.glDFTolerance := 200;
+               Memo2.Lines.Insert(0,'Fast decode set for ' + IntToStr(d65.glMouseDF) + ' Hz @ ' + IntToStr(d65.glDFTolerance) + ' BW');
+               runDecode := True;
+          end
+          else
+          begin
+               if multion then
+               Begin
+                    glSteps := 1;
+                    d65.glMouseDF := 0;
+                    If tbMultiBin.Position = 1 then d65.glbinspace := 20 else If tbMultiBin.Position = 2 then d65.glbinspace := 50 else If tbMultiBin.Position = 3 then d65.glbinspace := 100 else If tbMultiBin.Position = 4 then d65.glbinspace := 200 else d65.glbinspace := 100;
+               end
+               else
+               begin
+                    glSteps := 0;
+                    d65.glMouseDF := rxdf;
+                    If tbMultiBin.Position = 1 then d65.glbinspace := 20 else If tbMultiBin.Position = 2 then d65.glbinspace := 50 else If tbMultiBin.Position = 3 then d65.glbinspace := 100 else If tbMultiBin.Position = 4 then d65.glbinspace := 200 else d65.glbinspace := 100;
+               end;
+               runDecode    := True;
           end;
-          runDecode := True;
      end;
+
      // Keep rebel TRX offsets in sync
      if clRebel.band = 20 Then
      Begin
@@ -2898,19 +2989,34 @@ Begin
      //doFastDecode   : Boolean = False; // Used with fast decode at working DF code
 
      // This handles showing/not showing the special fast decode at working DF display area.
-     doFastDecode := cbFastDFDecode.Checked;
-     if not cbMultiOn.Checked Then doFastDecode := False;
 
-     if doFastDecode Then
+     if not cbMultiOn.Checked Then
      Begin
-          lbDecodes.Top := 370;
+          doFastDecode := False;
+          btnDoFast.Visible := False;
+     end
+     else
+     begin
+          btnDoFast.Visible := True;
+     end;
+
+     if not doFastDecode Then btnClearDecodesFast.Visible := False else btnClearDecodesFast.Visible := True;
+
+     if doFastDecode and (btnDoFast.Caption <> 'Disable Fast') Then btnDoFast.Caption := 'Disable Fast';
+     if (not doFastDecode) and (btnDoFast.Caption <> 'Enable Fast') Then btnDoFast.Caption := 'Enable Fast';
+
+     if doFastDecode and cbMultiOn.Checked Then
+     Begin
+          lbDecodes.Top := 395;
           lbFastDecode.Visible := True;
      end
-     else if (not doFastDecode) and (lbDecodes.Top <> 320) Then
+     else if (not doFastDecode or not cbMultiOn.Checked) and (lbDecodes.Top <> 320) Then
      Begin
           lbFastDecode.Visible := False;
           lbDecodes.Top := 320;
      end;
+
+     Label109.Caption := PadLeft(IntToStr(rb.rbCount),5);
 
 end;
 
@@ -2988,13 +3094,27 @@ Begin
      Begin
           // Compute/display audio level(s)
           aulevel := spectrum.computeAudio(adc.adclast2k1);
-          if (aulevel*0.4)-20.0 < -7.0 Then
+          if (aulevel*0.4)-20.0 < -12.0 Then
           Begin
+               // This is 16x lower than optimal
                Label3.Caption := 'Audio Low';
                Label3.Font.Color := clRed;
           end
-          else if (aulevel*0.4)-20.0 > 7.0 Then
+          else if (aulevel*0.4)-20.0 < -6.0 Then
           Begin
+               // This is 4x lower than optimal
+               Label3.Caption := 'Audio Low';
+               Label3.Font.Color := clYellow;
+          end
+          else if (aulevel*0.4)-20.0 > 12.0 Then
+          Begin
+               // This is 16x higher than optimal
+               Label3.Caption := 'Audio High';
+               Label3.Font.Color := clYellow;
+          end
+          else if (aulevel*0.4)-20 > 15.0 Then
+          Begin
+               // This is 32x higher than optimal
                Label3.Caption := 'Audio High';
                Label3.Font.Color := clRed;
           end
@@ -3134,7 +3254,7 @@ Begin
           if not IsZero(srun) Then Label84.Caption := FormatFloat('0.000',(srun/1000.0));
           if not isZero(d65.dmarun) Then Label86.Caption := FormatFloat('0.000',((d65.dmarun/d65.dmrcount)/1000.0));
 
-          if cbDivideDecodes.Checked Then lbDecodes.Items.Insert(0,'------------------------------------------------------------');
+          if (cbDivideDecodes.Checked) and (not isFastDecode) Then lbDecodes.Items.Insert(0,'------------------------------------------------------------');
           for i := 0 to 49 do
           begin
                if not d65.gld65decodes[i].dtProcessed Then
@@ -3172,7 +3292,14 @@ Begin
                          // 12:34  -##   1000  MESSAGE
                          if not AnsiContainsText(d65.gld65decodes[i].dtDeltaFreq,'-') Then d65.gld65decodes[i].dtDeltaFreq := ' ' + d65.gld65decodes[i].dtDeltaFreq;
                          if length(d65.gld65decodes[i].dtSigLevel)=2 Then d65.gld65decodes[i].dtSigLevel := d65.gld65decodes[i].dtSigLevel[1] + '0' + d65.gld65decodes[i].dtSigLevel[2];
-                         lbDecodes.Items.Insert(0, d65.gld65decodes[i].dtTimeStamp + '  ' + PadRight(d65.gld65decodes[i].dtSigLevel,3) + '  ' + PadRight(d65.gld65decodes[i].dtDeltaFreq,5) + '   ' + d65.gld65decodes[i].dtDecoded);
+                         if isFastDecode Then
+                         Begin
+                              lbFastDecode.Items.Insert(0, d65.gld65decodes[i].dtTimeStamp + '  ' + PadRight(d65.gld65decodes[i].dtSigLevel,3) + '  ' + PadRight(d65.gld65decodes[i].dtDeltaFreq,5) + '   ' + d65.gld65decodes[i].dtDecoded);
+                         end
+                         else
+                         begin
+                              lbDecodes.Items.Insert(0, d65.gld65decodes[i].dtTimeStamp + '  ' + PadRight(d65.gld65decodes[i].dtSigLevel,3) + '  ' + PadRight(d65.gld65decodes[i].dtDeltaFreq,5) + '   ' + d65.gld65decodes[i].dtDecoded);
+                         end;
                          // Look at exchange - it should be their_call my_call -## or their_call my_call R-##
                          // if seen that should be the signal report value
                          wc := WordCount(d65.gld65decodes[i].dtDecoded,[' ']);
@@ -3202,7 +3329,8 @@ Begin
                               end;
                          end;
                          if not tryStrToInt(edDialQRG.Text,j) Then edDialQRG.Text := '0';
-                         if (rbOn.Checked) And (sopQRG = eopQRG) And (StrToInt(edDialQRG.Text) > 0) Then
+                         // Fast decodes don't get posted to RB - will post when the repeat is pulled out in slow decode pass
+                         if (rbOn.Checked) And (sopQRG = eopQRG) And (StrToInt(edDialQRG.Text) > 0) And (not isFastDecode) Then
                          Begin
                               //Post to RB
                               //Adjust the decimal point to what it "should" be. And here is should be .
@@ -3229,7 +3357,7 @@ Begin
                end;
           end;
           d65.gld65HaveDecodes := False;
-          if cbCompactDivides.Checked and cbDivideDecodes.Checked Then
+          if cbCompactDivides.Checked and cbDivideDecodes.Checked and (not isFastDecode) Then
           Begin
                // Remove extra --- divider lines
                j := 0;
@@ -3297,6 +3425,17 @@ Begin
      d65.dmSynPoints := 0;
      d65.dmMerged := 0;
      d65.dmkvhangs := 0;
+     //workingDF      : Integer = 0; // Will use this to track where user is working for a fast decode at the single point (eventually)
+     //canSlowDecode  : Boolean = False;  // Flag to indicate fast has completed and clear to do slow
+     //doFastDecode   : Boolean = False;  // Flag to indicate usage of fast decode method.  ONLY set this to control whether or not fast runs!
+     //doFastDone     : Boolean = False;  // Fast decode has completed
+     //doSlowDecode   : Boolean = False;  // Do a slow decode
+     //isFastDecode   : Boolean = False;  // This pass is a fast decode type
+     if isFastDecode then
+     Begin
+          isFastDecode  := False;
+          canSlowDecode := True;
+     end;
      canSlowDecode := True; // This means a decoder output display pass has been done allowing the second decode
                             // pass when doing fast decode at working DF method.  When that's not in play this
                             // doesn't otherwise matter.
@@ -4518,10 +4657,12 @@ begin
                Begin
                     edTXDF.Text := sdf;
                     edRXDF.Text := sdf;
+                    workingDF := StrToInt(sdf);
                end
                else
                begin
                     sdf := edTXDF.Text;
+                    //workingDF := StrToInt(edRXDF.Text);
                end;
 
                if isFText(response) or isSText(response) Then
@@ -4593,6 +4734,8 @@ begin
           end
           else if IsWordPresent(TrimLeft(TrimRight(UpCase(myscall))), foo, [' ']) Then
           begin
+               // doFastDecode
+               { TODO : Maybe (and I stress maybe) not mycall color "slow" decoder output when fast is on }
                lineMyCall := True;
           end
           else if ansicontainstext(foo,edCall.Text) then
@@ -5308,18 +5451,38 @@ begin
           Begin
                if isSlashedCall(myscall) Then thisTXmsg := 'CQ ' + thisTXCall else thisTXmsg := 'CQ ' + thisTXCall + ' ' + getLocalGrid;
                edTXMsg.Text := thisTXmsg;
+               if tryStrToInt(edTXDF.Text,i) Then
+               Begin
+                    workingDF := i;
+                    doFastDecode := True;
+               end
+               else
+               begin
+                    edTXDF.Text := '0';
+                    workingDF := 0;
+               end;
+               edRXDF.Text := edTXDF.Text;
                // Not sure this is best idea... but when calling CQ one should not move.
                cbTXeqRXDF.Checked := False;
-               edRXDF.Text := edTXDF.Text;
           end;
 
           if Sender = bQRZ Then
           Begin
                if isSlashedCall(myscall) Then thisTXmsg := 'QRZ ' + thisTXCall else thisTXmsg := 'QRZ ' + thisTXCall + ' ' + getLocalGrid;
                edTXMsg.Text := thisTXmsg;
-               // Not sure this is best idea... but when calling CQ/QRZ one should not move.
-               cbTXeqRXDF.Checked := False;
+               if tryStrToInt(edTXDF.Text,i) Then
+               Begin
+                    workingDF := i;
+                    doFastDecode := True;
+               end
+               else
+               begin
+                    edTXDF.Text := '0';
+                    workingDF := 0;
+               end;
                edRXDF.Text := edTXDF.Text;
+               // Not sure this is best idea... but when calling CQ one should not move.
+               cbTXeqRXDF.Checked := False;
           end;
 
           if Sender = bACQ Then
@@ -5364,6 +5527,15 @@ begin
                          edTXMsg.Text := '';
                          lbDecodes.Items.Insert(0,'Notice: TX to Call does not compute');
                     end;
+               end;
+               if tryStrToInt(edTXDF.Text,i) Then
+               Begin
+                    workingDF := i;
+               end
+               else
+               begin
+                    edTXDF.Text := '0';
+                    workingDF := 0;
                end;
           end;
 
@@ -5599,6 +5771,174 @@ end;
 procedure TForm1.edTXtoCallDblClick(Sender: TObject);
 begin
      edTXtoCall.Text := '';
+end;
+
+procedure TForm1.lbFastDecodeDblClick(Sender: TObject);
+Var
+  foo,ldate : String;
+  i, txp    : Integer;
+  tvalid    : Boolean;
+  isBreakIn : Boolean;
+  level     : Integer;
+  response  : String;
+  connectTo : String;
+  fullCall  : String;
+  hisGrid   : String;
+  sdb, sdf  : String;
+begin
+     i := lbFastDecode.ItemIndex;
+     if i > -1 Then
+     Begin
+          // Get the decode to parse
+          foo := lbFastDecode.Items[i];
+          foo := DelSpace1(foo);
+          tvalid    := False;
+          hisGrid   := '';
+          fullCall  := '';
+          connectTo := '';
+          response  := '';
+          level     := -1;
+          sdb       := '-99';
+          sdf       := '9999';
+          isBreakIn := False;
+          txp       := 2;
+
+          mgen(foo, tValid, isBreakin, Level, response, connectTo, fullCall, hisgrid, sdf, sdb, txp);
+          if tValid Then
+          Begin
+               ldate := IntToStr(thisUTC.Year);
+               if thisUTC.Month < 10 then ldate := ldate + '0' + IntToStr(thisUTC.Month) else ldate := ldate + IntToStr(thisUTC.Month);
+               if thisUTC.Day < 10 then ldate := ldate + '0' + IntToStr(thisUTC.Day) else ldate := ldate + IntToStr(thisUTC.Day);
+               ldate := ldate + ' ';
+               if thisUTC.Hour < 10 then ldate := ldate + '0' + IntToStr(thisUTC.Hour) else ldate := ldate + IntToStr(thisUTC.Hour);
+               if thisUTC.Minute < 10 then ldate := ldate + '0' + IntToStr(thisUTC.Minute) else ldate := ldate + IntToStr(thisUTC.Minute);
+               logTimeOn.Text := ldate;
+               if isBreakIn Then Memo2.Append('[TE] ' + response + ' to ' + connectTo + ' [' + fullCall + '] @ ' + hisGrid + ' Proto ' + IntToStr(level) + '[' + sdb + 'dB @ ' + sdf + 'Hz]') else Memo2.Append('[IM] ' + response + ' to ' + connectTo + ' [' + fullCall + '] @ ' + hisGrid + ' Proto ' + IntToStr(level) + '[' + sdb + 'dB @ ' + sdf + 'Hz]');
+               logCallsign.Text := fullCall;
+               logSigReport.Text := sdb;
+               if not TryStrToInt(edDialQRG.Text,i) Then edDialQRG.Text := '0';
+               logQRG.Text := FormatFloat('0.0000',(StrToInt(edDialQRG.Text)/1000000.0));
+               edTXMsg.Text := response;
+               thisTXMsg := response;
+               edTXToCall.Text := fullCall;
+               edTXReport.Text := sdb;
+               if cbTXeqRXDF.Checked Then
+               Begin
+                    edTXDF.Text := sdf;
+                    edRXDF.Text := sdf;
+                    workingDF := StrToInt(sdf);
+               end
+               else
+               begin
+                    sdf := edTXDF.Text;
+                    //workingDF := StrToInt(edRXDF.Text);
+               end;
+
+               if isFText(response) or isSText(response) Then
+               Begin
+                    if not tryStrToInt(sdf,i) then sdf := '0';
+                    genTX(response, StrToInt(sdf)+clRebel.txOffset);
+                    if txp=0 then rbTxEven.Checked := True else rbTxOdd.Checked := True;
+                    if not isBreakin then toggleTX.State := cbChecked else toggleTX.State := cbUnchecked;
+                    if not isBreakin then toggleTX.Checked := True else toggleTX.Checked := false;
+               end
+               else
+               begin
+                    // This shouldn't happen, but, message is invalid.
+                    Memo2.Append('Odd - message did not self resolve.');
+                    edTXMsg.Text := '';
+                    edTXToCall.Text := '';
+                    edTXReport.Text := '';
+                    toggleTX.Checked := False;
+                    toggleTX.State := cbUnChecked;
+               end;
+          end
+          else
+          begin
+               Memo2.Append('No message can be generated');
+               edTXMsg.Text := '';
+               edTXToCall.Text := '';
+               edTXReport.Text := '';
+               toggleTX.Checked := False;
+               toggleTX.State := cbUnChecked;
+          end;
+     End;
+end;
+
+procedure TForm1.lbFastDecodeDrawItem(Control: TWinControl; Index: Integer;
+  ARect: TRect; State: TOwnerDrawState);
+Var
+   myColor            : TColor;
+   myBrush            : TBrush;
+   lineCQ, lineMyCall : Boolean;
+   lineWarn           : Boolean;
+   foo                : String;
+begin
+     if state = [odSelected] Then
+     Begin
+          // Do nothing - kills a compiler warn that bugs me.
+     end;
+     lineCQ := False;
+     lineMyCall := False;
+     if Index > -1 Then
+     Begin
+          foo := lbFastDecode.Items[Index];
+          if IsWordPresent('WARNING:', foo, [' ']) Then
+          Begin
+               lineWarn := True;
+          end
+          else if IsWordPresent('Notice:', foo, [' ']) Then
+          Begin
+               lineWarn := True;
+          end
+          else
+          begin
+               lineWarn := False;
+          end;
+
+          if (IsWordPresent('CQ', foo, [' '])) or IsWordPresent('QRZ', foo, [' ']) Then lineCQ := True;
+
+          if IsWordPresent(TrimLeft(TrimRight(UpCase(mycall))), foo, [' ']) Then
+          Begin
+               lineMyCall := True;
+          end
+          else if IsWordPresent(TrimLeft(TrimRight(UpCase(myscall))), foo, [' ']) Then
+          begin
+               lineMyCall := True;
+          end
+          else if ansicontainstext(foo,edCall.Text) then
+          begin
+               lineMyCall := True;
+          end
+          else
+          begin
+               lineMyCall := False;
+          end;
+
+          myBrush := TBrush.Create;
+          with (Control as TListBox).Canvas do
+          begin
+               //myColor := cfgvtwo.glqsoColor;
+               { TODO : Add back custom color choices }
+               If cbUseColor.Checked Then
+               Begin
+                    myColor := clSilver;
+                    if lineCQ Then myColor := clLime;
+                    if lineMyCall Then myColor := clRed;
+                    if lineWarn then myColor := clRed;
+               end
+               else
+               begin
+                    myColor := clWhite;
+               end;
+               myBrush.Style := bsSolid;
+               myBrush.Color := myColor;
+               Windows.FillRect(handle, ARect, myBrush.Reference.Handle);
+               Brush.Style := bsClear;
+               TextOut(ARect.Left, ARect.Top,(Control as TListBox).Items[Index]);
+               MyBrush.Free;
+          end;
+     end;
 end;
 
 procedure TForm1.LogQSOClick(Sender: TObject);
@@ -5920,9 +6260,11 @@ begin
      end;
 end;
 
-procedure TForm1.btnHideFastClick(Sender: TObject);
+procedure TForm1.btnDoFastClick(Sender: TObject);
 begin
      { TODO : Working on Fast working DF decoding }
+     if doFastDecode then doFastDecode := False else doFastDecode := True;
+     if doFastDecode then btnClearDecodesFast.Visible := true else btnClearDecodesFast.Visible := False;
 end;
 
 procedure TForm1.cbMultiOnChange(Sender: TObject);
@@ -6227,8 +6569,9 @@ begin
                     sleep(1);
                end;
                d65.doDecode(0,524287);
-               inc(decodeping);
                runDecode := False;
+               doFastDone := True; // Harmless if this really isn't in play.
+               inc(decodeping);
                decoderBusy := False;
           end;
           Sleep(100);
@@ -11605,8 +11948,8 @@ begin
      Query.Params.ParamByName('WFCONTRAST').AsInteger := tbWFContrast.Position;
      Query.Params.ParamByName('WFBRIGHT').AsInteger   := tbWFBright.Position;
      Query.Params.ParamByName('WFGAIN').AsInteger     := tbWFGain.Position;
-     Query.Params.ParamByName('WFSMOOTH').AsBoolean  := cbSpecSmooth.Checked;
-     Query.Params.ParamByName('WFAGC').AsBoolean     := cbSpecSmooth.Checked;
+     Query.Params.ParamByName('WFSMOOTH').AsBoolean  := True;
+     Query.Params.ParamByName('WFAGC').AsBoolean     := True;
      Query.Params.ParamByName('USERB').AsBoolean     := True;
      Query.Params.ParamByName('RBCALL').AsString     := t(edRBCall.Text);
      Query.Params.ParamByName('RBINFO').AsString     := t(edStationInfo.Text);
@@ -11776,7 +12119,6 @@ Begin
      tbWFContrast.Position := 0;
      tbWFBright.Position := 0;
      tbWFGain.Position := 0;
-     cbSpecSmooth.Checked := True;
      // Tabsheet 4
      edRBCall.Text := '';
      edStationInfo.Text := '';
