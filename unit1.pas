@@ -1,8 +1,6 @@
 { TODO :
-Spectrum speed still not always restoring to correct value
 Think about having RX move to keep passband centered for Rebel
 Make logging robust in that it requires data in specific fields
-Disable Save Macro button if field is empty
 Add qrg edit/define
 Enhance macro editor
 Begin to graft sound output code in
@@ -16,6 +14,7 @@ worked if in a new one.
 JT9 support
 
 Implement fast decode at working DF - Done (needs testing testing testing)
+Spectrum speed still not always restoring to correct value - Done (needs testing testing testing)
 
 Shorthand decoder core dumped - Nope. Not doing SH - done with that crap.  Let them scream.
 Expanding on SH stuff.  I *****am not***** adding support for TX of SH messages.  I **may**
@@ -1051,6 +1050,7 @@ Begin
      rigControlSet(cbQSOColor);
      spColorMap.ItemIndex := query.FieldByName('wfcmap').AsInteger;
      tbWFSpeed.Position := query.FieldByName('wfspeed').AsInteger;
+     rigControlSet(tbWFSpeed);
      tbWFContrast.Position := query.FieldByName('wfcontrast').AsInteger;
      tbWFBright.Position := query.FieldByName('wfbright').AsInteger;
      tbWFGain.Position := query.FieldByName('wfgain').AsInteger;
@@ -2582,6 +2582,27 @@ Begin
           doSlowDecode := False;
           isFastDecode := False;
           runDecode    := True;
+     end;
+
+     If Length(comboMacroList.Text) = 0 Then
+     Begin
+          bnSaveMacro.Visible := False;
+          buttonXferMacro.Visible := False;
+     end
+     else
+     begin
+          buttonXferMacro.Visible := True;
+          buttonXferMacro.Enabled := True;
+          if comboMacroList.ItemIndex = -1 Then
+          begin
+               bnSaveMacro.Visible := True;
+               bnSaveMacro.Enabled := True;
+          end
+          else
+          begin
+               bnSaveMacro.Enabled := False;
+               bnSaveMacro.Visible := False;
+          end;
      end;
 end;
 
@@ -4919,6 +4940,11 @@ begin
           End;
           cbQSOColor.Color := glQSOColor;
           Label23.Color := glQSOColor;
+     end;
+
+     if Sender = tbWFSpeed Then
+     Begin
+          spectrum.specSpeed2 := tbWFSpeed.Position;
      end;
 end;
 
