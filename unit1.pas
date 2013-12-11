@@ -2062,8 +2062,8 @@ Begin
           kvcount := 0;
           bmcount := 0;
      end;
-     if kvcount > 0 Then Label95.Caption := PadLeft(IntToStr(kvcount),5) + '  ' + FormatFloat('0.0',(100.0*(kvcount/(kvcount+bmcount)))) + '%';
-     if bmcount > 0 Then Label96.Caption := PadLeft(IntToStr(bmcount),5) + '  ' + FormatFloat('0.0',(100.0*(bmcount/(kvcount+bmcount)))) + '%';
+     if kvcount > 0 Then Label95.Caption := PadLeft(IntToStr(kvcount),5);
+     if bmcount > 0 Then Label96.Caption := PadLeft(IntToStr(bmcount),5);
      Label98.Caption := PadLeft(FormatFloat('0.000',(d65.glDTAvg)),5);
      If AnsiContainsText(Label98.Caption,'nan') Then
      Begin
