@@ -4,9 +4,13 @@ Make logging robust in that it requires data in specific fields
 Add qrg edit/define
 Enhance macro editor
 Begin to graft sound output code in
+Validate prefix/suffix against valid set for V1 (In constant arrays V1PREFIX/V1SUFFIX)
 
 (Far) Less urgent
 
+JT65V2 support
+
+Rework the entire concept of TX and RX DF - it's clunky and came from doing it as WSJT did way back when.
 
 Add worked call tracking taking into consideration a call worked in one grid is not
 worked if in a new one.
@@ -22,6 +26,30 @@ add a visual indicator to demark an RRR or 73, but, that's it.  SH on HF must di
 that support it (my own old code included) can go jump in a lake.  Done with it.
 }
 
+{
+
+Moving RX to keep signal of interest in passband center... probably a good thing for the
+Rebel.  More complex to make happen than it seems at first glance as it impacts a lot of
+other things based on assumption RX doesn't move (often) but TX does.
+
+--------------------
+
+Working out the whole TX/RX DF thing.
+
+The idea is that when picking a station your TX is matched (net) to the station you wish
+to work.  UNLESS you WANT to operate split.
+
+This applies to answering calls.
+
+When calling CQ your TX offset ***SHOULD*** be locked to your CQ frequency.
+
+So matching TX to RX position should be automatic when answering a CQ (this is usually
+done by double clicking a CQ line in decoder output) - **UNLESS** you don't want it to.  :)
+
+I've tried to rework this before but always get stuck.  So I'm making it a long term goal
+to figure out a better way.
+
+}
 // (c) 2013 CQZ Electronics
 unit Unit1;
 
@@ -32,13 +60,17 @@ interface
 uses
   Classes, SysUtils, FileUtil, Forms, Controls, Graphics, Dialogs, StdCtrls,
   ExtCtrls, Math, StrUtils, CTypes, Windows, lconvencoding, TAGraph, TASeries,
-  ComCtrls, EditBtn, DbCtrls, Types, portaudio, adc, spectrum,
-  waterfall1, spot, BufDataset, sqlite3conn, sqldb, valobject, rebel,
-  d65, LResources, blcksock, gettext;
+  ComCtrls, EditBtn, DbCtrls, Types, portaudio, adc, spectrum, waterfall1, spot,
+  BufDataset, sqlite3conn, sqldb, valobject, rebel, d65, LResources, blcksock,
+  gettext;
 
 Const
+  PVERSION = '0.941'; // Label20 is program name/version as in; HFWST by W6CQZ v0.941 - Phoenix
+  PRELEASE = 'Phoenix';
+
   JT_DLL = 'JT65v392.dll';
   //JT9_DLL = 'libjt9.dll';
+
   SYNC65 : array[0..125] of CTypes.cint =
         (1,0,0,1,1,0,0,0,1,1,1,1,1,1,0,1,0,1,0,0,0,1,0,1,1,0,0,1,0,0,0,1,1,1,0,0,1,1,1,1,0,1,1,0,1,1,1,1,0,0,0,1,1,0,1,0,1,0,1,1,
         0,0,1,1,0,1,0,1,0,1,0,0,1,0,0,0,0,0,0,1,1,0,0,0,0,0,0,0,1,1,0,1,0,0,1,0,1,1,0,1,0,1,0,1,0,0,1,1,0,0,1,0,0,1,0,0,0,0,1,1,
@@ -125,7 +157,6 @@ type
     groupRebelOptions: TGroupBox;
     Image1: TImage;
     Label12: TLabel;
-    Label14: TLabel;
     Label22: TLabel;
     Label25: TLabel;
     Label37: TLabel;
@@ -239,7 +270,6 @@ type
     logSigReport: TEdit;
     logCallsign: TEdit;
     groupLogQSO: TGroupBox;
-    Label90: TLabel;
     btnsetQRG: TButton;
     btnClearDecodes: TButton;
     buttonConfig: TButton;
@@ -652,6 +682,11 @@ Var
 Begin
      // This runs on first timer interrupt once per run session
      timer1.Enabled:=False;
+
+     //PVERSION = '0.941'; // Label20 is program name/version as in; HFWST by W6CQZ v0.941 - Phoenix
+     //PRELEASE = 'Phoenix';
+     Label20.Caption := 'HFWST by W6CQZ v' + PVERSION + ' - ' + PRELEASE;
+
      // Read in spectrum headers and various graphics as resource types
      addResources;
      // Setup spectrum display headers
@@ -1253,12 +1288,12 @@ Begin
      If tbMultiBin.Position = 2 then d65.glbinspace := 50;
      If tbMultiBin.Position = 3 then d65.glbinspace := 100;
      If tbMultiBin.Position = 4 then d65.glbinspace := 200;
-     Label26.Caption := 'Multi ' + IntToStr(d65.glbinspace) + ' Hz';
+     Label26.Caption := 'Multi BW ' + IntToStr(d65.glbinspace) + ' Hz';
      If tbSingleBin.Position = 1 then d65.glDFTolerance := 20;
      If tbSingleBin.Position = 2 then d65.glDFTolerance := 50;
      If tbSingleBin.Position = 3 then d65.glDFTolerance := 100;
      If tbSingleBin.Position = 4 then d65.glDFTolerance := 200;
-     Label87.Caption := 'Single ' + IntToStr(d65.glDFTolerance) + ' Hz';
+     Label87.Caption := 'Single BW ' + IntToStr(d65.glDFTolerance) + ' Hz';
      if inIcal >-1 then d65.glfftFWisdom := inIcal else d65.glfftFWisdom := 0;
      paActive := False;
      thisTXCall := '';
@@ -1950,6 +1985,7 @@ Var
    c1,c2,c3   : Array[0..125] of String;
    adjtime    : Boolean;
 Begin
+
      // Disable timer while here.  It should be disabled already, but this is
      // a double check for that.  :)
      timer1.Enabled:=False;
@@ -2604,6 +2640,8 @@ Begin
                bnSaveMacro.Visible := False;
           end;
      end;
+
+     if cbTXEqRXDF.Checked And (edTXDF.Text <> edRXDF.Text) Then edTXDF.Text := edRXDF.Text;
 end;
 
 procedure TForm1.OncePerSecond;
@@ -2680,37 +2718,17 @@ Begin
           if isFastDecode Then
           Begin
                // workingDF is RXDF if matching (cbTXeqRXDF) enabled and TXDF otherwise.
-               if cbTXeqRXDF.Checked Then
-               Begin
-                    if tryStrToInt(edRXDF.Text,i) Then
-                    Begin
-                         workingDF := i;
-                    end
-                    else
-                    begin
-                         edRXDF.Text := '0';
-                         workingDF := 0;
-                    end;
-               end
-               else
-               begin
-                    if tryStrToInt(edTXDF.Text,i) Then
-                    Begin
-                         workingDF := i;
-                    end
-                    else
-                    begin
-                         edTXDF.Text := '0';
-                         workingDF := 0;
-                    end;
-               end;
+               // workingDF is set here and HERE only and comes from reading the RXDF
+               // box.
+               if tryStrToInt(edRXDF.Text,i) Then workingDF := i else workingDF := 0;
+               if (workingDF < -1150) or (workingDF > 1150) Then workingDF := 0;
+               edRXDF.Text := IntToStr(workingDF);
                glSteps := 0;
-               If tbSingleBin.Position = 1 then d65.glDFTolerance := 20 else if tbSingleBin.Position = 2 then d65.glDFTolerance := 50 else If tbSingleBin.Position = 3 then d65.glDFTolerance := 100 else If tbSingleBin.Position = 4 then d65.glDFTolerance := 200 else d65.glDFTolerance := 100;
+               //If tbSingleBin.Position = 1 then d65.glDFTolerance := 20 else if tbSingleBin.Position = 2 then d65.glDFTolerance := 50 else If tbSingleBin.Position = 3 then d65.glDFTolerance := 100 else If tbSingleBin.Position = 4 then d65.glDFTolerance := 200 else d65.glDFTolerance := 100;
+               { TODO : Investigate issue with fail on 20 Hz BW single decode }
+               // Not sure why yet but at 20 Hz single I'm seeing too many fails.  Locking to 50
+               d65.glDFTolerance := 50;
                d65.glMouseDF := workingDF;
-               If tbSingleBin.Position = 1 then d65.glDFTolerance := 20;
-               If tbSingleBin.Position = 2 then d65.glDFTolerance := 50;
-               If tbSingleBin.Position = 3 then d65.glDFTolerance := 100;
-               If tbSingleBin.Position = 4 then d65.glDFTolerance := 200;
                Memo2.Lines.Insert(0,'Fast decode set for ' + IntToStr(d65.glMouseDF) + ' Hz @ ' + IntToStr(d65.glDFTolerance) + ' BW');
                runDecode := True;
           end
@@ -3017,7 +3035,7 @@ Begin
           end;
      end;
 
-     if cbMultiOn.Checked Then edRXDF.Text := '0';
+     //if cbMultiOn.Checked Then edRXDF.Text := '0';
      specHeader;  // Update spectrum display header
 
      //workingDF      : Integer = 0; // Will use this to track where user is working for a fast decode at the single point (eventually)
@@ -3054,6 +3072,28 @@ Begin
 
      Label109.Caption := PadLeft(IntToStr(rb.rbCount),5);
 
+     if cbNZLPF.Checked then
+     Begin
+          Label26.Visible := False;
+          tbMultiBin.Visible := False;
+          if tbMultiBin.Position > 1 then tbMultiBin.Position := 1;
+     end
+     else
+     begin
+          Label26.Visible := True;
+          tbMultiBin.Visible := True;
+     end;
+
+     if cbMultiOn.Checked Then
+     Begin
+          Label87.Visible := False;
+          tbSingleBin.Visible := False;
+     end
+     else
+     begin
+          Label87.Visible := True;
+          tbSingleBin.Visible := True;
+     end;
 end;
 
 procedure TForm1.OncePerMinute;
@@ -3202,10 +3242,13 @@ Begin
 
           if i <> 0 Then
           Begin
-               floatVar := i / 2.7027;
+               //floatVar := i / 2.7027; // I believe this is an error
+               floatVar := i / (11025.0/4096.0);
                floatVar := 376+floatVar;
-               cfPix := Round(floatVar);
-               txHpix := Round(floatVar+66.7);
+               cfPix := Round(floatVar)-1;
+               if cfpix < 0 then cfpix := 0;
+               txHpix := Round(floatVar+66.7)-1;
+
                PaintBox1.Canvas.Pen.Color := clRed;
                PaintBox1.Canvas.Pen.Width := 3;
                PaintBox1.Canvas.Line(cfPix,1,cfPix,7);
@@ -3225,9 +3268,11 @@ Begin
           end;
           if ii <> 0 Then
           Begin
-               floatVar := ii / 2.7027;
+               //floatVar := ii / 2.7027;
+               floatVar := ii / (11025.0/4096.0);
                floatVar := 376+floatVar;
-               cfPix := Round(floatVar);
+               cfPix := Round(floatVar)-1;
+               if cfPix < 0 then cfpix := 0;
                PaintBox1.Canvas.Pen.Color := clGreen;
                PaintBox1.Canvas.Pen.Width := 5;
                PaintBox1.Canvas.Line(cfpix,1,cfpix,7);
@@ -3416,46 +3461,6 @@ Begin
      begin
           d65.gld65decodes[i].dtProcessed := True;
      end;
-     //// Post msync results to Chart4BarSeries1
-     //Chart4BarSeries1.Clear;
-     //for i := 0 to 254 do if d65.glSynFreq[i] > -9999.0 Then Chart4BarSeries1.AddXY(d65.glSynFreq[i],d65.glSynDected[i]);
-     //
-     //if plotCount <> d65.dmPlotCount Then
-     //Begin
-     //     td := periodDecodes*1.0;
-     //     te := d65.dmSynPoints*1.0;
-     //     tf := d65.glBinCount *1.0;
-     //     if d65.dmPlotCount > 360 Then
-     //     Begin
-     //          Chart1LineSeries1.Clear;
-     //          Chart2LineSeries1.Clear;
-     //          Chart2LineSeries2.Clear;
-     //          Chart3LineSeries1.Clear;
-     //          Chart3LineSeries2.Clear;
-     //          Chart3LineSeries3.Clear;
-     //          Chart4BarSeries1.Clear;
-     //          d65.dmPlotCount := 0;
-     //          Chart1LineSeries1.AddXY(d65.dmPlotCount,d65.dmPlotAvgSq);
-     //          Chart2LineSeries1.AddXY(d65.dmPlotCount,d65.dmruntime/1000.0);
-     //          Chart2LineSeries2.AddXY(d65.dmPlotCount,(d65.dmarun/d65.dmrcount)/1000.0);
-     //          Chart2LineSeries3.AddXY(d65.dmPlotCount,(d65.dmnzrun)/1000.0);
-     //          Chart3LineSeries1.AddXY(d65.dmPlotCount,te);
-     //          Chart3LineSeries2.AddXY(d65.dmPlotCount,tf);
-     //          Chart3LineSeries3.AddXY(d65.dmPlotCount,td);
-     //          plotcount := d65.dmPlotCount;
-     //     end
-     //     else
-     //     begin
-     //          Chart1LineSeries1.AddXY(d65.dmPlotCount,d65.dmPlotAvgSq);
-     //          Chart2LineSeries1.AddXY(d65.dmPlotCount,d65.dmruntime/1000.0);
-     //          Chart2LineSeries2.AddXY(d65.dmPlotCount,(d65.dmarun/d65.dmrcount)/1000.0);
-     //          Chart2LineSeries3.AddXY(d65.dmPlotCount,(d65.dmnzrun)/1000.0);
-     //          Chart3LineSeries1.AddXY(d65.dmPlotCount,te);
-     //          Chart3LineSeries2.AddXY(d65.dmPlotCount,tf);
-     //          Chart3LineSeries3.AddXY(d65.dmPlotCount,td);
-     //          plotcount := d65.dmPlotCount;
-     //     end;
-     //end;
      d65.dmAveSQ := 0.0;
      d65.dmBaseVB := 0.0;
      d65.dmSynPoints := 0;
@@ -3467,11 +3472,7 @@ Begin
      //doFastDone     : Boolean = False;  // Fast decode has completed
      //doSlowDecode   : Boolean = False;  // Do a slow decode
      //isFastDecode   : Boolean = False;  // This pass is a fast decode type
-     if isFastDecode then
-     Begin
-          isFastDecode  := False;
-          canSlowDecode := True;
-     end;
+     if isFastDecode then isFastDecode  := False;  // Show fast decode pass as completed so slow (multi) pass can fire.
      canSlowDecode := True; // This means a decoder output display pass has been done allowing the second decode
                             // pass when doing fast decode at working DF method.  When that's not in play this
                             // doesn't otherwise matter.
@@ -3496,7 +3497,7 @@ begin
      If tbMultiBin.Position = 2 then d65.glbinspace := 50;
      If tbMultiBin.Position = 3 then d65.glbinspace := 100;
      If tbMultiBin.Position = 4 then d65.glbinspace := 200;
-     Label26.Caption := 'Multi ' + IntToStr(d65.glbinspace) + ' Hz';
+     Label26.Caption := 'Multi BW ' + IntToStr(d65.glbinspace) + ' Hz';
 end;
 
 procedure TForm1.tbSingleBinChange(Sender: TObject);
@@ -3505,7 +3506,7 @@ begin
      If tbSingleBin.Position = 2 then d65.glDFTolerance := 50;
      If tbSingleBin.Position = 3 then d65.glDFTolerance := 100;
      If tbSingleBin.Position = 4 then d65.glDFTolerance := 200;
-     Label87.Caption := 'Single ' + IntToStr(d65.glDFTolerance) + ' Hz';
+     Label87.Caption := 'Single BW ' + IntToStr(d65.glDFTolerance) + ' Hz';
 end;
 
 function  TForm1.gText(const msg : String; var nc1 : LongWord; var nc2 : LongWord; var ng : LongWord) : Boolean;
@@ -4689,16 +4690,16 @@ begin
                thisTXMsg := response;
                edTXToCall.Text := fullCall;
                edTXReport.Text := sdb;
+
                if cbTXeqRXDF.Checked Then
                Begin
                     edTXDF.Text := sdf;
                     edRXDF.Text := sdf;
-                    workingDF := StrToInt(sdf);
+                    doFastDecode := True;
                end
                else
                begin
-                    sdf := edTXDF.Text;
-                    //workingDF := StrToInt(edRXDF.Text);
+                    doFastDecode := True;
                end;
 
                if isFText(response) or isSText(response) Then
@@ -5571,15 +5572,14 @@ begin
                edTXMsg.Text := thisTXmsg;
                if tryStrToInt(edTXDF.Text,i) Then
                Begin
-                    workingDF := i;
+                    edRXDF.Text := edTXDF.Text;
                     doFastDecode := True;
                end
                else
                begin
                     edTXDF.Text := '0';
-                    workingDF := 0;
+                    edRXDF.Text := edTXDF.Text;
                end;
-               edRXDF.Text := edTXDF.Text;
                // Not sure this is best idea... but when calling CQ one should not move.
                cbTXeqRXDF.Checked := False;
           end;
@@ -5590,15 +5590,14 @@ begin
                edTXMsg.Text := thisTXmsg;
                if tryStrToInt(edTXDF.Text,i) Then
                Begin
-                    workingDF := i;
+                    edRXDF.Text := edTXDF.Text;
                     doFastDecode := True;
                end
                else
                begin
-                    edTXDF.Text := '0';
+                    edRXDF.Text := edTXDF.Text;
                     workingDF := 0;
                end;
-               edRXDF.Text := edTXDF.Text;
                // Not sure this is best idea... but when calling CQ one should not move.
                cbTXeqRXDF.Checked := False;
           end;
@@ -5645,15 +5644,6 @@ begin
                          edTXMsg.Text := '';
                          lbDecodes.Items.Insert(0,'Notice: TX to Call does not compute');
                     end;
-               end;
-               if tryStrToInt(edTXDF.Text,i) Then
-               Begin
-                    workingDF := i;
-               end
-               else
-               begin
-                    edTXDF.Text := '0';
-                    workingDF := 0;
                end;
           end;
 
@@ -5944,12 +5934,10 @@ begin
                Begin
                     edTXDF.Text := sdf;
                     edRXDF.Text := sdf;
-                    workingDF := StrToInt(sdf);
                end
                else
                begin
                     sdf := edTXDF.Text;
-                    //workingDF := StrToInt(edRXDF.Text);
                end;
 
                if isFText(response) or isSText(response) Then
@@ -6061,11 +6049,12 @@ procedure TForm1.LogQSOClick(Sender: TObject);
 Var
    sock      : TTCPBLockSocket;
    cmd,parm  : String;
-   dt,tm     : String;
+   dt,tm,err : String;
    foo,ldate : String;
    wc        : Integer;
    fname     : String;
    lfile     : TextFile;
+   goNoGo    : Boolean;
 begin
 
      if sender = logClearComments Then logComments.Text := '';
@@ -6109,136 +6098,172 @@ begin
      // Do logging
      if (sender = logDXLab) or (sender = logQSO) or (sender = logExternal) Then
      Begin
-          // Build the ADIF string for direct DX Keeper or file logging.
-          parm := '<CALL:' + IntToStr(Length(logCallSign.Text)) + '>' + UpCase(logCallSign.Text);
-          parm := parm + '<RST_SENT:' + IntToStr(Length(logSigReport.Text)) + '>' + logSigReport.Text;
-          parm := parm + '<RST_RCVD:' + IntToStr(Length(logMySig.Text)) + '>' + logMySig.Text;
-          parm := parm + '<FREQ:' + IntToStr(Length(logQRG.Text)) +'>' + logQRG.Text;
-          if (length(logGrid.Text)=4) or (length(logGrid.Text)=6) Then
+          // Need to be sure some required fields have data.  Those being;
+          // Call Worked, Frequency, Date/Time On and Off
+          // The rest *should* contain data but don't have to in so far as being
+          // able to make an ADIF string goes.
+          goNoGo := True;
+          err := '';
+          if length(logCallSign.Text) < 3 Then
           Begin
-               // <GRIDSQUARE:#>
-               parm := parm + '<GRIDSQUARE:' + IntToStr(Length(logGrid.Text)) + '>' + logGrid.Text;
+               goNoGo := False;
+               err := 'Call worked not valid';
+          end
+          else if logQRG.Text = '' Then
+          Begin
+               goNoGo := False;
+               err := 'Working QRG not valid - Try 14.076, 7.076' + sLineBreak + 'ADIF Requires QRG as MHz!';
+          end
+          else if length(logTimeOn.Text) < 13 Then
+          Begin
+               goNoGo := False;
+               err := 'On Time not valid' + sLineBreak + 'ADIF Requires date as YYYYMMDD like 20131211' + sLineBreak + 'ADIF Requires time as HHMM like 2321';
+          end
+          else if length(logTimeOff.Text) < 13 Then
+          Begin
+               goNoGo := False;
+               err := 'Off Time not valid' + sLineBreak + 'Press Off Time = Now button';
           end;
-          if length(logPower.text) > 0 Then
+
+          if goNoGo Then
           Begin
-               // <TX_PWR:#> logPower.text
-               parm := parm + '<TX_PWR:' + IntToStr(Length(logPower.Text)) + '>' + logPower.Text;
-          end;
-          if length(logComments.Text) > 0 Then
-          Begin
-               // <COMMENT:#>
-               parm := parm + '<COMMENT:' + IntToStr(Length(logComments.Text)) + '>' + logComments.Text;
-          end;
-          foo := DelSpace1(TrimLeft(TrimRight(UpCase(logQRG.Text)))); // Insures there is only one space between words, deletes left/right padding (space) and makes upper case.
-          wc  := WordCount(foo,['.',',']);
-          if wc=2 Then
-          Begin
-               dt := ExtractWord(1,foo,['.',',']);
-               tm := ExtractWord(2,foo,['.',',']);
-               if dt='1' Then foo := '160M';
-               if dt='3' Then foo := '80M';
-               if dt='7' Then foo := '40M';
-               if dt='10' Then foo := '30M';
-               if dt='14' Then foo := '20M';
-               if dt='18' Then foo := '17M';
-               if dt='21' Then foo := '15M';
-               if dt='24' Then foo := '12M';
-               if dt='28' Then foo := '10M';
-               if dt='50' Then foo := '6M';
-               if dt='144' Then foo := '2M';
-               parm := parm + '<BAND:' + IntToStr(Length(foo)) + '>' + foo;
-          end;
-          parm := parm + '<MODE:4>JT65';  // OK as hardcoded for now but not later :)
-          foo := DelSpace1(TrimLeft(TrimRight(UpCase(logTimeOn.Text)))); // Insures there is only one space between words, deletes left/right padding (space) and makes upper case.
-          wc  := WordCount(foo,[' ']);
-          dt := ExtractWord(1,foo,[' ']);
-          tm := ExtractWord(2,foo,[' ']);
-          parm := parm + '<QSO_DATE:' + IntToStr(Length(dt)) + '>' + dt;
-          parm := parm + '<TIME_ON:' + IntToStr(Length(tm)) + '>' + tm;
-          if length(logTimeOff.Text)= 13 Then
-          Begin
-               foo := DelSpace1(TrimLeft(TrimRight(UpCase(logTimeOff.Text)))); // Insures there is only one space between words, deletes left/right padding (space) and makes upper case.
+               // Build the ADIF string for direct DX Keeper or file logging.
+               parm := '<CALL:' + IntToStr(Length(logCallSign.Text)) + '>' + UpCase(logCallSign.Text);
+               parm := parm + '<RST_SENT:' + IntToStr(Length(logSigReport.Text)) + '>' + logSigReport.Text;
+               parm := parm + '<RST_RCVD:' + IntToStr(Length(logMySig.Text)) + '>' + logMySig.Text;
+               parm := parm + '<FREQ:' + IntToStr(Length(logQRG.Text)) +'>' + logQRG.Text;
+               if (length(logGrid.Text)=4) or (length(logGrid.Text)=6) Then
+               Begin
+                    // <GRIDSQUARE:#>
+                    parm := parm + '<GRIDSQUARE:' + IntToStr(Length(logGrid.Text)) + '>' + logGrid.Text;
+               end;
+               if length(logPower.text) > 0 Then
+               Begin
+                    // <TX_PWR:#> logPower.text
+                    parm := parm + '<TX_PWR:' + IntToStr(Length(logPower.Text)) + '>' + logPower.Text;
+               end;
+               if length(logComments.Text) > 0 Then
+               Begin
+                    // <COMMENT:#>
+                    parm := parm + '<COMMENT:' + IntToStr(Length(logComments.Text)) + '>' + logComments.Text;
+               end;
+               foo := DelSpace1(TrimLeft(TrimRight(UpCase(logQRG.Text)))); // Insures there is only one space between words, deletes left/right padding (space) and makes upper case.
+               wc  := WordCount(foo,['.',',']);
+               if wc=2 Then
+               Begin
+                    dt := ExtractWord(1,foo,['.',',']);
+                    tm := ExtractWord(2,foo,['.',',']);
+                    if dt='1' Then foo := '160M';
+                    if dt='3' Then foo := '80M';
+                    if dt='7' Then foo := '40M';
+                    if dt='10' Then foo := '30M';
+                    if dt='14' Then foo := '20M';
+                    if dt='18' Then foo := '17M';
+                    if dt='21' Then foo := '15M';
+                    if dt='24' Then foo := '12M';
+                    if dt='28' Then foo := '10M';
+                    if dt='50' Then foo := '6M';
+                    if dt='144' Then foo := '2M';
+                    parm := parm + '<BAND:' + IntToStr(Length(foo)) + '>' + foo;
+               end;
+               parm := parm + '<MODE:4>JT65';  // OK as hardcoded for now but not later :)
+               foo := DelSpace1(TrimLeft(TrimRight(UpCase(logTimeOn.Text)))); // Insures there is only one space between words, deletes left/right padding (space) and makes upper case.
                wc  := WordCount(foo,[' ']);
                dt := ExtractWord(1,foo,[' ']);
                tm := ExtractWord(2,foo,[' ']);
-               parm := parm + '<TIME_OFF:' + IntToStr(Length(tm)) + '>' + tm;
-          end;
-          parm := parm + '<EOR>';
+               parm := parm + '<QSO_DATE:' + IntToStr(Length(dt)) + '>' + dt;
+               parm := parm + '<TIME_ON:' + IntToStr(Length(tm)) + '>' + tm;
+               if length(logTimeOff.Text) = 13 Then
+               Begin
+                    foo := DelSpace1(TrimLeft(TrimRight(UpCase(logTimeOff.Text)))); // Insures there is only one space between words, deletes left/right padding (space) and makes upper case.
+                    wc  := WordCount(foo,[' ']);
+                    dt := ExtractWord(1,foo,[' ']);
+                    tm := ExtractWord(2,foo,[' ']);
+                    parm := parm + '<TIME_OFF:' + IntToStr(Length(tm)) + '>' + tm;
+               end;
+               parm := parm + '<EOR>';
 
-          if sender = logDXLab Then
-          Begin
+               if sender = logDXLab Then
+               Begin
+                    try
+                       // Direct TCP log to DX Keeper \0/!
+                       // For this I need to create a socket - connect to DX Keeper at
+                       // 127.0.0.1 port 52001
+                       sock := TTCPBlockSocket.Create;
+                       sock.Connect('127.0.0.1','52001');
+                       if sock.LastError = 0 Then
+                       Begin
+                            cmd := 'LOG';
+                            sock.SendString('<command:'+IntToStr(length(cmd))+'>' + cmd + '<parameters:' + IntToStr(length(parm)) + '>' + parm);
+                            sock.CloseSocket;
+                       end
+                       else
+                       begin
+                            lbDecodes.Items.Insert(0,'Notice: DX Keeper failed. Saved to file');
+                       end;
+                       sock.Destroy;
+                    except
+                       lbDecodes.Items.Insert(0,'Notice: DX Keeper failed. Saved to file');
+                    end;
+               end
+               else if sender = logExternal Then
+               Begin
+                    // Make logging data available to external program in standard format
+                    // I make the standard format - someone else makes external program
+                    // I will call hfwstlog.exe with the adif string.  That seems standard
+                    // enough.
+               end;
+
+               // If this was a DX Keeper log it's been done - now push the ADIF string to flat file
+               // This gives a fallback in case DX Keeper barfs or if DX Keeper not in play does all
+               // needing to be done.
+               // ADIF Path is defined in edADIFPath file name is hfwst_log.adif
                try
-                  // Direct TCP log to DX Keeper \0/!
-                  // For this I need to create a socket - connect to DX Keeper at
-                  // 127.0.0.1 port 52001
-                  sock := TTCPBlockSocket.Create;
-                  sock.Connect('127.0.0.1','52001');
-                  if sock.LastError = 0 Then
+                  fname := edADIFPath.Text + PathDelim + 'hfwst_log.adif';
+                  // Parm has the ADIF string
+                  if fileExists(fname) Then
                   Begin
-                       cmd := 'LOG';
-                       sock.SendString('<command:'+IntToStr(length(cmd))+'>' + cmd + '<parameters:' + IntToStr(length(parm)) + '>' + parm);
-                       sock.CloseSocket;
+                       // Need to open and append
+                       AssignFile(lfile, fname);
+                       Append(lFile);
+                       writeln(lfile,parm);
+                       closeFile(lfile);
                   end
                   else
                   begin
-                       lbDecodes.Items.Insert(0,'Notice: DX Keeper failed. Saved to file');
+                       // Need to create and add
+                       AssignFile(lfile, fname);
+                       rewrite(lfile);
+                       writeln(lfile,'HFWST ADIF Export');
+                       writeln(lfile,'<eoh>');
+                       writeln(lfile,parm);
+                       closeFile(lfile);
                   end;
-                  sock.Destroy;
                except
-                  lbDecodes.Items.Insert(0,'Notice: DX Keeper failed. Saved to file');
+                  { TODO : Do something about this }
                end;
+               logCallSign.Text := '';
+               logQRG.Text := '';
+               logGrid.Text := '';
+               logTimeOn.Text := '';
+               logTimeOff.Text := '';
+               logSigReport.Text := '';
+               logMySig.Text := '';
+               if not cbRememberComments.Checked then logComments.Text := '';
+
+               Waterfall.Visible   := True;
+               PaintBox1.Visible    := True;
+               buttonConfig.Visible := True;
+               PageControl.Visible  := False;
+               groupLogQSO.visible  := False;
+               logShowing := False;
           end
-          else if sender = logExternal Then
-          Begin
-               // Make logging data available to external program in standard format
-               // I make the standard format - someone else makes external program
-               // I will call hfwstlog.exe with the adif string.  That seems standard
-               // enough.
-          end;
+          else
+          begin
+               // A required field is invalid
+               ShowMessage(err);
 
-          // If this was a DX Keeper log it's been done - now push the ADIF string to flat file
-          // This gives a fallback in case DX Keeper barfs or if DX Keeper not in play does all
-          // needing to be done.
-          // ADIF Path is defined in edADIFPath file name is hfwst_log.adif
-          try
-             fname := edADIFPath.Text + PathDelim + 'hfwst_log.adif';
-             // Parm has the ADIF string
-             if fileExists(fname) Then
-             Begin
-                  // Need to open and append
-                  AssignFile(lfile, fname);
-                  Append(lFile);
-                  writeln(lfile,parm);
-                  closeFile(lfile);
-             end
-             else
-             begin
-                  // Need to create and add
-                  AssignFile(lfile, fname);
-                  rewrite(lfile);
-                  writeln(lfile,'HFWST ADIF Export');
-                  writeln(lfile,'<eoh>');
-                  writeln(lfile,parm);
-                  closeFile(lfile);
-             end;
-          except
-             { TODO : Do something about this }
           end;
-
-          logCallSign.Text := '';
-          logQRG.Text := '';
-          logGrid.Text := '';
-          logTimeOn.Text := '';
-          logTimeOff.Text := '';
-          logSigReport.Text := '';
-          logMySig.Text := '';
-          if not cbRememberComments.Checked then logComments.Text := '';
-          Waterfall.Visible   := True;
-          PaintBox1.Visible    := True;
-          buttonConfig.Visible := True;
-          PageControl.Visible  := False;
-          groupLogQSO.visible  := False;
-          logShowing := False;
      end;
 end;
 
@@ -6377,9 +6402,23 @@ begin
 end;
 
 procedure TForm1.btnDoFastClick(Sender: TObject);
+Var
+   i : Integer;
 begin
-     if doFastDecode then doFastDecode := False else doFastDecode := True;
-     if doFastDecode then btnClearDecodesFast.Visible := true else btnClearDecodesFast.Visible := False;
+     if doFastDecode then
+     Begin
+          doFastDecode := False;
+          btnClearDecodesFast.Visible := False;
+          if not tryStrToInt(edRXDF.Text,i) Then edRXDF.Text := '0';
+          if not tryStrToInt(edTXDF.Text,i) Then edTXDF.Text := '0';
+     end
+     else
+     begin
+          doFastDecode := True;
+          btnClearDecodesFast.Visible := true;
+          if not tryStrToInt(edRXDF.Text,i) Then edRXDF.Text := '0';
+          if not tryStrToInt(edTXDF.Text,i) Then edTXDF.Text := '0';
+     end;
 end;
 
 procedure TForm1.cbMultiOnChange(Sender: TObject);
@@ -6608,7 +6647,8 @@ end;
 procedure TForm1.FormCreate(Sender: TObject);
 begin
      { TODO : Need to eventually get instance from commnad line }
-     instance   := 1; // Range 1..4
+     { TODO : FIX Instance hard coded to TWO!!! }
+     instance   := 2; // Range 1..4
      srun       := 0.0;
      lrun       := 0.0;
      d65.dmarun := 0.0;
@@ -6708,25 +6748,35 @@ Var
    sh : Boolean;
 begin
      if x = 0 then df := -1019;
-     if x > 0 Then df := X*2.7027; // 11025/4096? No.  Now is this a mistake or not?
-     df := -1018.9189 + df;
+     //if x > 0 Then df := X*2.7027; // 11025/4096? No.  Now is this a mistake or not? I think it is.
+     if x > 0 Then df := X*(11025.0/4096.0);
+     //261.090087890625
+
+     //df := -1018.9189 + df;
+     df := -1006.67724609375 + df;
 
      // Next 3 lines are stupid but shuts up compiler warnings that drive me nuts
      If Shift=Shift Then sh := true else sh := true;
      If y > 0 then sh := true else sh := true;
      sh := True;
 
-     if (Button = mbLeft) and sh Then
-     Begin
-          edTXDF.Text := IntToStr(round(df));
-          if cbTXeqRXDF.Checked Then edRXDF.Text := edTXDF.Text;
-     End;
-
-     if (Button = mbRight) and sh Then
+     If cbTXEqRXDF.Checked Then
      Begin
           edRXDF.Text := IntToStr(round(df));
-          if cbTXeqRXDF.Checked Then edTXDF.Text := edRXDF.Text;
-     End;
+          edTXDF.Text := IntToStr(round(df));
+     end
+     else
+     begin
+          if (Button = mbLeft) and sh Then
+          Begin
+               edTXDF.Text := IntToStr(round(df));
+          End;
+
+          if (Button = mbRight) and sh Then
+          Begin
+               edRXDF.Text := IntToStr(round(df));
+          End;
+     end;
 
 end;
 

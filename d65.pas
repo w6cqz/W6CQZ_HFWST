@@ -20,6 +20,9 @@ unit d65;
 // the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
 // Boston, MA 02110-1301, USA.
 //
+
+{ TODO : Rethink single decode setup - it's too complicated for the need using the "bins system" }
+
 {$mode objfpc}{$H+}
 interface
 
@@ -1356,159 +1359,259 @@ begin
                ndec := 0;
                gldecOut.Clear;
                glsort1.Clear;
+               if glSteps=0 then passcount := 1;
                // Process bins
                if passcount > 0 Then
                Begin
-                    for i := 0 to 100 do
-                    begin
-                         if bins[i] > 0 Then
+                    if glSteps = 0 Then
+                    Begin
+                         mousedf2 := glMouseDF;
+                         bw := glDFTolerance;  // Single decode resolution
+                         idf := 0;
+                         glmline := '                                                                        ';
+                         // Copy lpfM to f3Buffer
+                         for j := 0 to jz2-1 do glf2Buffer[j] := gllpfM[j];
+                         for j := jz2 to length(glf2Buffer)-1 do glf2Buffer[j] := 0.0;
+                         // Attempting to insure KVASD.DAT does not exist.
+                         j := 0;
+                         if FileExists(dmtmpdir+'KVASD.DAT') Then
                          Begin
-                              // This bin needs a decode.
-                              if binspace = 20 Then
-                              Begin
-                                   if i = 0 Then lmousedf := -1000 else lmousedf := -1000 + (i*20);
-                              End
-                              else if binspace = 50 Then
-                              Begin
-                                   if i = 0 Then lmousedf := -1000 else lmousedf := -1000 + (i*50);
-                              End
-                              else if binspace = 100 Then
-                              Begin
-                                   if i = 0 Then lmousedf := -1000 else lmousedf := -1000 + (i*100);
-                              End
-                              else if binspace = 200 Then
-                              Begin
-                                   if i = 0 Then lmousedf := -1000 else lmousedf := -1000 + (i*200);
-                              End;
-                              mousedf2 := lmousedf;
-                              idf := lmousedf-mousedf2;
-                              glmline := '                                                                        ';
-                              bw := binspace;
-                              // Copy lpfM to f3Buffer
-                              for j := 0 to jz2-1 do glf2Buffer[j] := gllpfM[j];
-                              for j := jz2 to length(glf2Buffer)-1 do glf2Buffer[j] := 0.0;
-                              // Attempting to insure KVASD.DAT does not exist.
-                              j := 0;
-                              if FileExists(dmtmpdir+'KVASD.DAT') Then
-                              Begin
-                                   kvWaste1      := Now;
-                                   repeat
-                                         try
-                                            FileUtil.DeleteFileUTF8(dmtmpdir+'KVASD.DAT');
-                                         except
-                                            // No action required
-                                         end;
-                                         inc(j);
-                                   until (j>9) or not FileExists(dmtmpdir+'KVASD.DAT');
-                                   kvWaste2      := Now;
-                                   dmKVWasted := dmKVWasted + MilliSecondSpan(kvWaste1,kvWaste2);
+                              kvWaste1      := Now;
+                              repeat
+                                    try
+                                       FileUtil.DeleteFileUTF8(dmtmpdir+'KVASD.DAT');
+                                    except
+                                       // No action required
+                                    end;
+                                    inc(j);
+                              until (j>9) or not FileExists(dmtmpdir+'KVASD.DAT');
+                              kvWaste2      := Now;
+                              dmKVWasted := dmKVWasted + MilliSecondSpan(kvWaste1,kvWaste2);
+                         end;
+                         if j>0 Then dmKVHangs := dmKVHangs+j;
+                         if FileExists(dmtmpdir+'KVASD.DAT') Then
+                         Begin
+                              kvWaste1      := Now;
+                              try
+                                 FileUtil.DeleteFileUTF8(dmtmpdir+'KVASD.DAT');
+                              except
+                                 // No action required
                               end;
-                              if j>0 Then dmKVHangs := dmKVHangs+j;
-                              if FileExists(dmtmpdir+'KVASD.DAT') Then
-                              Begin
-                                   kvWaste1      := Now;
-                                   try
-                                      FileUtil.DeleteFileUTF8(dmtmpdir+'KVASD.DAT');
-                                   except
-                                      // No action required
-                                   end;
-                                   try
-                                      FileUtil.DeleteFileUTF8(dmtmpdir+'KVASD.DAT');
-                                   except
-                                      // No action required
-                                   end;
-                                   kvWaste2      := Now;
-                                   dmKVWasted := dmKVWasted + MilliSecondSpan(kvWaste1,kvWaste2);
+                              try
+                                 FileUtil.DeleteFileUTF8(dmtmpdir+'KVASD.DAT');
+                              except
+                                 // No action required
                               end;
-                              // Call decoder
-                              cqz65(@glf2Buffer[glSampOffset],@jz2,@bw,@afc,@MouseDF2,@idf,glmline,@lical,glwisfile,glkvfname);
-                              ifoo := 0;
-                              foo := '';
-                              foo := StrPas(glmline);
-                              if i < 10 then foo := '0' + IntToStr(i) + ',' + foo else foo := IntToStr(i) + ',' + foo;
-                              if tryStrToInt(ExtractWord(3,foo,CsvDelim),ifoo) Then
+                              kvWaste2      := Now;
+                              dmKVWasted := dmKVWasted + MilliSecondSpan(kvWaste1,kvWaste2);
+                         end;
+                         // Call decoder
+                         cqz65(@glf2Buffer[glSampOffset],@jz2,@bw,@afc,@MouseDF2,@idf,glmline,@lical,glwisfile,glkvfname);
+                         ifoo := 0;
+                         foo := '';
+                         foo := StrPas(glmline);
+                         if i < 10 then foo := '0' + IntToStr(i) + ',' + foo else foo := IntToStr(i) + ',' + foo;
+                         if tryStrToInt(ExtractWord(3,foo,CsvDelim),ifoo) Then
+                         Begin
+                              if ifoo > 0 Then
                               Begin
-                                   if ifoo > 0 Then
+                                   if evalBM(foo) Then
                                    Begin
-                                        if evalBM(foo) Then
-                                        Begin
-                                             inc(ndec);
-                                             gldecOut.Add(TrimLeft(TrimRight(foo)+',B'));
-                                             for j := 0 to 99 do
-                                             begin
-                                                  if decArray[j] = '' Then
-                                                  Begin
-                                                       decArray[j] := TrimLeft(TrimRight(foo))+',B';
-                                                       break;
-                                                  end;
-                                             end;
-                                        end
-                                        else
+                                        inc(ndec);
+                                        gldecOut.Add(TrimLeft(TrimRight(foo)+',B'));
+                                        for j := 0 to 99 do
                                         begin
-                                             // Oh joy.  Time to try for kv.
-                                             kdec := '';
-                                             if FileExists(dmtmpdir+'KVASD.DAT') and glUseKV Then
+                                             if decArray[j] = '' Then
                                              Begin
-                                                  if evalKV(kdec) Then
-                                                  Begin
-                                                       inc(ndec);
-                                                       // Seems I found a kv decode.
-                                                       foo := TrimLeft(TrimRight(foo)) + TrimLeft(TrimRight(kdec));
-                                                       gldecOut.Add(TrimLeft(TrimRight(foo))+',K');
-                                                       for j := 0 to 99 do
-                                                       begin
-                                                            if decArray[j] = '' Then
-                                                            Begin
-                                                                 decArray[j] := TrimLeft(TrimRight(foo))+',K';
-                                                                 break;
-                                                            end;
+                                                  decArray[j] := TrimLeft(TrimRight(foo))+',B';
+                                                  break;
+                                             end;
+                                        end;
+                                   end
+                                   else
+                                   begin
+                                        // Oh joy.  Time to try for kv.
+                                        kdec := '';
+                                        if FileExists(dmtmpdir+'KVASD.DAT') and glUseKV Then
+                                        Begin
+                                             if evalKV(kdec) Then
+                                             Begin
+                                                  inc(ndec);
+                                                  // Seems I found a kv decode.
+                                                  foo := TrimLeft(TrimRight(foo)) + TrimLeft(TrimRight(kdec));
+                                                  gldecOut.Add(TrimLeft(TrimRight(foo))+',K');
+                                                  for j := 0 to 99 do
+                                                  begin
+                                                       if decArray[j] = '' Then
+                                                       Begin
+                                                            decArray[j] := TrimLeft(TrimRight(foo))+',K';
+                                                            break;
                                                        end;
-                                                       try
-                                                          FileUtil.DeleteFileUTF8(dmtmpdir+'KVASD.DAT');
-                                                       except
-                                                          // No action required
-                                                       end;
+                                                  end;
+                                                  try
+                                                     FileUtil.DeleteFileUTF8(dmtmpdir+'KVASD.DAT');
+                                                  except
+                                                     // No action required
                                                   end;
                                              end;
                                         end;
                                    end;
                               end;
-                         End;
+                         end;
+                    end
+                    else
+                    begin
+                         for i := 0 to 100 do
+                         begin
+                              if bins[i] > 0 Then
+                              Begin
+                                   // This bin needs a decode.
+                                   if binspace = 20 Then
+                                   Begin
+                                        if i = 0 Then lmousedf := -1000 else lmousedf := -1000 + (i*20);
+                                   End
+                                   else if binspace = 50 Then
+                                   Begin
+                                        if i = 0 Then lmousedf := -1000 else lmousedf := -1000 + (i*50);
+                                   End
+                                   else if binspace = 100 Then
+                                   Begin
+                                        if i = 0 Then lmousedf := -1000 else lmousedf := -1000 + (i*100);
+                                   End
+                                   else if binspace = 200 Then
+                                   Begin
+                                        if i = 0 Then lmousedf := -1000 else lmousedf := -1000 + (i*200);
+                                   End;
+                                   mousedf2 := lmousedf;
+                                   idf := lmousedf-mousedf2;
+                                   glmline := '                                                                        ';
+                                   bw := binspace;
+                                   // Copy lpfM to f3Buffer
+                                   for j := 0 to jz2-1 do glf2Buffer[j] := gllpfM[j];
+                                   for j := jz2 to length(glf2Buffer)-1 do glf2Buffer[j] := 0.0;
+                                   // Attempting to insure KVASD.DAT does not exist.
+                                   j := 0;
+                                   if FileExists(dmtmpdir+'KVASD.DAT') Then
+                                   Begin
+                                        kvWaste1      := Now;
+                                        repeat
+                                              try
+                                                 FileUtil.DeleteFileUTF8(dmtmpdir+'KVASD.DAT');
+                                              except
+                                                 // No action required
+                                              end;
+                                              inc(j);
+                                        until (j>9) or not FileExists(dmtmpdir+'KVASD.DAT');
+                                        kvWaste2      := Now;
+                                        dmKVWasted := dmKVWasted + MilliSecondSpan(kvWaste1,kvWaste2);
+                                   end;
+                                   if j>0 Then dmKVHangs := dmKVHangs+j;
+                                   if FileExists(dmtmpdir+'KVASD.DAT') Then
+                                   Begin
+                                        kvWaste1      := Now;
+                                        try
+                                           FileUtil.DeleteFileUTF8(dmtmpdir+'KVASD.DAT');
+                                        except
+                                           // No action required
+                                        end;
+                                        try
+                                           FileUtil.DeleteFileUTF8(dmtmpdir+'KVASD.DAT');
+                                        except
+                                           // No action required
+                                        end;
+                                        kvWaste2      := Now;
+                                        dmKVWasted := dmKVWasted + MilliSecondSpan(kvWaste1,kvWaste2);
+                                   end;
+                                   // Call decoder
+                                   cqz65(@glf2Buffer[glSampOffset],@jz2,@bw,@afc,@MouseDF2,@idf,glmline,@lical,glwisfile,glkvfname);
+                                   ifoo := 0;
+                                   foo := '';
+                                   foo := StrPas(glmline);
+                                   if i < 10 then foo := '0' + IntToStr(i) + ',' + foo else foo := IntToStr(i) + ',' + foo;
+                                   if tryStrToInt(ExtractWord(3,foo,CsvDelim),ifoo) Then
+                                   Begin
+                                        if ifoo > 0 Then
+                                        Begin
+                                             if evalBM(foo) Then
+                                             Begin
+                                                  inc(ndec);
+                                                  gldecOut.Add(TrimLeft(TrimRight(foo)+',B'));
+                                                  for j := 0 to 99 do
+                                                  begin
+                                                       if decArray[j] = '' Then
+                                                       Begin
+                                                            decArray[j] := TrimLeft(TrimRight(foo))+',B';
+                                                            break;
+                                                       end;
+                                                  end;
+                                             end
+                                             else
+                                             begin
+                                                  // Oh joy.  Time to try for kv.
+                                                  kdec := '';
+                                                  if FileExists(dmtmpdir+'KVASD.DAT') and glUseKV Then
+                                                  Begin
+                                                       if evalKV(kdec) Then
+                                                       Begin
+                                                            inc(ndec);
+                                                            // Seems I found a kv decode.
+                                                            foo := TrimLeft(TrimRight(foo)) + TrimLeft(TrimRight(kdec));
+                                                            gldecOut.Add(TrimLeft(TrimRight(foo))+',K');
+                                                            for j := 0 to 99 do
+                                                            begin
+                                                                 if decArray[j] = '' Then
+                                                                 Begin
+                                                                      decArray[j] := TrimLeft(TrimRight(foo))+',K';
+                                                                      break;
+                                                                 end;
+                                                            end;
+                                                            try
+                                                               FileUtil.DeleteFileUTF8(dmtmpdir+'KVASD.DAT');
+                                                            except
+                                                               // No action required
+                                                            end;
+                                                       end;
+                                                  end;
+                                             end;
+                                        end;
+                                   end;
+                              End;
+                         end;
+                    end;
+                    j := 0;
+                    // Another layer of being sure KVASD.DAT is gone.
+                    if FileExists(dmtmpdir+'KVASD.DAT') Then
+                    Begin
+                         kvWaste1      := Now;
+                         repeat
+                               try
+                                  FileUtil.DeleteFileUTF8(dmtmpdir+'KVASD.DAT');
+                               except
+                                  // No action required
+                               end;
+                               inc(j);
+                         until (j>9) or not FileExists(dmtmpdir+'KVASD.DAT');
+                         kvWaste2      := Now;
+                         dmKVWasted := dmKVWasted + MilliSecondSpan(kvWaste1,kvWaste2);
+                    end;
+                    if j>0 Then dmKVHangs := dmKVHangs+j;
+                    if FileExists(dmtmpdir+'KVASD.DAT') Then
+                    Begin
+                         kvWaste1      := Now;
+                         try
+                            FileUtil.DeleteFileUTF8(dmtmpdir+'KVASD.DAT');
+                         except
+                            // No action required
+                         end;
+                         try
+                            FileUtil.DeleteFileUTF8(dmtmpdir+'KVASD.DAT');
+                         except
+                            // No action required
+                         end;
+                         kvWaste2      := Now;
+                         dmKVWasted := dmKVWasted + MilliSecondSpan(kvWaste1,kvWaste2);
                     end;
                end;
-               j := 0;
-               // Another layer of being sure KVASD.DAT is gone.
-               if FileExists(dmtmpdir+'KVASD.DAT') Then
-               Begin
-                    kvWaste1      := Now;
-                    repeat
-                          try
-                             FileUtil.DeleteFileUTF8(dmtmpdir+'KVASD.DAT');
-                          except
-                             // No action required
-                          end;
-                          inc(j);
-                    until (j>9) or not FileExists(dmtmpdir+'KVASD.DAT');
-                    kvWaste2      := Now;
-                   dmKVWasted := dmKVWasted + MilliSecondSpan(kvWaste1,kvWaste2);
-              end;
-              if j>0 Then dmKVHangs := dmKVHangs+j;
-              if FileExists(dmtmpdir+'KVASD.DAT') Then
-              Begin
-                   kvWaste1      := Now;
-                   try
-                      FileUtil.DeleteFileUTF8(dmtmpdir+'KVASD.DAT');
-                   except
-                      // No action required
-                   end;
-                   try
-                      FileUtil.DeleteFileUTF8(dmtmpdir+'KVASD.DAT');
-                   except
-                      // No action required
-                   end;
-                   kvWaste2      := Now;
-                   dmKVWasted := dmKVWasted + MilliSecondSpan(kvWaste1,kvWaste2);
-              end;
           end;
      end;
 
