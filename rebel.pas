@@ -154,6 +154,8 @@ Begin
      prLocked    := False;
      prLoopSpeed := '';
      prTXState   := False;
+     prCWID      := '';
+     prCWIDQRG   := 0;
      for i := 0 to 63 do prTXArray[i] := 0;
      prBusy := False;
 End;
@@ -183,38 +185,6 @@ Begin
      // 14076000
      // 14076000 + 718 * (2^28/49999750) = 14076718 * 5.3687359636798183990919954599773 = 75574182.177179045895229476147381 = 75574182
      result := Round((hz+offset) * (268435456/ref));
-end;
-
-function TRebel.doCWID : Boolean;
-Begin
-     // WARNING - this command blocks return until CWID is completed.
-     prBusy := True;
-     // Command 21,string_cwID,integer_TX-TUNING-WORD
-     // String CWID <= 14 Characters!!!!
-     prCWID := TrimLeft(TrimRight(UpCase(prCWID)));
-     if Length(prCWID)>14 Then prCWID := prCWID[1..14];
-     prCommand := '21,' + prCWID + ',' + IntToStr(prCWIDQRG) + ';';  // TX CW Message (prCWID) at QRG prCWIDQRG (as DDS tuning word value)
-     prResponse := '';
-     if ask Then
-     Begin
-          if prResponse='1,' + prCWID + ',' + IntToStr(prCWIDQRG) + ';' Then
-          Begin
-               prTXState := False;
-               result := True;
-          end
-          else
-          Begin
-               Result := False;
-               prError := 'CW ID fails';
-          end;
-     end
-     else
-     begin
-          prTXState := False;
-          result := False;
-          prError := 'Command timeout CW ID';
-     end;
-     prBusy := False;
 end;
 
 function TRebel.ltx : Boolean;
@@ -442,7 +412,7 @@ Begin
           end
           else
           Begin
-               prTXState := False;
+//               prTXState := False;
                Result := False;
                prError := 'Rebel refuses command';
           end;
@@ -798,6 +768,35 @@ Begin
      prBusy := False;
 end;
 
+function TRebel.doCWID : Boolean;
+Begin
+     // FFS!  The CW library on Rebel mandates CWID string be L O W E R case.
+     prBusy := True;
+     // Command 21,string_cwID,integer_TX-TUNING-WORD
+     // String CWID <= 14 Characters!!!!
+     prCWID := LowerCase(TrimLeft(TrimRight(UpCase(prCWID))));
+     prCommand := '21,' + prCWID + ',' + IntToStr(prCWIDQRG) + ';';  // TX CW Message (prCWID) at QRG prCWIDQRG (as DDS tuning word value)
+     prResponse := '';
+     if ask Then
+     Begin
+          if prResponse='1,' + prCWID + ',' + IntToStr(prCWIDQRG) + ';' Then
+          Begin
+               result := True;
+          end
+          else
+          Begin
+               Result := False;
+               prError := 'CW ID fails';
+          end;
+     end
+     else
+     begin
+          result := False;
+          prError := 'Command timeout CW ID';
+     end;
+     prBusy := False;
+end;
+
 end.
 {
   cmdMessenger.attach(OnUnknownCommand);               // Catch all in case of garbage/bad command - does nothing but ignore junk.                                   Command ID
@@ -820,7 +819,7 @@ end.
   cmdMessenger.attach(sTXOff, onSTXOff);               // Stop TX - JT65 or JT9                                                                                         18
   cmdMessenger.attach(sDTXOn, onSDTXOn);               // Begin delayed TX at offset given - JT65                                                                       19
   cmdMessenger.attach(sD9TXOn, onSD9TXOn);             // Begin delayed TX at offset given - JT9                                                                        20
-  cmdMessenger.attach(sDoCWID, onDoCWID);              // Send CW ID with string provided after current JT65 or JT9 TX is completed                                     21
+  cmdMessenger.attach(sDoCWID, onDoCWID);              // Send CW ID with string provided after current JT65 or JT9 TX is completed (14 char max for id)                21
   cmdMessenger.attach(gClearTX, onGClearTX);           // Clear FSK tuning word array - Clears JT9 and JT65 FSK Array                                                   22
   cmdMessenger.attach(sTXFreq, onSTXFreq);             // Request to setup TX array - JT65 or JT9                                                                       23
   cmdMessenger.attach(gLoadTXBlock, onGLoadTXBlock);   // FSK tuning word loader setup - JT65 format                                                                    24

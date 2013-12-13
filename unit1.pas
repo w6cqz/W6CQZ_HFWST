@@ -1,10 +1,9 @@
 { TODO :
 Think about having RX move to keep passband centered for Rebel
-Make logging robust in that it requires data in specific fields
 Add qrg edit/define
 Enhance macro editor
 Begin to graft sound output code in
-Validate prefix/suffix against valid set for V1 (In constant arrays V1PREFIX/V1SUFFIX)
+Fix text being white on white in some choices of decoder output coloring
 
 (Far) Less urgent
 
@@ -18,7 +17,9 @@ worked if in a new one.
 JT9 support
 
 Implement fast decode at working DF - Done (needs testing testing testing)
-Spectrum speed still not always restoring to correct value - Done (needs testing testing testing)
+Make logging robust in that it requires data in specific fields - Done (needs testing testing testing)
+Test and finish CW ID routine for Rebel - Done (needs testing testing testing)
+CWID Is only triggered upon pushing the button that would fire it due to text type - Done (needs testing testing testing)
 
 Shorthand decoder core dumped - Nope. Not doing SH - done with that crap.  Let them scream.
 Expanding on SH stuff.  I *****am not***** adding support for TX of SH messages.  I **may**
@@ -61,11 +62,11 @@ uses
   Classes, SysUtils, FileUtil, Forms, Controls, Graphics, Dialogs, StdCtrls,
   ExtCtrls, Math, StrUtils, CTypes, Windows, lconvencoding, TAGraph, TASeries,
   ComCtrls, EditBtn, DbCtrls, Types, portaudio, adc, spectrum, waterfall1, spot,
-  BufDataset, sqlite3conn, sqldb, valobject, rebel, d65, LResources, blcksock,
-  gettext;
+  BufDataset, sqlite3conn, sqldb, valobject, rebel, d65, LResources, Spin,
+  blcksock, gettext;
 
 Const
-  PVERSION = '0.941'; // Label20 is program name/version as in; HFWST by W6CQZ v0.941 - Phoenix
+  PVERSION = '0.94'; // Label20 is program name/version as in; HFWST by W6CQZ v0.94 - Phoenix
   PRELEASE = 'Phoenix';
 
   JT_DLL = 'JT65v392.dll';
@@ -118,7 +119,6 @@ type
     b73: TButton;
     bACQ: TButton;
     bCQ: TButton;
-    Bevel1: TBevel;
     bnSaveMacro: TButton;
     bQRZ: TButton;
     bReport: TButton;
@@ -132,6 +132,7 @@ type
     edRebRXOffset40: TEdit;
     edRebTXOffset40: TEdit;
     groupRXMode: TRadioGroup;
+    Image2: TImage;
     Label108: TLabel;
     Label109: TLabel;
     Label16: TLabel;
@@ -181,6 +182,8 @@ type
     rbRebBaud9600: TRadioButton;
     rbRebBaud115200: TRadioButton;
     rigCommander: TRadioButton;
+    spinRXDF: TSpinEdit;
+    spinTXDF: TSpinEdit;
     toggleTX: TToggleBox;
     Button10: TButton;
     Button11: TButton;
@@ -204,8 +207,6 @@ type
     cbDefaultsMultiOn: TCheckBox;
     cbNoKV: TCheckBox;
     comboMacroList: TComboBox;
-    edRXDF: TEdit;
-    edTXDF: TEdit;
     edTXMsg: TEdit;
     edTXReport: TEdit;
     edTXtoCall: TEdit;
@@ -390,7 +391,6 @@ type
     procedure audioChange(Sender: TObject);
     procedure bnSaveMacroClick(Sender: TObject);
     procedure btnDoFastClick(Sender: TObject);
-    procedure cbMultiOnChange(Sender: TObject);
     //procedure Chart1DblClick(Sender: TObject);
     procedure doLogQSOClick(Sender: TObject);
     procedure buttonXferMacroClick(Sender: TObject);
@@ -402,12 +402,10 @@ type
     procedure buttonConfigClick(Sender: TObject);
     procedure Button4Click(Sender: TObject);
     procedure comboTTYPortsChange(Sender: TObject);
-    procedure edRXDFChange(Sender: TObject);
-    procedure edRXDFDblClick(Sender: TObject);
-    procedure edTXDFChange(Sender: TObject);
-    procedure edTXDFDblClick(Sender: TObject);
     procedure edTXReportDblClick(Sender: TObject);
     procedure edTXtoCallDblClick(Sender: TObject);
+    procedure Label19DblClick(Sender: TObject);
+    procedure Label79DblClick(Sender: TObject);
     procedure lbFastDecodeDblClick(Sender: TObject);
     procedure lbFastDecodeDrawItem(Control: TWinControl; Index: Integer;
       ARect: TRect; State: TOwnerDrawState);
@@ -423,6 +421,7 @@ type
     procedure ListBox2DblClick(Sender: TObject);
     procedure rbTXEvenChange(Sender: TObject);
     procedure rigControlSet(Sender: TObject);
+    procedure spinTXDFChange(Sender: TObject);
     procedure Timer1Timer(Sender: TObject);
     procedure tbMultiBinChange(Sender: TObject);
     procedure tbSingleBinChange(Sender: TObject);
@@ -589,15 +588,14 @@ var
   thisTXdf       : Integer; // DF for current TX message
   transmitting   : String;  // Holds message currently being transmitted
   transmitted    : String;  // Last message transmitted (used to compare to above for same TX message count)
-  multion        : Boolean; // If multiple decode is on/off
   rxdf,txdf      : CTypes.cint; // Keeps current tx/rx dfs
   dtrejects      : Integer;
   mycall,myscall : String;  // Keeps this stations call and slashed call in order (Same if not a slashed call)
   kvdatdel       : Integer; // Tracing how many calls it takes to delete a stuck KV
   jtencode       : PChar; // To avoid heap error making this global
   jtdecode       : PChar; // To avoid heap error making this global
-  //tx73,txFree    : Boolean; // Flags to determine if last message was a 73 or Free Text for CWID purposes
-  //doCWID         : Boolean; // Set to fire CW ID TX
+  tx73,txFree    : Boolean; // Flags to determine if last message was a 73 or Free Text for CWID purposes
+  doCW           : Boolean; // Set to fire CW ID TX
   mgendf         : String; // TX DF Message was last generated at
   qsycount       : Integer; // Used to delay message regen as a new TX DF is manually entered.
   instance       : Integer; // Allows multiple copies (eventually) to run = 1..4
@@ -845,9 +843,9 @@ Begin
      headerRes := 0;
      lastTXDFMark := -9000;
      lastRXDFMark := -9000;
-     //tx73   := False;
-     //txFree := False;
-     //doCWID := False;
+     tx73   := False;
+     txFree := False;
+     doCW   := False;
      mgendf := '0';
      qsycount := 0;
 
@@ -1284,15 +1282,9 @@ Begin
      d65.dmruntime    := 0.0;
      d65.glbinspace := 100;
      d65.glDFTolerance := 100;
-     If tbMultiBin.Position = 1 then d65.glbinspace := 20;
-     If tbMultiBin.Position = 2 then d65.glbinspace := 50;
-     If tbMultiBin.Position = 3 then d65.glbinspace := 100;
-     If tbMultiBin.Position = 4 then d65.glbinspace := 200;
+     If tbMultiBin.Position = 1 then d65.glbinspace := 20 else If tbMultiBin.Position = 2 then d65.glbinspace := 50 else If tbMultiBin.Position = 3 then d65.glbinspace := 100 else If tbMultiBin.Position = 4 then d65.glbinspace := 200 else d65.glbinspace := 100;
      Label26.Caption := 'Multi BW ' + IntToStr(d65.glbinspace) + ' Hz';
-     If tbSingleBin.Position = 1 then d65.glDFTolerance := 20;
-     If tbSingleBin.Position = 2 then d65.glDFTolerance := 50;
-     If tbSingleBin.Position = 3 then d65.glDFTolerance := 100;
-     If tbSingleBin.Position = 4 then d65.glDFTolerance := 200;
+     If tbSingleBin.Position = 1 then d65.glDFTolerance := 20 else If tbSingleBin.Position = 2 then d65.glDFTolerance := 50 else If tbSingleBin.Position = 3 then d65.glDFTolerance := 100 else If tbSingleBin.Position = 4 then d65.glDFTolerance := 200 else d65.glDFTolerance := 100;
      Label87.Caption := 'Single BW ' + IntToStr(d65.glDFTolerance) + ' Hz';
      if inIcal >-1 then d65.glfftFWisdom := inIcal else d65.glfftFWisdom := 0;
      paActive := False;
@@ -2041,7 +2033,7 @@ Begin
      // Check to see if message needs regen due to TxDF change since last
      if length(edTXMsg.Text)>0 Then
      Begin
-          if mgendf <> edTXDF.Text then
+          if mgendf <> IntToStr(spinTXDF.Value) then
           Begin
                inc(qsycount);
                i := qsycount;
@@ -2049,7 +2041,7 @@ Begin
           if qsycount > 6 Then
           Begin
                // Mark message needing regeneration
-               if tryStrToInt(edTXDF.Text,i) Then genTX(edTXMsg.Text, i+clRebel.txOffset);
+               genTX(edTXMsg.Text, spinTXDF.Value+clRebel.txOffset);
                qsycount := 0;
           end;
      end
@@ -2075,7 +2067,6 @@ Begin
      // fast decode as it will be glinprog = true doing the multi.
      if not d65.glinprog and d65.gld65HaveDecodes Then DisplayDecodes3;
      if cbUseColor.Checked Then lbDecodes.Style := lbOwnerDrawFixed else lbDecodes.Style := lbStandard;
-     multion := cbMultiOn.Checked;
      fs  := '';
      ff  := 0.0;
      fi  := 0;
@@ -2084,8 +2075,8 @@ Begin
      mval.forceDecimalAmer := False;
      mval.forceDecimalEuro := False;
      if mval.evalQRG(fs,'STRICT',ff,fi,fsc) Then qrgValid := True else qrgValid := False;
-     if tryStrToInt(edRXDF.Text,i) Then rxdf := i else rxdf := 0;
-     if tryStrToInt(edTXDF.Text,i) Then txdf := i else txdf := 0;
+     rxdf := spinRXDF.Value;
+     txdf := spinTXDF.Value;
 
      Label121.Caption := 'Decoder Resolution:  ' + IntToStr(d65.glbinspace) + ' Hz';
      if d65.glRunCount < 1 Then
@@ -2181,16 +2172,6 @@ Begin
      end;
 
      spectrum.specColorMap := spColorMap.ItemIndex;
-
-     If tbMultiBin.Position = 1 then d65.glbinspace := 20;
-     If tbMultiBin.Position = 2 then d65.glbinspace := 50;
-     If tbMultiBin.Position = 3 then d65.glbinspace := 100;
-     If tbMultiBin.Position = 4 then d65.glbinspace := 200;
-
-     If tbSingleBin.Position = 1 then d65.glDFTolerance := 20;
-     If tbSingleBin.Position = 2 then d65.glDFTolerance := 50;
-     If tbSingleBin.Position = 3 then d65.glDFTolerance := 100;
-     If tbSingleBin.Position = 4 then d65.glDFTolerance := 200;
 
      spectrum.specSpeed2 := tbWFSpeed.Position;
      spectrum.specColorMap := spColorMap.ItemIndex;
@@ -2331,6 +2312,18 @@ Begin
                     end;
                end;
 
+               doCW := False;
+               if txfree and rbCWIDFree.Checked Then
+               Begin
+                    doCW := True;
+               end;
+               if tx73 and rbCWID73.Checked Then
+               begin
+                    doCW := True;
+               end;
+
+               if valid and doCW and (StrToInt(clRebel.rebVer) >= 1001) Then clRebel.doCWID;
+
                if not valid then
                Begin
                     { TODO : Don't let this continue forever if it fails repeatedly. }
@@ -2398,75 +2391,66 @@ Begin
           end
           else
           begin
-               { TODO : Can do away with this firmware check }
-               // Need firmware >=1000 to do this.
-               if StrToInt(clRebel.rebVer) >= 1000 Then
+               // Late TX start - first see if it could even happen this late.
+               // Not sure I could get here if thisSecond <= 1, but lets be sure.
+               if thisSecond > 1 Then
                Begin
-                    // Late TX start - first see if it could even happen this late.
-                    // Not sure I could get here if thisSecond <= 1, but lets be sure.
-                    if thisSecond > 1 Then
+                    i := lateTXOffset;
+                    if i > -1 Then
                     Begin
-                         i := lateTXOffset;
-                         if i > -1 Then
+                         // Can do.  Send Rebel late TX start command with offset
+                         // to proper symbol to begin TX at.
+                         // Check for repeat TX and case of exceeding watchdog counter for runaway TX
+                         if lastTXMsg = thisTXmsg Then
                          Begin
-                              // Can do.  Send Rebel late TX start command with offset
-                              // to proper symbol to begin TX at.
-                              // Check for repeat TX and case of exceeding watchdog counter for runaway TX
-                              if lastTXMsg = thisTXmsg Then
+                              inc(sameTXCount);
+                              i := -1;
+                              if tryStrToInt(edTXWD.Text,i) Then
                               Begin
-                                   inc(sameTXCount);
-                                   i := -1;
-                                   if tryStrToInt(edTXWD.Text,i) Then
+                                   if i > 0 Then
                                    Begin
-                                        if i > 0 Then
+                                        if sameTXCount > i-1 Then
                                         Begin
-                                             if sameTXCount > i-1 Then
-                                             Begin
-                                                  toggleTX.Checked := False;
-                                                  toggleTX.state := cbUnchecked;
-                                                  lastTXMsg := '';
-                                                  sameTXCount := 0;
-                                                  lbDecodes.Items.Insert(0,'Notice: Same TX Message ' + edTXWD.Text + ' times.  TX is OFF');
-                                             end;
+                                             toggleTX.Checked := False;
+                                             toggleTX.state := cbUnchecked;
+                                             lastTXMsg := '';
+                                             sameTXCount := 0;
+                                             lbDecodes.Items.Insert(0,'Notice: Same TX Message ' + edTXWD.Text + ' times.  TX is OFF');
                                         end;
                                    end;
-                              end
-                              else
-                              begin
-                                   lastTXMsg := thisTXmsg;
-                                   sameTXCount := 0;
-                              end;
-                              //ListBox2.Items.Insert(0,'TX On at offset = ' + IntToStr(i));
-                              clRebel.lateOffset := i;
-                              // PTT on
-                              clRebel.latePTTOn;
-                              if not clRebel.txStat Then
-                              Begin
-                                   // If for some reason it didn't enter TX clear the TX request
-                                   // It will be reset if necessary and attempt again.
-                                   txInProgress := false;
-                              end
-                              else
-                              begin
-                                   // Indicate TX triggered during this minute
-                                   didTX := True;
-                                   // Indicate it is in TX
-                                   Image1.Picture.LoadFromLazarusResource('transmit');
-                                   transmitting := thisTXmsg;
-                                   // Double checking to clear Late TX offset value
-                                   clRebel.lateOffset := 0;
                               end;
                          end
                          else
                          begin
-                              // Was too late
-                              lbDecodes.Items.Insert(0,'Notice: Too late for TX to start');
+                              lastTXMsg := thisTXmsg;
+                              sameTXCount := 0;
                          end;
+                         //ListBox2.Items.Insert(0,'TX On at offset = ' + IntToStr(i));
+                         clRebel.lateOffset := i;
+                         // PTT on
+                         clRebel.latePTTOn;
+                         if not clRebel.txStat Then
+                         Begin
+                              // If for some reason it didn't enter TX clear the TX request
+                              // It will be reset if necessary and attempt again.
+                              txInProgress := false;
+                         end
+                         else
+                         begin
+                              // Indicate TX triggered during this minute
+                              didTX := True;
+                              // Indicate it is in TX
+                              Image1.Picture.LoadFromLazarusResource('transmit');
+                              transmitting := thisTXmsg;
+                              // Double checking to clear Late TX offset value
+                              clRebel.lateOffset := 0;
+                         end;
+                    end
+                    else
+                    begin
+                         // Was too late
+                         lbDecodes.Items.Insert(0,'Notice: Too late for TX to start');
                     end;
-               end
-               else
-               begin
-                    ListBox2.Items.Insert(0,'Rebel firmware not late TX capable');
                end;
           end;
      end;
@@ -2478,7 +2462,14 @@ Begin
           if not clRebel.txStat And not d65.glinprog Then Image1.Picture.LoadFromLazarusResource('receive');
      end;
 
-     if (thisSecond=48) and clRebel.txStat and (not clRebel.busy) Then
+     if (thisSecond=48) and (not doCW) and clRebel.txStat and (not clRebel.busy) Then
+     Begin
+          clRebel.pttOff;
+          txInProgress := False;
+          transmitting := '';
+     end;
+
+     if (thisSecond=55) and doCW and clRebel.txStat and (not clRebel.busy) Then
      Begin
           clRebel.pttOff;
           txInProgress := False;
@@ -2602,7 +2593,7 @@ Begin
           //d65.dmtimestamp := d65.dmtimestamp + '00';
           //if thisUTC.Hour < 10 then d65.gld65timestamp := '0' + IntToStr(thisUTC.Hour) else d65.gld65timestamp := IntToStr(thisUTC.Hour);
           //if thisUTC.Minute < 10 then d65.gld65timestamp := d65.gld65timestamp + ':0' + IntToStr(thisUTC.Minute) else d65.gld65timestamp := d65.gld65timestamp + ':' + IntToStr(thisUTC.Minute);
-          if multion then
+          if cbMultiOn.Checked then
           Begin
                glSteps := 1;
                d65.glMouseDF := 0;
@@ -2641,7 +2632,19 @@ Begin
           end;
      end;
 
-     if cbTXEqRXDF.Checked And (edTXDF.Text <> edRXDF.Text) Then edTXDF.Text := edRXDF.Text;
+     if cbTXEqRXDF.Checked And (spinTXDF.Value <> spinRXDF.Value) Then spinTXDF.Value := spinRXDF.Value;
+     if cbTXeqRXDF.Checked Then
+     Begin
+          spinTXDF.Visible := False;
+          Label19.Visible := False;
+          Label79.Caption := 'RX/TX DF';
+     end
+     else
+     begin
+          spinTXDF.Visible := True;
+          Label19.Visible := True;
+          Label79.Caption := 'RX DF';
+     end;
 end;
 
 procedure TForm1.OncePerSecond;
@@ -2720,21 +2723,21 @@ Begin
                // workingDF is RXDF if matching (cbTXeqRXDF) enabled and TXDF otherwise.
                // workingDF is set here and HERE only and comes from reading the RXDF
                // box.
-               if tryStrToInt(edRXDF.Text,i) Then workingDF := i else workingDF := 0;
+               workingDF := spinRXDF.Value;
                if (workingDF < -1150) or (workingDF > 1150) Then workingDF := 0;
-               edRXDF.Text := IntToStr(workingDF);
+               spinRXDF.Value := workingDF;
                glSteps := 0;
-               //If tbSingleBin.Position = 1 then d65.glDFTolerance := 20 else if tbSingleBin.Position = 2 then d65.glDFTolerance := 50 else If tbSingleBin.Position = 3 then d65.glDFTolerance := 100 else If tbSingleBin.Position = 4 then d65.glDFTolerance := 200 else d65.glDFTolerance := 100;
                { TODO : Investigate issue with fail on 20 Hz BW single decode }
                // Not sure why yet but at 20 Hz single I'm seeing too many fails.  Locking to 50
-               d65.glDFTolerance := 50;
+               //d65.glDFTolerance := 50;
+               If tbSingleBin.Position = 1 then d65.glDFTolerance := 20 else If tbSingleBin.Position = 2 then d65.glDFTolerance := 50 else If tbSingleBin.Position = 3 then d65.glDFTolerance := 100 else If tbSingleBin.Position = 4 then d65.glDFTolerance := 200 else d65.glDFTolerance := 100;
                d65.glMouseDF := workingDF;
-               Memo2.Lines.Insert(0,'Fast decode set for ' + IntToStr(d65.glMouseDF) + ' Hz @ ' + IntToStr(d65.glDFTolerance) + ' BW');
+               //Memo2.Lines.Insert(0,'Fast decode set for ' + IntToStr(d65.glMouseDF) + ' Hz @ ' + IntToStr(d65.glDFTolerance) + ' BW');
                runDecode := True;
           end
           else
           begin
-               if multion then
+               if cbMultiOn.Checked then
                Begin
                     glSteps := 1;
                     d65.glMouseDF := 0;
@@ -2744,7 +2747,7 @@ Begin
                begin
                     glSteps := 0;
                     d65.glMouseDF := rxdf;
-                    If tbMultiBin.Position = 1 then d65.glbinspace := 20 else If tbMultiBin.Position = 2 then d65.glbinspace := 50 else If tbMultiBin.Position = 3 then d65.glbinspace := 100 else If tbMultiBin.Position = 4 then d65.glbinspace := 200 else d65.glbinspace := 100;
+                    If tbSingleBin.Position = 1 then d65.glDFTolerance := 20 else If tbSingleBin.Position = 2 then d65.glDFTolerance := 50 else If tbSingleBin.Position = 3 then d65.glDFTolerance := 100 else If tbSingleBin.Position = 4 then d65.glDFTolerance := 200 else d65.glDFTolerance := 100;
                end;
                runDecode    := True;
           end;
@@ -2824,7 +2827,8 @@ Begin
      end;
 
      // Overkill but lets be sure
-     if thisSecond = 48 then txInProgress := False;
+     if (not doCW) and (thisSecond = 48) then txInProgress := False;
+     if doCW and (thisSecond = 55) then txInProgress := False;
 
      // Frame progress indicator
      if (thisSecond < 48) Then ProgressBar1.Position := thisSecond;
@@ -2841,7 +2845,7 @@ Begin
      if thisUTC.Minute < 10 Then foo := foo + '0' + IntToStr(thisUTC.Minute) + ':' else foo := foo + IntToStr(thisUTC.Minute) + ':';
      if thisUTC.Second < 10 Then foo := foo + '0' + IntToStr(thisUTC.Second) else foo := foo + IntToStr(thisUTC.Second);
      Label15.Caption :=  foo;
-     Label44.Caption := FormatDateTime(dateString,now);
+     Label44.Caption := FormatDateTime(dateString,SystemTimeToDateTime(thisUTC));
 
      // Ping RB Server to keep alive on minutes 0,5,10,15,20,25,30,35,40,45,50,55 at 15 seconds
      if (thisSecond = 15) and (thisUTC.Minute MOD 5 = 0) Then
@@ -2966,8 +2970,8 @@ Begin
                ListBox2.Items.Insert(0,'QSY to ' + IntToStr(qsyQRG) + ' complete');
                // CLEAR the TX message on a QSY to force a renegeration
                edTXMsg.Text := '';
-               edRXDF.Text := '0';
-               edTXDF.Text := '0';
+               spinRXDF.Value := 0;
+               spinTXDF.Value := 0;
                edDialQRG.Text := IntToStr(qsyQRG);
                readQRG := False;
                setQRG := False;
@@ -3035,7 +3039,6 @@ Begin
           end;
      end;
 
-     //if cbMultiOn.Checked Then edRXDF.Text := '0';
      specHeader;  // Update spectrum display header
 
      //workingDF      : Integer = 0; // Will use this to track where user is working for a fast decode at the single point (eventually)
@@ -3056,8 +3059,8 @@ Begin
 
      if not doFastDecode Then btnClearDecodesFast.Visible := False else btnClearDecodesFast.Visible := True;
 
-     if doFastDecode and (btnDoFast.Caption <> 'Disable Fast Single Decode') Then btnDoFast.Caption := 'Disable Fast Single Decode';
-     if (not doFastDecode) and (btnDoFast.Caption <> 'Enable Fast Single Decode') Then btnDoFast.Caption := 'Enable Fast Single Decode';
+     if doFastDecode and (btnDoFast.Caption <> 'Close Fast Single Decode') Then btnDoFast.Caption := 'Close Fast Single Decode';
+     if (not doFastDecode) and (btnDoFast.Caption <> 'Open Fast Single Decode') Then btnDoFast.Caption := 'Open Fast Single Decode';
 
      if doFastDecode and cbMultiOn.Checked and (lbDecodes.Top <> 408) Then
      Begin
@@ -3086,8 +3089,16 @@ Begin
 
      if cbMultiOn.Checked Then
      Begin
-          Label87.Visible := False;
-          tbSingleBin.Visible := False;
+          if not doFastDecode Then
+          Begin
+               Label87.Visible := False;
+               tbSingleBin.Visible := False;
+          end
+          else
+          begin
+               Label87.Visible := True;
+               tbSingleBin.Visible := True;
+          end;
      end
      else
      begin
@@ -3209,35 +3220,42 @@ end;
 procedure TForm1.specHeader;
 Var
    i,ii,txHpix : Integer;
-   cfPix       : Integer;
+   cfPix,j,k   : Integer;
    floatVar    : Single;
 Begin
-     If not TryStrToInt(edTXDF.Text,i) Then i := -9000;
-     If not TryStrToInt(edRXDF.Text,ii) Then ii := -9000;
+     i  := spinTXDF.Value;
+     ii := spinRXDF.Value;
      if (i>-9000) and (ii>-9000) Then
      Begin
           // Reload header Paint the TX/RX Markers.  RX Marker is not painted unless in single decode mode.
           paintbox1.Canvas.Clear;
-          if (d65.glbinspace = 0) or (d65.glbinspace = 20) Then
+          if cbMultiOn.Checked and (not doFastDecode) Then
           Begin
-               paintBox1.Canvas.Draw(0,0,B20);
-          end
-          else if d65.glbinspace = 50 then
-          begin
-               paintBox1.Canvas.Draw(0,0,B50);
+               if (d65.glbinspace = 0) or (d65.glbinspace = 20) Then
+               Begin
+                    paintBox1.Canvas.Draw(0,0,B20);
+               end
+               else if d65.glbinspace = 50 then
+               begin
+                    paintBox1.Canvas.Draw(0,0,B50);
 
-          end
-          else if d65.glbinspace = 100 then
-          begin
-               paintBox1.Canvas.Draw(0,0,B100);
-          end
-          else if d65.glbinspace = 200 then
-          begin
-               paintBox1.Canvas.Draw(0,0,B200);
+               end
+               else if d65.glbinspace = 100 then
+               begin
+                    paintBox1.Canvas.Draw(0,0,B100);
+               end
+               else if d65.glbinspace = 200 then
+               begin
+                    paintBox1.Canvas.Draw(0,0,B200);
+               end
+               else
+               begin
+                    paintBox1.Canvas.Draw(0,0,B20);
+               end;
           end
           else
           begin
-               paintBox1.Canvas.Draw(0,0,B20);
+               paintBox1.Canvas.Draw(0,0,B200);
           end;
 
           if i <> 0 Then
@@ -3266,23 +3284,76 @@ Begin
                PaintBox1.Canvas.Line(txHpix,1,txHpix,7);
                PaintBox1.Canvas.Line(cfPix,1,txHpix,1);
           end;
-          if ii <> 0 Then
+
+          if cbMultiOn.Checked Then
           Begin
-               //floatVar := ii / 2.7027;
-               floatVar := ii / (11025.0/4096.0);
-               floatVar := 376+floatVar;
-               cfPix := Round(floatVar)-1;
-               if cfPix < 0 then cfpix := 0;
-               PaintBox1.Canvas.Pen.Color := clGreen;
-               PaintBox1.Canvas.Pen.Width := 5;
-               PaintBox1.Canvas.Line(cfpix,1,cfpix,7);
+               if doFastDecode Then
+               Begin
+                    if ii <> 0 Then
+                    Begin
+                         floatVar := ii / (11025.0/4096.0);
+                         floatVar := 376+floatVar;
+                         cfPix := Round(floatVar)-1;
+                         if cfPix < 0 then cfpix := 0;
+                         PaintBox1.Canvas.Pen.Color := clGreen;
+                         PaintBox1.Canvas.Pen.Width := 2;
+                         // glDFTolerance single decode tolerance
+                         { TODO : Fix this once I unlock fast decode tolerance from 50 Hz }
+                         j := Round((d65.glDFTolerance/2.0)/(11025.0/4096.0));
+                         k := cfpix + j;
+                         j := cfpix - j;
+                         if j < 0 then
+                         begin
+                              j := 0;
+                              k := j + Round(25.0/(11025.0/4096.0));
+                         end;
+                    end
+                    else
+                    begin
+                         cfPix := 376;
+                         PaintBox1.Canvas.Pen.Color := clGreen;
+                         PaintBox1.Canvas.Pen.Width := 2;
+                         j := Round((d65.glDFTolerance/2.0)/(11025.0/4096.0));
+                         k := cfpix + j;
+                         j := cfpix - j;
+                    end;
+                    PaintBox1.Canvas.Line(j,5,k,5);
+                    PaintBox1.Canvas.Line(j,4,j,11);
+                    PaintBox1.Canvas.Line(k,5,k,11);
+               end;
           end
           else
           begin
-               cfPix := 376;
-               PaintBox1.Canvas.Pen.Color := clGreen;
-               PaintBox1.Canvas.Pen.Width := 5;
-               PaintBox1.Canvas.Line(cfpix,1,cfpix,7);
+               if ii <> 0 Then
+               Begin
+                    floatVar := ii / (11025.0/4096.0);
+                    floatVar := 376+floatVar;
+                    cfPix := Round(floatVar)-1;
+                    if cfPix < 0 then cfpix := 0;
+                    PaintBox1.Canvas.Pen.Color := clGreen;
+                    PaintBox1.Canvas.Pen.Width := 2;
+                    // glDFTolerance single decode tolerance
+                    j := Round((d65.glDFTolerance/2.0)/(11025.0/4096.0));
+                    k := cfpix + j;
+                    j := cfpix - j;
+                    if j < 0 then
+                    begin
+                         j := 0;
+                         k := j + Round((d65.glDFTolerance/2.0)/(11025.0/4096.0));
+                    end;
+               end
+               else
+               begin
+                    cfPix := 376;
+                    PaintBox1.Canvas.Pen.Color := clGreen;
+                    PaintBox1.Canvas.Pen.Width := 2;
+                    j := Round((d65.glDFTolerance/2.0)/(11025.0/4096.0));
+                    k := cfpix + j;
+                    j := cfpix - j;
+               end;
+               PaintBox1.Canvas.Line(j,5,k,5);
+               PaintBox1.Canvas.Line(j,4,j,11);
+               PaintBox1.Canvas.Line(k,5,k,11);
           end;
           lastTXDFMark := i;
           lastRXDFMark := ii;
@@ -3493,19 +3564,13 @@ end;
 
 procedure TForm1.tbMultiBinChange(Sender: TObject);
 begin
-     If tbMultiBin.Position = 1 then d65.glbinspace := 20;
-     If tbMultiBin.Position = 2 then d65.glbinspace := 50;
-     If tbMultiBin.Position = 3 then d65.glbinspace := 100;
-     If tbMultiBin.Position = 4 then d65.glbinspace := 200;
+     If tbMultiBin.Position = 1 then d65.glbinspace := 20 else If tbMultiBin.Position = 2 then d65.glbinspace := 50 else If tbMultiBin.Position = 3 then d65.glbinspace := 100 else If tbMultiBin.Position = 4 then d65.glbinspace := 200 else d65.glbinspace := 100;
      Label26.Caption := 'Multi BW ' + IntToStr(d65.glbinspace) + ' Hz';
 end;
 
 procedure TForm1.tbSingleBinChange(Sender: TObject);
 begin
-     If tbSingleBin.Position = 1 then d65.glDFTolerance := 20;
-     If tbSingleBin.Position = 2 then d65.glDFTolerance := 50;
-     If tbSingleBin.Position = 3 then d65.glDFTolerance := 100;
-     If tbSingleBin.Position = 4 then d65.glDFTolerance := 200;
+     If tbSingleBin.Position = 1 then d65.glDFTolerance := 20 else If tbSingleBin.Position = 2 then d65.glDFTolerance := 50 else If tbSingleBin.Position = 3 then d65.glDFTolerance := 100 else If tbSingleBin.Position = 4 then d65.glDFTolerance := 200 else d65.glDFTolerance := 100;
      Label87.Caption := 'Single BW ' + IntToStr(d65.glDFTolerance) + ' Hz';
 end;
 
@@ -4019,6 +4084,9 @@ Var
   gonogo    : Boolean;
   toparse   : String;
 Begin
+     txfree := False;
+     tx73 := False;
+     doCW := False;
      gonogo   := False;
      isValid  := False;
      isBreakIn := False;
@@ -4171,6 +4239,9 @@ Var
    siglevel     : String;
 Begin
      // Handles message parsing and response generation for strict JT65V1 compliance }
+     tx73 := False;
+     txfree := False;
+     doCW := False;
      isValid   := False;
      isBreakin := True;
      level     := 1;
@@ -4274,6 +4345,8 @@ Begin
 
                          response  := connectTo + ' ' + TrimLeft(TrimRight(UpCase(myscall)));
                          isBreakIn := False;
+                         tx73 := False;
+                         txfree := False;
                     end;
                end;
 
@@ -4310,6 +4383,8 @@ Begin
                               response  := connectTo + ' ' + siglevel;
                               isBreakIn := True;
                               logGrid.Text := '';
+                              tx73 := False;
+                              txfree := False;
                          end;
                     end;
                end;
@@ -4340,6 +4415,8 @@ Begin
                               begin
                                    response := TrimLeft(TrimRight(UpCase(myscall))) + ' 73';  // This is a *CHANGE* from former way where it was HISCALL 73
                               end;
+                              tx73 := True;
+                              txfree := False;
                          end
                          else if nc2[1] = '-' Then
                          begin
@@ -4349,6 +4426,8 @@ Begin
                               isBreakIn := False;
                               response := connectedTo + ' R' + sigLevel;
                               logMySig.Text := nc2;
+                              tx73 := False;
+                              txfree := False;
                          end
                          else if nc2[1..2] = 'R-' Then
                          Begin
@@ -4358,12 +4437,16 @@ Begin
                               isBreakIn := False;
                               response := connectedTo + ' RRR';
                               logMySig.Text := nc2[2..Length(nc2)];
+                              tx73 := False;
+                              txfree := False;
                          end
                          else
                          begin
                               response  := '';
                               isValid   := False;
                               lbDecodes.Items.Insert(0,'Notice: No response calculated');
+                              tx73 := False;
+                              txfree := False;
                          end;
                     end
                     else
@@ -4373,6 +4456,8 @@ Begin
                          fullCall  := '';
                          connectTo := '';
                          lbDecodes.Items.Insert(0,'Notice: No response calculated');
+                         tx73 := False;
+                         txfree := False;
                     end;
                end;
           end;
@@ -4394,6 +4479,8 @@ Begin
                     logGrid.Text := '';
                     lbDecodes.Items.Insert(0,'Notice: both calls to have /');
                     lbDecodes.Items.Insert(0,'Notice: JT65V1 does not allow');
+                    tx73 := False;
+                    txfree := False;
                end
                else
                begin
@@ -4403,6 +4490,8 @@ Begin
                     hisGrid   := ng;
                     isBreakIn := False;
                     logGrid.Text := ng;
+                    tx73 := False;
+                    txfree := False;
 
                     if isSlashedCall(myscall) Then
                     Begin
@@ -4426,6 +4515,8 @@ Begin
                     connectTo := '';
                     lbDecodes.Items.Insert(0,'Notice: both calls to have /');
                     lbDecodes.Items.Insert(0,'Notice: JT65V1 does not allow');
+                    tx73 := False;
+                    txfree := False;
                end
                else
                begin
@@ -4438,6 +4529,8 @@ Begin
                          hisGrid   := ng;
                          isBreakIn := False;
                          logGrid.Text := ng;
+                         tx73 := False;
+                         txfree := False;
 
                          if isSlashedCall(myscall) Then
                          Begin
@@ -4457,6 +4550,8 @@ Begin
                          hisGrid   := ng;
                          isBreakIn := True;
                          logGrid.Text := ng;
+                         tx73 := False;
+                         txfree := False;
 
                          if isSlashedCall(myscall) Then
                          Begin
@@ -4481,6 +4576,8 @@ Begin
                     connectTo := '';
                     lbDecodes.Items.Insert(0,'Notice: both calls to have /');
                     lbDecodes.Items.Insert(0,'Notice: JT65V1 does not allow');
+                    tx73 := False;
+                    txfree := False;
                end
                else
                begin
@@ -4501,10 +4598,14 @@ Begin
                                    begin
                                         response := TrimLeft(TrimRight(UpCase(myscall))) + ' 73';  // This is a *CHANGE* from former way where it was HISCALL 73
                                    end;
+                                   tx73 := True;
+                                   txfree := False;
                               end
                               else
                               begin
                                    response := connectTo + ' ' + TrimLeft(TrimRight(UpCase(myscall))) + ' 73';
+                                   tx73 := True;
+                                   txfree := False;
                               end;
                          end
                          else if ng[1]='-' Then
@@ -4516,6 +4617,8 @@ Begin
                               fullCall  := connectTo;
                               isBreakIn := False;
                               logMySig.Text := ng;
+                              tx73 := False;
+                              txfree := False;
 
                               if isSlashedCall(myscall) Then
                               Begin
@@ -4535,6 +4638,8 @@ Begin
                               fullCall  := connectTo;
                               isBreakIn := False;
                               logMySig.Text := ng[2..Length(ng)];
+                              tx73 := False;
+                              txfree := False;
 
                               if isSlashedCall(myscall) Then
                               Begin
@@ -4554,6 +4659,8 @@ Begin
                          connectTo := TrimLeft(TrimRight(UpCase(nc2)));
                          fullCall  := connectTo;
                          isBreakIn := True;
+                         tx73 := False;
+                         txfree := False;
 
                          if isSlashedCall(myscall) Then
                          Begin
@@ -4693,8 +4800,8 @@ begin
 
                if cbTXeqRXDF.Checked Then
                Begin
-                    edTXDF.Text := sdf;
-                    edRXDF.Text := sdf;
+                    spinTXDF.Value := StrToInt(sdf);
+                    spinRXDF.Value := spinTXDF.Value;
                     doFastDecode := True;
                end
                else
@@ -4946,6 +5053,31 @@ begin
      if Sender = tbWFSpeed Then
      Begin
           spectrum.specSpeed2 := tbWFSpeed.Position;
+     end;
+end;
+
+procedure TForm1.spinTXDFChange(Sender: TObject);
+Var
+   i : Integer;
+begin
+     // Need to (maybe) regenerate message
+     i := spinTXDF.Value;
+     if (i > 1050) or (i < -1050) Then
+     Begin
+          if i > 1050 Then i := 1050;
+          if i < -1050 Then i := -1050;
+          spinTXDF.Value := i;
+          edTXMsg.Text := '';
+          thisTXMsg := '';
+     end
+     else
+     begin
+          if isFText(edTXMsg.Text) or isSText(edTXMsg.Text) Then
+          Begin
+               thisTXMsg := edTXMsg.Text;
+               //genTX(thisTXmsg, i+clRebel.txOffset);
+               edTXMsg.Text := thisTXmsg; // this double checks for valid message.
+          end;
      end;
 end;
 
@@ -5507,9 +5639,28 @@ begin
           txDirty := True;  // Flag to force an update to the FSK TX
           txValid := True;
           mgendf := IntToStr(txdf-clRebel.txOffset);
-          if edTXDF.Text <> mgendf Then edTXDF.Text := mgendf;
-          Memo2.Append('Msg: ' + TrimLeft(TrimRight(foo)) + ' DF ' + edTXDF.Text + ' ' + FormatFloat('########.##',baseTX-clRebel.txOffset) + ' Hz');
-
+          { TODO : LOOK at this }
+          if spinTXDF.Value <> txdf-clRebel.txOffset Then spinTXDF.Value := txdf-clRebel.txOffset;
+          if doCW Then
+          Begin
+               clRebel.cwidqrg := rebelTuning(baseTX);
+               if length(edCWID.Text) > 2 Then
+               Begin
+                    clRebel.cwid := 'DE ' + edCWID.Text;
+                    if length(clRebel.cwid) > 14 Then clRebel.cwid := edCWID.Text;
+               end
+               else
+               begin
+                    clRebel.cwid := 'DE ' + myscall;
+                    if length(clRebel.cwid) > 14 Then clRebel.cwid := myscall;
+               end;
+               if (length(clRebel.cwid) > 14) or (length(clRebel.cwid)<3) Then doCW := False;
+               if doCW Then Memo2.Append('Msg: ' + TrimLeft(TrimRight(foo)) + ' @ ' + FormatFloat('########.##',baseTX-clRebel.txOffset) + ' Hz (Sync) + CWID:  ' + clRebel.cwid);
+          end
+          else
+          begin
+               Memo2.Append('Msg: ' + TrimLeft(TrimRight(foo)) + ' @ ' + FormatFloat('########.##',baseTX-clRebel.txOffset) + ' Hz (Sync)');
+          end;
      end;
 end;
 
@@ -5545,8 +5696,9 @@ end;
 procedure TForm1.mgenClick(Sender: TObject);
 Var
    foo : String;
-   i   : Integer;
 begin
+     txfree := False;
+     tx73 := False;
      lastTXMsg := '';
      sameTXCount := 0;
      thisTXmsg := '';
@@ -5570,36 +5722,24 @@ begin
           Begin
                if isSlashedCall(myscall) Then thisTXmsg := 'CQ ' + thisTXCall else thisTXmsg := 'CQ ' + thisTXCall + ' ' + getLocalGrid;
                edTXMsg.Text := thisTXmsg;
-               if tryStrToInt(edTXDF.Text,i) Then
-               Begin
-                    edRXDF.Text := edTXDF.Text;
-                    doFastDecode := True;
-               end
-               else
-               begin
-                    edTXDF.Text := '0';
-                    edRXDF.Text := edTXDF.Text;
-               end;
+               spinRXDF.Value := spinTXDF.Value;
+               doFastDecode := True;
                // Not sure this is best idea... but when calling CQ one should not move.
                cbTXeqRXDF.Checked := False;
+               tx73 := False;
+               txfree := False;
           end;
 
           if Sender = bQRZ Then
           Begin
                if isSlashedCall(myscall) Then thisTXmsg := 'QRZ ' + thisTXCall else thisTXmsg := 'QRZ ' + thisTXCall + ' ' + getLocalGrid;
                edTXMsg.Text := thisTXmsg;
-               if tryStrToInt(edTXDF.Text,i) Then
-               Begin
-                    edRXDF.Text := edTXDF.Text;
-                    doFastDecode := True;
-               end
-               else
-               begin
-                    edRXDF.Text := edTXDF.Text;
-                    workingDF := 0;
-               end;
+               spinRXDF.Value := spinTXDF.Value;
+               doFastDecode := True;
                // Not sure this is best idea... but when calling CQ one should not move.
                cbTXeqRXDF.Checked := False;
+               tx73 := False;
+               txfree := False;
           end;
 
           if Sender = bACQ Then
@@ -5645,6 +5785,8 @@ begin
                          lbDecodes.Items.Insert(0,'Notice: TX to Call does not compute');
                     end;
                end;
+               tx73 := False;
+               txfree := False;
           end;
 
           if Sender = bReport Then
@@ -5691,6 +5833,8 @@ begin
                          end;
                     end;
                end;
+               tx73 := False;
+               txfree := False;
           end;
 
           if Sender = bRReport Then
@@ -5735,6 +5879,8 @@ begin
                          end;
                     end;
                end;
+               tx73 := False;
+               txfree := False;
           end;
 
           if Sender = bRRR Then
@@ -5768,6 +5914,8 @@ begin
                          lbDecodes.Items.Insert(0,'Notice: TX to Call does not compute');
                     end;
                end;
+               tx73 := False;
+               txfree := False;
           end;
 
           if Sender = b73 Then
@@ -5800,12 +5948,14 @@ begin
                          lbDecodes.Items.Insert(0,'Notice: TX to Call does not compute');
                     end;
                end;
-               //if rbCWID73.Checked Then doCWID := True else doCWID := False;
+               tx73 := True;
+               txfree := False;
+               if rbCWID73.Checked Then doCW := True else doCW := False;
           end;
           // Final QC check
           if length(thisTXmsg)>1 Then
           Begin
-               if (isFText(thisTXmsg) or isSText(thisTXmsg)) and tryStrToInt(edTXDF.Text,i) Then genTX(thisTXmsg, StrToInt(edTXDF.Text)+clRebel.txOffset) else thisTXmsg := '';
+               if (isFText(thisTXmsg) or isSText(thisTXmsg)) Then genTX(thisTXmsg, spinTXDF.Value+clRebel.txOffset) else thisTXmsg := '';
                edTXMsg.Text := thisTXmsg; // this double checks for valid message.
                if thisTXMsg = '' Then ShowMessage('Error.. odd... no message from a button?  Please tell W6CQZ');
           end;
@@ -5825,50 +5975,9 @@ end;
 
 procedure TForm1.edTXMsgDblClick(Sender: TObject);
 begin
+     txFree := False;
+     tx73 := False;
      edTXMsg.Clear;
-end;
-
-procedure TForm1.edRXDFChange(Sender: TObject);
-begin
-     //if cbTXeqRXDF.Checked Then edTXDF.Text := edRXDF.Text;
-end;
-
-procedure TForm1.edRXDFDblClick(Sender: TObject);
-begin
-     edRXDF.Text := '0';
-end;
-
-procedure TForm1.edTXDFChange(Sender: TObject);
-Var
-   i : Integer;
-begin
-     // Need to (maybe) regenerate message
-     i := 0;
-     if tryStrToInt(edTXDF.Text,i) Then
-     Begin
-          if (i > 1050) or (i < -1050) Then
-          Begin
-               if i > 1050 Then i := 1050;
-               if i < -1050 Then i := -1050;
-               edTXDF.Text := IntToStr(i); // Hopefully this doesn't create a loop....
-               edTXMsg.Text := '';
-               thisTXMsg := '';
-          end
-          else
-          begin
-               if isFText(edTXMsg.Text) or isSText(edTXMsg.Text) Then
-               Begin
-                    thisTXMsg := edTXMsg.Text;
-                    //genTX(thisTXmsg, i+clRebel.txOffset);
-                    edTXMsg.Text := thisTXmsg; // this double checks for valid message.
-               end;
-          end;
-     end;
-end;
-
-procedure TForm1.edTXDFDblClick(Sender: TObject);
-begin
-     edTXDF.Text := '0';
 end;
 
 procedure TForm1.edTXReportDblClick(Sender: TObject);
@@ -5879,6 +5988,16 @@ end;
 procedure TForm1.edTXtoCallDblClick(Sender: TObject);
 begin
      edTXtoCall.Text := '';
+end;
+
+procedure TForm1.Label19DblClick(Sender: TObject);
+begin
+     spinTXDF.Value := 0;
+end;
+
+procedure TForm1.Label79DblClick(Sender: TObject);
+begin
+     spinRXDF.Value := 0;
 end;
 
 procedure TForm1.lbFastDecodeDblClick(Sender: TObject);
@@ -5932,12 +6051,12 @@ begin
                edTXReport.Text := sdb;
                if cbTXeqRXDF.Checked Then
                Begin
-                    edTXDF.Text := sdf;
-                    edRXDF.Text := sdf;
+                    spinTXDF.Value := StrToInt(sdf);
+                    spinRXDF.Value := spinTXDF.Value;
                end
                else
                begin
-                    sdf := edTXDF.Text;
+                    sdf := IntToStr(spinTXDF.Value);
                end;
 
                if isFText(response) or isSText(response) Then
@@ -6402,28 +6521,17 @@ begin
 end;
 
 procedure TForm1.btnDoFastClick(Sender: TObject);
-Var
-   i : Integer;
 begin
      if doFastDecode then
      Begin
           doFastDecode := False;
           btnClearDecodesFast.Visible := False;
-          if not tryStrToInt(edRXDF.Text,i) Then edRXDF.Text := '0';
-          if not tryStrToInt(edTXDF.Text,i) Then edTXDF.Text := '0';
      end
      else
      begin
           doFastDecode := True;
           btnClearDecodesFast.Visible := true;
-          if not tryStrToInt(edRXDF.Text,i) Then edRXDF.Text := '0';
-          if not tryStrToInt(edTXDF.Text,i) Then edTXDF.Text := '0';
      end;
-end;
-
-procedure TForm1.cbMultiOnChange(Sender: TObject);
-begin
-     if cbMultiOn.Checked Then edRXDF.Text := '0' else edRXDF.Text := edTXDF.Text;
 end;
 
 //procedure TForm1.Chart1DblClick(Sender: TObject);
@@ -6502,8 +6610,9 @@ end;
 procedure TForm1.buttonXferMacroClick(Sender: TObject);
 Var
    foo : String;
-   i   : Integer;
 begin
+     tx73 := False;
+     txfree := False;
      // Transfers contents of Macro buffer to TX Message buffer
      //function TForm1.isFText(c : String) : Boolean;
      //function TForm1.isSText(c : String) : Boolean;
@@ -6515,9 +6624,18 @@ begin
      if isFText(comboMacroList.Text) or isSText(comboMacroList.Text) Then
      Begin
           thisTXMsg := comboMacroList.Text;
-          if (isFText(thisTXmsg) or isSText(thisTXmsg)) and tryStrToInt(edTXDF.Text,i) Then genTX(thisTXmsg, StrToInt(edTXDF.Text)+clRebel.txOffset) else thisTXmsg := '';
+          if (isFText(thisTXmsg) or isSText(thisTXmsg)) Then
+          Begin
+               if rbCWIDFree.Checked Then doCW := True else doCW := False;
+               txfree := True;
+               genTX(thisTXmsg, spinTXDF.Value+clRebel.txOffset);
+          end
+          else
+          begin
+               thisTXmsg := '';
+               doCW := False;
+          end;
           edTXMsg.Text := thisTXmsg; // this double checks for valid message.
-          //if rbCWIDFree.Checked Then doCWID := True else doCWID := False;
      end;
 end;
 
@@ -6564,7 +6682,15 @@ begin
 end;
 
 procedure TForm1.Button4Click(Sender: TObject);
+var
+   i : Integer;
+   g : Boolean;
 begin
+     edCall.Text := UpCase(TrimLeft(TrimRight(edCall.Text)));
+     edPrefix.Text := UpCase(TrimLeft(TrimRight(edPrefix.Text)));
+     edSuffix.Text := UpCase(TrimLeft(TrimRight(edSuffix.Text)));
+     edGrid.Text := TrimLeft(TrimRight(edGrid.Text));
+
      if length(edRBCall.Text) <3 Then
      Begin
           edRBCall.Text := '';
@@ -6572,31 +6698,78 @@ begin
           if length(edPrefix.Text) > 0 Then edRBCall.Text := edPrefix.Text + '/' + edRBCall.Text;
           if length(edSuffix.Text) > 0 Then edRBCall.Text := edRBCall.Text + '/' + edSuffix.Text;
      end;
+
+     if length(edGrid.Text)=4 Then
+     Begin
+          edGrid.Text := UpCase(edGrid.Text[1..2])+edGrid.Text[3..4];
+     end
+     else if length(edGrid.Text)=6 Then
+     Begin
+          edGrid.Text := UpCase(edGrid.Text[1..2])+edGrid.Text[3..4]+LowerCase(edGrid.Text[5..6]);
+     end
+     else
+     begin
+          edGrid.Text := '';
+     end;
+
      // Validate prefix (if present)
      canTX := True;
      if length(edPrefix.Text)>0 Then
      Begin
-          if not mval.evalPrefix(edPrefix.Text) Then
-          Begin
-               ShowMessage('Invalid prefix.' + sLineBreak + 'Must be no more than 4 characters' + sLineBreak + 'of letters A to Z and/or numerals 0 to 9' + sLineBreak +'TX is disabled.');
+          // V2 support check
+          //if not mval.evalPrefix(edPrefix.Text) Then
+          //Begin
+               //ShowMessage('Invalid prefix.' + sLineBreak + 'Must be no more than 4 characters' + sLineBreak + 'of letters A to Z and/or numerals 0 to 9' + sLineBreak +'TX is disabled.');
+               //canTX := False;
+          //end;
+          g := False;
+          for i := 0 to Length(V1PREFIX)-1 do
+          begin
+               if V1PREFIX[i] = edPrefix.Text Then
+               begin
+                    g := True;
+                    break;
+               end;
+          end;
+          if not g then
+          begin
+               ShowMessage('Invalid prefix.' + sLineBreak + 'Not in JT65V1 prefix table' + 'Please remove invalid prefix to enable TX');
                canTX := False;
           end;
      end;
+
      // Validate callsign
      if not mval.evalCSign(edCall.Text) Then
      Begin
           ShowMessage('Invalid callsign.' + sLineBreak + 'Must be no more than 6 characters' + sLineBreak + 'of letters A to Z and/or numerals 0 to 9' + sLineBreak +'TX is disabled.' + sLineBreak + 'See manual for valid forms of callsigns in JT65 protocol.');
           canTX := False;
      end;
+
      // Validate suffix (if present)
      if length(edSuffix.Text)>0 Then
      Begin
-          if not mval.evalSuffix(edSuffix.Text) Then
-          Begin
-               ShowMessage('Invalid suffix.' + sLineBreak + 'Must be no more than 3 characters' + sLineBreak + 'of letters A to Z and/or numerals 0 to 9' + sLineBreak +'TX is disabled.');
+          // V2 Suffix check
+          //if not mval.evalSuffix(edSuffix.Text) Then
+          //Begin
+               //ShowMessage('Invalid suffix.' + sLineBreak + 'Must be no more than 3 characters' + sLineBreak + 'of letters A to Z and/or numerals 0 to 9' + sLineBreak +'TX is disabled.');
+               //canTX := False;
+          //end;
+          g := False;
+          for i := 0 to Length(V1SUFFIX)-1 do
+          begin
+               if V1SUFFIX[i] = edSuffix.Text Then
+               begin
+                    g := True;
+                    break;
+               end;
+          end;
+          if not g then
+          begin
+               ShowMessage('Invalid suffix.' + sLineBreak + 'Not in JT65V1 suffix table' + 'Please remove invalid suffix to enable TX');
                canTX := False;
           end;
      end;
+
      // Validate grid
      if not mval.evalGrid(edGrid.Text) Then
      Begin
@@ -6762,19 +6935,19 @@ begin
 
      If cbTXEqRXDF.Checked Then
      Begin
-          edRXDF.Text := IntToStr(round(df));
-          edTXDF.Text := IntToStr(round(df));
+          spinRXDF.Value := round(df);
+          spinTXDF.Value := round(df);
      end
      else
      begin
           if (Button = mbLeft) and sh Then
           Begin
-               edTXDF.Text := IntToStr(round(df));
+               spinTXDF.Value := round(df);
           End;
 
           if (Button = mbRight) and sh Then
           Begin
-               edRXDF.Text := IntToStr(round(df));
+               spinRXDF.Value := round(df);
           End;
      end;
 

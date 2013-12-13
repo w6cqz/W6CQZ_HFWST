@@ -295,7 +295,7 @@ object Form1: TForm1
     OnChange = comboQRGListChange
     ParentFont = False
     Style = csDropDownList
-    TabOrder = 9
+    TabOrder = 10
     TabStop = False
   end
   object ListBox2: TListBox
@@ -483,7 +483,7 @@ object Form1: TForm1
     ParentShowHint = False
     ShowHint = True
     TabStop = False
-    TabOrder = 10
+    TabOrder = 9
   end
   object btnsetQRG: TButton
     Left = 8
@@ -978,7 +978,7 @@ object Form1: TForm1
       AnchorSideBottom.Control = edTXReport
       Left = 234
       Height = 17
-      Top = 190
+      Top = 192
       Width = 89
       BorderSpacing.Top = 5
       BorderSpacing.Bottom = 2
@@ -995,7 +995,7 @@ object Form1: TForm1
       AnchorSideBottom.Control = edTXReport
       Left = 361
       Height = 17
-      Top = 190
+      Top = 192
       Width = 43
       BorderSpacing.Top = 5
       BorderSpacing.Bottom = 2
@@ -1010,12 +1010,13 @@ object Form1: TForm1
       AnchorSideTop.Control = Label79
       AnchorSideTop.Side = asrBottom
       Left = 361
-      Height = 21
-      Top = 212
+      Height = 25
+      Top = 211
       Width = 48
       Anchors = [akTop, akLeft, akBottom]
-      BorderSpacing.Top = 5
+      BorderSpacing.Top = 2
       Constraints.MaxHeight = 27
+      Constraints.MinHeight = 25
       Font.Height = -13
       Font.Name = 'Arial'
       OnDblClick = edTXReportDblClick
@@ -1027,14 +1028,15 @@ object Form1: TForm1
       AnchorSideTop.Control = Label79
       AnchorSideTop.Side = asrBottom
       Left = 234
-      Height = 21
-      Top = 212
+      Height = 25
+      Top = 211
       Width = 120
       Anchors = [akTop, akLeft, akBottom]
-      BorderSpacing.Top = 5
+      BorderSpacing.Top = 2
       BorderSpacing.Bottom = 5
       CharCase = ecUppercase
       Constraints.MaxHeight = 27
+      Constraints.MinHeight = 25
       Font.Height = -13
       Font.Name = 'Arial'
       OnDblClick = edTXtoCallDblClick
@@ -1085,7 +1087,7 @@ object Form1: TForm1
       AnchorSideBottom.Side = asrCenter
       Left = 178
       Height = 16
-      Top = 165
+      Top = 166
       Width = 76
       Anchors = [akTop, akLeft, akBottom]
       AutoSize = False
@@ -1100,11 +1102,11 @@ object Form1: TForm1
       OptimalFill = True
     end
     object cbTXEqRXDF: TCheckBox
-      AnchorSideTop.Control = edRXDF
+      AnchorSideTop.Control = edTXtoCall
       AnchorSideTop.Side = asrBottom
       Left = 9
       Height = 20
-      Top = 238
+      Top = 241
       Width = 138
       BorderSpacing.Top = 5
       BorderSpacing.Bottom = 5
@@ -1119,11 +1121,11 @@ object Form1: TForm1
       TabStop = False
     end
     object cbMultiOn: TCheckBox
-      AnchorSideTop.Control = edRXDF
+      AnchorSideTop.Control = edTXtoCall
       AnchorSideTop.Side = asrBottom
       Left = 176
       Height = 20
-      Top = 238
+      Top = 241
       Width = 125
       BorderSpacing.Top = 5
       BorderSpacing.Bottom = 5
@@ -1132,7 +1134,6 @@ object Form1: TForm1
       Font.Height = -13
       Font.Name = 'Arial'
       Font.Style = [fsBold]
-      OnChange = cbMultiOnChange
       ParentFont = False
       State = cbChecked
       TabOrder = 12
@@ -1143,7 +1144,7 @@ object Form1: TForm1
       AnchorSideTop.Side = asrBottom
       Left = 5
       Height = 17
-      Top = 263
+      Top = 266
       Width = 113
       BorderSpacing.Top = 5
       BorderSpacing.Bottom = 2
@@ -1159,7 +1160,7 @@ object Form1: TForm1
       AnchorSideTop.Side = asrBottom
       Left = 176
       Height = 17
-      Top = 263
+      Top = 266
       Width = 103
       BorderSpacing.Top = 5
       BorderSpacing.Bottom = 2
@@ -1177,7 +1178,7 @@ object Form1: TForm1
       AnchorSideBottom.Side = asrBottom
       Left = 6
       Height = 26
-      Top = 285
+      Top = 288
       Width = 88
       Max = 4
       Min = 1
@@ -1198,7 +1199,7 @@ object Form1: TForm1
       AnchorSideBottom.Side = asrBottom
       Left = 176
       Height = 26
-      Top = 285
+      Top = 288
       Width = 88
       Max = 4
       Min = 1
@@ -1218,76 +1219,35 @@ object Form1: TForm1
       AnchorSideBottom.Control = edTXReport
       Left = 6
       Height = 17
-      Top = 190
-      Width = 35
+      Top = 192
+      Width = 40
       BorderSpacing.Top = 5
       BorderSpacing.Bottom = 2
-      Caption = 'RxDF'
+      Caption = 'RX DF'
       Font.Height = -13
       Font.Name = 'Arial'
       Font.Style = [fsBold]
       ParentColor = False
       ParentFont = False
-    end
-    object edRXDF: TEdit
-      AnchorSideTop.Control = Label79
-      AnchorSideTop.Side = asrBottom
-      Left = 6
-      Height = 21
-      Top = 212
-      Width = 72
-      Anchors = [akTop, akLeft, akBottom]
-      BorderSpacing.Top = 5
-      BorderSpacing.Bottom = 5
-      Constraints.MaxHeight = 27
-      Font.Height = -16
-      Font.Name = 'Arial'
-      Font.Style = [fsBold]
-      OnChange = edRXDFChange
-      OnDblClick = edRXDFDblClick
-      ParentFont = False
-      TabStop = False
-      TabOrder = 15
-      Text = '0'
+      OnDblClick = Label79DblClick
     end
     object Label19: TLabel
       AnchorSideTop.Control = toggleTX
       AnchorSideTop.Side = asrBottom
       AnchorSideBottom.Control = edTXReport
-      Left = 95
+      Left = 101
       Height = 17
-      Top = 190
-      Width = 34
+      Top = 192
+      Width = 39
       BorderSpacing.Top = 5
       BorderSpacing.Bottom = 2
-      Caption = 'TxDF'
+      Caption = 'TX DF'
       Font.Height = -13
       Font.Name = 'Arial'
       Font.Style = [fsBold]
       ParentColor = False
       ParentFont = False
-    end
-    object edTXDF: TEdit
-      AnchorSideTop.Control = Label79
-      AnchorSideTop.Side = asrBottom
-      Left = 95
-      Height = 21
-      Top = 212
-      Width = 72
-      Anchors = [akTop, akLeft, akBottom]
-      BorderSpacing.Top = 5
-      BorderSpacing.Bottom = 5
-      Constraints.MaxHeight = 27
-      Font.Height = -16
-      Font.Name = 'Arial'
-      Font.Style = [fsBold]
-      MaxLength = 5
-      OnChange = edTXDFChange
-      OnDblClick = edTXDFDblClick
-      ParentFont = False
-      TabStop = False
-      TabOrder = 16
-      Text = '0'
+      OnDblClick = Label19DblClick
     end
     object Label92: TLabel
       AnchorSideTop.Control = comboMacroList
@@ -1320,7 +1280,7 @@ object Form1: TForm1
       ItemHeight = 22
       OnChange = comboMacroListChange
       ParentFont = False
-      TabOrder = 17
+      TabOrder = 15
       TabStop = False
     end
     object Label10: TLabel
@@ -1355,7 +1315,7 @@ object Form1: TForm1
       ParentFont = False
       ReadOnly = True
       TabStop = False
-      TabOrder = 18
+      TabOrder = 16
     end
     object doLogQSO: TButton
       AnchorSideTop.Control = cbMultiOn
@@ -1363,7 +1323,7 @@ object Form1: TForm1
       AnchorSideBottom.Side = asrBottom
       Left = 322
       Height = 35
-      Top = 238
+      Top = 241
       Width = 87
       Anchors = [akTop, akLeft, akBottom]
       BorderSpacing.Bottom = 5
@@ -1374,7 +1334,7 @@ object Form1: TForm1
       Font.Style = [fsBold]
       OnClick = doLogQSOClick
       ParentFont = False
-      TabOrder = 19
+      TabOrder = 17
       TabStop = False
     end
     object buttonXferMacro: TButton
@@ -1393,14 +1353,14 @@ object Form1: TForm1
       Font.Style = [fsBold]
       OnClick = buttonXferMacroClick
       ParentFont = False
-      TabOrder = 20
+      TabOrder = 18
       TabStop = False
     end
     object toggleTX: TToggleBox
       AnchorSideTop.Control = bACQ
       AnchorSideTop.Side = asrBottom
-      Left = 7
-      Height = 23
+      Left = 6
+      Height = 25
       Top = 162
       Width = 155
       Anchors = [akTop, akLeft, akBottom]
@@ -1408,13 +1368,14 @@ object Form1: TForm1
       BorderSpacing.Bottom = 5
       Caption = 'Enable TX'
       Constraints.MaxHeight = 35
+      Constraints.MinHeight = 25
       Enabled = False
       Font.Height = -16
       Font.Name = 'Arial'
       Font.Style = [fsBold]
       OnClick = toggleTXClick
       ParentFont = False
-      TabOrder = 21
+      TabOrder = 19
       TabStop = False
     end
     object Label16: TLabel
@@ -1450,8 +1411,47 @@ object Form1: TForm1
       Font.Style = [fsBold]
       OnClick = bnSaveMacroClick
       ParentFont = False
-      TabOrder = 22
+      TabOrder = 20
       TabStop = False
+    end
+    object spinRXDF: TSpinEdit
+      AnchorSideTop.Control = Label79
+      AnchorSideTop.Side = asrBottom
+      Left = 6
+      Height = 25
+      Top = 211
+      Width = 78
+      Anchors = [akTop, akLeft, akBottom]
+      Constraints.MaxHeight = 27
+      Constraints.MinHeight = 25
+      Font.Height = -16
+      Font.Name = 'Arial'
+      Font.Style = [fsBold]
+      MaxValue = 1000
+      MinValue = -1000
+      ParentFont = False
+      TabStop = False
+      TabOrder = 21
+    end
+    object spinTXDF: TSpinEdit
+      AnchorSideTop.Control = Label79
+      AnchorSideTop.Side = asrBottom
+      Left = 101
+      Height = 25
+      Top = 211
+      Width = 78
+      Anchors = [akTop, akLeft, akBottom]
+      Constraints.MaxHeight = 27
+      Constraints.MinHeight = 25
+      Font.Height = -16
+      Font.Name = 'Arial'
+      Font.Style = [fsBold]
+      MaxValue = 1000
+      MinValue = -1000
+      OnChange = spinTXDFChange
+      ParentFont = False
+      TabStop = False
+      TabOrder = 22
     end
   end
   object Memo2: TMemo
@@ -1697,13 +1697,6 @@ object Form1: TForm1
     ParentFont = False
     TabOrder = 3
     TabStop = False
-  end
-  object Bevel1: TBevel
-    Left = 8
-    Height = 6
-    Top = 398
-    Width = 516
-    Style = bsRaised
   end
   object groupRXMode: TRadioGroup
     AnchorSideTop.Control = Panel1
@@ -2885,7 +2878,7 @@ object Form1: TForm1
     object TabSheet4: TTabSheet
       Caption = 'Other Options'
       ClientHeight = 199
-      ClientWidth = 795
+      ClientWidth = 794
       object GroupBox9: TGroupBox
         Left = 4
         Height = 94
@@ -3202,6 +3195,21 @@ object Form1: TForm1
         ParentColor = False
       end
     end
+  end
+  object Image2: TImage
+    Left = 13
+    Height = 4
+    Top = 400
+    Width = 510
+    Picture.Data = {
+      1754506F727461626C654E6574776F726B47726170686963A800000089504E47
+      0D0A1A0A0000000D4948445200000204000000060802000000333711E3000000
+      097048597300000B1300000B1301009A9C180000000774494D4507DD0C0C1319
+      129B8B32910000001D69545874436F6D6D656E74000000000043726561746564
+      20776974682047494D50642E65070000001E4944415468DEEDC1010100000080
+      90FEAFEE080A0000000000000000A06A244E00019E5798AE0000000049454E44
+      AE426082
+    }
   end
   object Timer1: TTimer
     Enabled = False
