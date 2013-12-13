@@ -201,10 +201,6 @@ type
     cbAttenuateLeft: TCheckBox;
     cbUseTXWD: TCheckBox;
     cbRememberComments: TCheckBox;
-    cbMultiOffQSO: TCheckBox;
-    cbRestoreMulti: TCheckBox;
-    cbHaltTXMultiOn: TCheckBox;
-    cbDefaultsMultiOn: TCheckBox;
     cbNoKV: TCheckBox;
     comboMacroList: TComboBox;
     edTXMsg: TEdit;
@@ -325,7 +321,6 @@ type
     GroupBox6: TGroupBox;
     GroupBox7: TGroupBox;
     GroupBox8: TGroupBox;
-    GroupBox9: TGroupBox;
     Label1: TLabel;
     Label13: TLabel;
     Label15: TLabel;
@@ -1094,10 +1089,10 @@ Begin
      edCSVPath.Text := query.FieldByName('csvpath').AsString;
      edADIFPath.Text := query.FieldByName('adifpath').AsString;
      cbRememberComments.Checked := query.FieldByName('remembercomments').AsBoolean;
-     cbMultiOffQSO.Checked := query.FieldByName('multioffqso').AsBoolean;
-     cbRestoreMulti.Checked := query.FieldByName('automultion').AsBoolean;
-     cbHaltTXMultiOn.Checked := query.FieldByName('halttxsetsmulti').AsBoolean;
-     cbDefaultsMultiOn.Checked := query.FieldByName('defaultsetsmulti').AsBoolean;
+     //cbMultiOffQSO.Checked := query.FieldByName('multioffqso').AsBoolean;
+     //cbRestoreMulti.Checked := query.FieldByName('automultion').AsBoolean;
+     //cbHaltTXMultiOn.Checked := query.FieldByName('halttxsetsmulti').AsBoolean;
+     //cbDefaultsMultiOn.Checked := query.FieldByName('defaultsetsmulti').AsBoolean;
      if query.FieldByName('decimal').AsString = 'USA' then useDeciAmerican.Checked := True;
      if query.FieldByName('decimal').AsString = 'Euro' then useDeciEuro.Checked := True;
      if query.FieldByName('decimal').AsString = 'Auto' then useDeciAuto.Checked := True;
@@ -12295,10 +12290,10 @@ begin
      Query.Params.ParamByName('CSVPATH').AsString    := t(edCSVPath.Text);
      Query.Params.ParamByName('ADIFPATH').AsString   := t(edADIFPath.Text);
      Query.Params.ParamByName('REMCOM').AsBoolean    := cbRememberComments.Checked;
-     Query.Params.ParamByName('MQSOOFF').AsBoolean   := cbMultiOffQSO.Checked;
-     Query.Params.ParamByName('MAUTOON').AsBoolean   := cbRestoreMulti.Checked;
-     Query.Params.ParamByName('MHALTMON').AsBoolean  := cbHaltTXMultiOn.Checked;
-     Query.Params.ParamByName('MDEFMON').AsBoolean   := cbDefaultsMultiOn.Checked;
+     Query.Params.ParamByName('MQSOOFF').AsBoolean   := False;
+     Query.Params.ParamByName('MAUTOON').AsBoolean   := False;
+     Query.Params.ParamByName('MHALTMON').AsBoolean  := False;
+     Query.Params.ParamByName('MDEFMON').AsBoolean   := False;
      foo2 := 'Auto';
      if useDeciAmerican.Checked then foo2 := 'USA';
      if useDeciEuro.Checked then foo2 := 'Euro';
@@ -12466,10 +12461,6 @@ Begin
      edADIFPath.Text := homeDir;
      cbRememberComments.Checked := False;
      // Tabsheet 6
-     cbMultiOffQSO.Checked := True;
-     cbRestoreMulti.Checked := True;
-     cbHaltTXMultiOn.Checked := False;
-     cbDefaultsMultiOn.Checked := True;
      useDeciAuto.Checked := True;
      rbNoCWID.Checked := True;
      edCWID.Text := '';

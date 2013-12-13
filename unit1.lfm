@@ -2879,59 +2879,14 @@ object Form1: TForm1
       Caption = 'Other Options'
       ClientHeight = 199
       ClientWidth = 794
-      object GroupBox9: TGroupBox
-        Left = 4
-        Height = 94
-        Top = 1
-        Width = 400
-        ClientHeight = 76
-        ClientWidth = 396
-        TabOrder = 0
-        object cbMultiOffQSO: TCheckBox
-          Left = 6
-          Height = 20
-          Top = -4
-          Width = 142
-          Caption = 'Multi Off During QSO'
-          TabOrder = 0
-          TabStop = False
-        end
-        object cbRestoreMulti: TCheckBox
-          Left = 158
-          Height = 20
-          Top = -4
-          Width = 231
-          Caption = 'Automatic re-enable multiple decode'
-          TabOrder = 1
-          TabStop = False
-        end
-        object cbHaltTXMultiOn: TCheckBox
-          Left = 6
-          Height = 20
-          Top = 22
-          Width = 167
-          Caption = 'Halt TX sets multi on if off'
-          TabOrder = 2
-          TabStop = False
-        end
-        object cbDefaultsMultiOn: TCheckBox
-          Left = 6
-          Height = 20
-          Top = 46
-          Width = 287
-          Caption = 'Restore defaults sets multiple decoder on if off'
-          TabOrder = 3
-          TabStop = False
-        end
-      end
       object GroupBox10: TGroupBox
         Left = 4
-        Height = 88
-        Top = 95
+        Height = 90
+        Top = 1
         Width = 320
-        ClientHeight = 70
+        ClientHeight = 72
         ClientWidth = 316
-        TabOrder = 1
+        TabOrder = 0
         object rbNoCWID: TRadioButton
           Left = 6
           Height = 20
@@ -2980,13 +2935,13 @@ object Form1: TForm1
         end
       end
       object GroupBox11: TGroupBox
-        Left = 332
+        Left = 4
         Height = 88
         Top = 95
-        Width = 264
+        Width = 320
         ClientHeight = 70
-        ClientWidth = 260
-        TabOrder = 2
+        ClientWidth = 316
+        TabOrder = 1
         object Label40: TLabel
           Left = 6
           Height = 17
@@ -3015,13 +2970,13 @@ object Form1: TForm1
         end
       end
       object GroupBox12: TGroupBox
-        Left = 412
-        Height = 94
+        Left = 332
+        Height = 90
         Top = 1
-        Width = 321
-        ClientHeight = 76
-        ClientWidth = 317
-        TabOrder = 3
+        Width = 401
+        ClientHeight = 72
+        ClientWidth = 397
+        TabOrder = 2
         object useDeciAmerican: TRadioButton
           Left = 6
           Height = 20
@@ -3063,7 +3018,7 @@ object Form1: TForm1
         Font.Style = [fsBold]
         OnClick = Button4Click
         ParentFont = False
-        TabOrder = 4
+        TabOrder = 3
         TabStop = False
       end
     end
