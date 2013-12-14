@@ -50,7 +50,9 @@ Type
                  function    disconnect : Boolean;
                  function    setup      : Boolean;
                  function    ask        : Boolean;
+                 function    longAsk    : Boolean;
                  function    setQRG     : Boolean;
+                 function    setCWQRG   : Boolean;
                  function    poll       : Boolean;
                  function    pttOn      : Boolean;
                  function    latePTTOn  : Boolean;
@@ -60,7 +62,8 @@ Type
                  function    getData(Index: Integer): CTypes.cuint;
                  procedure   setData(Index: Integer; AValue: CTypes.cuint);
                  function    dumptx     : String;
-                 function    docwid     : Boolean;
+                 //function    docwid     : Boolean;
+                 function    doCWID(pCWID : String; pQRG : CTypes.cuint) : Boolean;
 
                  property port      : String
                     read  prPort
@@ -456,6 +459,11 @@ Begin
      prBusy := False;
 end;
 
+function TRebel.setCWQRG : Boolean;
+Begin
+     if (prCWIDQRG >= 37581152) And (prCWIDQRG <= 77041361) Then result := True else result := false;
+end;
+
 function TRebel.setQRG : Boolean;
 var
    foo : String;
@@ -566,6 +574,56 @@ Begin
      prBusy := False;
 end;
 
+function TRebel.longAsk : Boolean;
+Var
+   foo : String;
+   i   : Integer;
+Begin
+     // Has a long timeout - only use for special things.
+     prBusy := True;
+     if prConnected Then
+     Begin
+          if length(prCommand)>1 Then
+          Begin
+               prResponse := '';
+               prError := '';
+               result := False;
+               prTTY.SendString(prCommand);
+               foo := '';
+               for i := 0 to 9 do
+               begin
+                    foo := prTTY.Recvstring(1000);
+                    if length(foo)>1 Then break;
+               end;
+               if length(foo)>1 Then
+               Begin
+                    prResponse := foo;
+                    prError := '';
+                    result := True;
+               end
+               else
+               begin
+                    prResponse := '';
+                    prError := 'Timeout';
+                    result := False;
+               end;
+          end
+          else
+          begin
+               prResponse := '';
+               prError := 'Bad command';
+               result := False;
+          end;
+     end
+     else
+     begin
+          prResponse := '';
+          prError := 'Not connected';
+          result := False;
+     end;
+     prBusy := False;
+end;
+
 function TRebel.poll : Boolean;
 Var
    ff  : Double;
@@ -640,6 +698,28 @@ Begin
                Begin
                     prQRG := (9000000.0 - ff)+(prRXOffset+prTXOffset);
                end;
+          end;
+     end;
+
+     prcommand := '15;'; // Returns PTT Status (1=On 0=Off)
+     prResponse := '';
+     if ask Then
+     Begin
+          // Returns 1,1 or 1,0 for ACK,On or ACK,Off
+          if prResponse = '1,1;' Then
+          Begin
+               // PTT On
+               prTXState := True;
+          end
+          else if prResponse = '1,0;' Then
+          Begin
+               // PTT Off
+               prTXState := False;
+          end
+          else
+          begin
+               // Error
+               prTXState := prTXState;
           end;
      end;
 
@@ -768,31 +848,45 @@ Begin
      prBusy := False;
 end;
 
-function TRebel.doCWID : Boolean;
+function TRebel.doCWID(pCWID : String; pQRG : CTypes.cuint) : Boolean;
+Var
+     foo : String;
 Begin
      // FFS!  The CW library on Rebel mandates CWID string be L O W E R case.
      prBusy := True;
      // Command 21,string_cwID,integer_TX-TUNING-WORD
      // String CWID <= 14 Characters!!!!
-     prCWID := LowerCase(TrimLeft(TrimRight(UpCase(prCWID))));
-     prCommand := '21,' + prCWID + ',' + IntToStr(prCWIDQRG) + ';';  // TX CW Message (prCWID) at QRG prCWIDQRG (as DDS tuning word value)
-     prResponse := '';
-     if ask Then
+     if length(pCWID) <= 14 Then
      Begin
-          if prResponse='1,' + prCWID + ',' + IntToStr(prCWIDQRG) + ';' Then
+          prCWID := LowerCase(TrimLeft(TrimRight(UpCase(pCWID))));
+          if (pQRG >= 37581152) And (pQRG <= 77041361) then prCWIDQRG := pQRG else prCWIDQRG := 0;
+          prCommand := '21,' + prCWID + ',' + IntToStr(prCWIDQRG) + ';';  // TX CW Message (prCWID) at QRG prCWIDQRG (as DDS tuning word value)
+          prResponse := '';
+          if longAsk Then
           Begin
-               result := True;
+               if prResponse='1,' + prCWID + ',' + IntToStr(prCWIDQRG) + ';' Then
+               Begin
+                    result := True;
+               end
+               else
+               Begin
+                    foo := prResponse;
+                    Result := False;
+                    prError := 'CW ID fails';
+               end;
           end
           else
-          Begin
-               Result := False;
-               prError := 'CW ID fails';
+          begin
+               foo := prResponse;
+               result := False;
+               prError := 'Command timeout CW ID';
           end;
      end
      else
      begin
+          foo := prResponse;
           result := False;
-          prError := 'Command timeout CW ID';
+          prError := 'Bad CWID String';
      end;
      prBusy := False;
 end;
