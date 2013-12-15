@@ -1,30 +1,20 @@
-{ TODO :
-OK - return CW ID to an isolated call where I trigger it after TX.  Since
-discovering an error in call Morse routines on Rebel side this will likely
-work better.
+{ TODO : Think about having RX move to keep passband centered for Rebel }
+{ TODO : Fix text being white on white in some choices of decoder output coloring }
+{ TODO : Begin to graft sound output code in }
+{ TODO : Add qrg edit/define }
+{ TODO : Enhance macro editor }
+{ TODO : Add back save receptions to CSV option }
+{ TODO : Add worked call tracking taking into consideration call, band and grid. }
 
-Think about having RX move to keep passband centered for Rebel
-Add qrg edit/define
-Enhance macro editor
-Begin to graft sound output code in
-Fix text being white on white in some choices of decoder output coloring
-
+{
 (Far) Less urgent
+
+Slave RX320D control for my setup
 
 JT65V2 support
 
-Rework the entire concept of TX and RX DF - it's clunky and came from doing it as WSJT did way back when.
-
-Add worked call tracking taking into consideration a call worked in one grid is not
-worked if in a new one.
 
 JT9 support
-
-Thinks it's stuck (but isn't) in TX after a pass with CWID on - Done (needs testing testing testing)
-Implement fast decode at working DF - Done (needs testing testing testing)
-Make logging robust in that it requires data in specific fields - Done (needs testing testing testing)
-Test and finish CW ID routine for Rebel - Done (needs testing testing testing)
-CWID Is only triggered upon pushing the button that would fire it due to text type - Done (needs testing testing testing)
 
 Shorthand decoder core dumped - Nope. Not doing SH - done with that crap.  Let them scream.
 Expanding on SH stuff.  I *****am not***** adding support for TX of SH messages.  I **may**
@@ -125,6 +115,7 @@ type
     bACQ: TButton;
     bCQ: TButton;
     bnSaveMacro: TButton;
+    bnZeroTXDF: TButton;
     bQRZ: TButton;
     bReport: TButton;
     bRReport: TButton;
@@ -132,6 +123,7 @@ type
     btnClearDecodesFast: TButton;
     btnDoFast: TButton;
     bnEnableTX: TButton;
+    bnZeroRXDF: TButton;
     cbSlowWF: TCheckBox;
     cbWFTX: TCheckBox;
     cbSpecWindow: TCheckBox;
@@ -394,6 +386,7 @@ type
     procedure audioChange(Sender: TObject);
     procedure bnEnableTXClick(Sender: TObject);
     procedure bnSaveMacroClick(Sender: TObject);
+    procedure bnZeroRXDFClick(Sender: TObject);
     procedure btnDoFastClick(Sender: TObject);
     procedure doLogQSOClick(Sender: TObject);
     procedure buttonXferMacroClick(Sender: TObject);
@@ -1178,55 +1171,6 @@ Begin
      end;
      comboMacroList.ItemIndex := 0;
      query.Active := False;
-     { TODO : Dump this at V1.0 - just want to rid DB of the 3 shorthand strings without forcing a clean start }
-     for i := 0 to comboMacroList.Items.Count-1 do
-     begin
-          if comboMacroList.Items.Strings[i] = 'RRR' Then
-          Begin
-               transaction.EndTransaction;
-               transaction.StartTransaction;
-               query.SQL.Clear;
-               query.SQL.Text := 'DELETE FROM macro where instance=:INSTANCE And text=:TEXT;';
-               // Defining the 3 shorthand types.
-               query.Params.ParamByName('INSTANCE').AsInteger := instance;
-               query.Params.ParamByName('TEXT').AsString := 'RRR';
-               query.ExecSQL;
-               transaction.Commit;
-               transaction.EndTransaction;
-               query.Active:=False;
-               query.SQL.Clear;
-          end;
-          if comboMacroList.Items.Strings[i] = '73' Then
-          Begin
-               transaction.EndTransaction;
-               transaction.StartTransaction;
-               query.SQL.Clear;
-               query.SQL.Text := 'DELETE FROM macro where instance=:INSTANCE And text=:TEXT;';
-               // Defining the 3 shorthand types.
-               query.Params.ParamByName('INSTANCE').AsInteger := instance;
-               query.Params.ParamByName('TEXT').AsString := '73';
-               query.ExecSQL;
-               transaction.Commit;
-               transaction.EndTransaction;
-               query.Active:=False;
-               query.SQL.Clear;
-          end;
-          if comboMacroList.Items.Strings[i] = 'RO' Then
-          Begin
-               transaction.EndTransaction;
-               transaction.StartTransaction;
-               query.SQL.Clear;
-               query.SQL.Text := 'DELETE FROM macro where instance=:INSTANCE And text=:TEXT;';
-               // Defining the 3 shorthand types.
-               query.Params.ParamByName('INSTANCE').AsInteger := instance;
-               query.Params.ParamByName('TEXT').AsString := 'RO';
-               query.ExecSQL;
-               transaction.Commit;
-               transaction.EndTransaction;
-               query.Active:=False;
-               query.SQL.Clear;
-          end;
-     end;
      // Populate Macro list
      comboMacroList.Clear;
      query.SQL.Clear;
@@ -1699,7 +1643,7 @@ Begin
           //end;
      end;
 
-     { TODO : For multiple instances I need to work out a lock mechanism such the multiple instances don't attempt attach to same Rebel. }
+     { TODO : Low Priority - For multiple instances I need to work out a lock mechanism such the multiple instances don't attempt attach to same Rebel. }
      if rigRebel.Checked Then
      Begin
           haveRebel := rebelSet;
@@ -2022,6 +1966,11 @@ Begin
           if clRebel.txStat and (not clRebel.busy) then clRebel.pttOff;
      end;
 
+     if spinRXDF.Value < -1100 Then spinRXDF.Value := -1000;
+     if spinRXDF.Value > 1100 Then spinRXDF.Value := 1000;
+     if spinTXDF.Value < -1100 Then spinTXDF.Value := -1000;
+     if spinTXDF.Value > 1100 Then spinTXDF.Value := 1000;
+
      // Checking for change to Rebel band since startup
      if haveRebel Then
      Begin
@@ -2050,7 +1999,8 @@ Begin
                end
                else
                begin
-                    { TODO : Handle this error condition }
+                    // Shouldn't be able to get here
+                    ShowMessage('Rebel indicates it is not on 20 or 40 meters.' + sLineBreak + 'Notify Joe w6cqz@w6cqz.org of this specific error.');
                end;
           end;
      end;
@@ -2337,7 +2287,6 @@ Begin
 
                if not valid then
                Begin
-                    { TODO : Don't let this continue forever if it fails repeatedly. }
                     lbDecodes.Items.Insert(0,'WARNING: Rebel refused message');
                     // Changing this to delete the TX buffer message so it doesn't go
                     // into an infinite loop should the Rebel be in distress for some
@@ -2395,10 +2344,9 @@ Begin
                     // Indicate TX triggered during this minute
                     didTX := True;
                     // Indicate it is in TX
-                    Image1.Picture.LoadFromLazarusResource('transmit');
+                    Image1.Picture.LoadFromLazarusResource('transmitv2');
                     transmitting := thisTXmsg;
                     // Refresh the message mainly to keep CWID in play
-                    { TODO : Be sure this isn't a bad idea }
                     sm    := false;
                     ft    := false;
                     nc1t  := '';
@@ -2427,7 +2375,7 @@ Begin
                     bTX := 1270.5;
                     if not tryStrToInt(edDialQRG.Text,i) Then edDialQRG.Text := '0';
                     bTX := bTX + StrToInt(edDialQRG.Text) + txdf;  // This is the floating point value in Hz of the sync carrier (base frequency - data goes up from this)
-                    if doCW Then Memo2.Append('Msg: ' + TrimLeft(TrimRight(thisTXMsg)) + ' @ ' + FormatFloat('########.0',bTX) + ' Hz (Sync) + CWID') else Memo2.Append('Msg: ' + TrimLeft(TrimRight(thisTXMsg)) + ' @ ' + FormatFloat('########.0',bTX) + ' Hz (Sync)');
+                    //if doCW Then Memo2.Append('Msg: ' + TrimLeft(TrimRight(thisTXMsg)) + ' @ ' + FormatFloat('########.0',bTX) + ' Hz (Sync) + CWID') else Memo2.Append('Msg: ' + TrimLeft(TrimRight(thisTXMsg)) + ' @ ' + FormatFloat('########.0',bTX) + ' Hz (Sync)');
                end;
           end
           else
@@ -2480,12 +2428,11 @@ Begin
                               // Indicate TX triggered during this minute
                               didTX := True;
                               // Indicate it is in TX
-                              Image1.Picture.LoadFromLazarusResource('transmit');
+                              Image1.Picture.LoadFromLazarusResource('transmitv2');
                               transmitting := thisTXmsg;
                               // Double checking to clear Late TX offset value
                               clRebel.lateOffset := 0;
                               // Refresh the message mainly to keep CWID in play
-                              { TODO : Be sure this isn't a bad idea }
                               sm    := false;
                               ft    := false;
                               nc1t  := '';
@@ -2514,7 +2461,7 @@ Begin
                               bTX := 1270.5;
                               if not tryStrToInt(edDialQRG.Text,i) Then edDialQRG.Text := '0';
                               bTX := bTX + StrToInt(edDialQRG.Text) + txdf;  // This is the floating point value in Hz of the sync carrier (base frequency - data goes up from this)
-                              if doCW Then Memo2.Append('Msg: ' + TrimLeft(TrimRight(thisTXMsg)) + ' @ ' + FormatFloat('########.0',bTX) + ' Hz (Sync) + CWID') else Memo2.Append('Msg: ' + TrimLeft(TrimRight(thisTXMsg)) + ' @ ' + FormatFloat('########.0',bTX) + ' Hz (Sync)');
+                              //if doCW Then Memo2.Append('Msg: ' + TrimLeft(TrimRight(thisTXMsg)) + ' @ ' + FormatFloat('########.0',bTX) + ' Hz (Sync) + CWID') else Memo2.Append('Msg: ' + TrimLeft(TrimRight(thisTXMsg)) + ' @ ' + FormatFloat('########.0',bTX) + ' Hz (Sync)');
                          end;
                     end
                     else
@@ -2678,15 +2625,19 @@ Begin
      if cbTXeqRXDF.Checked Then
      Begin
           spinTXDF.Visible := False;
+          bnZeroTXDF.Visible := False;
           Label19.Visible := False;
-          Label79.Caption := 'RX/TX DF';
+          Label79.Caption := 'TRX DF';
      end
      else
      begin
+          if spinTXDF.Value = 0 Then bnZeroTXDF.Visible := False else bnZeroTXDF.Visible := True;
           spinTXDF.Visible := True;
           Label19.Visible := True;
           Label79.Caption := 'RX DF';
      end;
+
+     if spinRXDF.Value = 0 Then bnZeroRXDF.Visible := False else bnZeroRXDF.Visible := True;
 end;
 
 procedure TForm1.OncePerSecond;
@@ -2769,7 +2720,7 @@ Begin
                if (workingDF < -1150) or (workingDF > 1150) Then workingDF := 0;
                spinRXDF.Value := workingDF;
                glSteps := 0;
-               { TODO : Investigate issue with fail on 20 Hz BW single decode }
+               { TODO : Done (needs testing testing testing) - Investigate issue with fail on 20 Hz BW single decode }
                // Not sure why yet but at 20 Hz single I'm seeing too many fails.  Locking to 50
                //d65.glDFTolerance := 50;
                If tbSingleBin.Position = 1 then d65.glDFTolerance := 20 else If tbSingleBin.Position = 2 then d65.glDFTolerance := 50 else If tbSingleBin.Position = 3 then d65.glDFTolerance := 100 else If tbSingleBin.Position = 4 then d65.glDFTolerance := 200 else d65.glDFTolerance := 100;
@@ -2798,7 +2749,7 @@ Begin
      if (thisSecond=49) and (lastSecond=48) and didTX and doCW and not sendingCWID Then
      Begin
           // Send CWID with threaded rig control so it doesn't block us
-          Image1.Picture.LoadFromLazarusResource('transmit');
+          Image1.Picture.LoadFromLazarusResource('transmitv2');
           doCW := False;
           sendCWID;
      end;
@@ -3347,8 +3298,6 @@ Begin
                          if cfPix < 0 then cfpix := 0;
                          PaintBox1.Canvas.Pen.Color := clGreen;
                          PaintBox1.Canvas.Pen.Width := 2;
-                         // glDFTolerance single decode tolerance
-                         { TODO : Fix this once I unlock fast decode tolerance from 50 Hz }
                          j := Round((d65.glDFTolerance/2.0)/(11025.0/4096.0));
                          k := cfpix + j;
                          j := cfpix - j;
@@ -4261,8 +4210,6 @@ begin
      if ansicontainstext(s,'/') Then result := true else result := false;
 end;
 
-{ TODO : Validate this }
-
 procedure TForm1.v1DecomposeDecode(const exchange    : String;
                                  const connectedTo : String;
                                  var isValid       : Boolean;
@@ -4716,7 +4663,7 @@ Begin
           if t1 Then
           Begin
                // Message is valid.  Check callsign and grid
-               { TODO : Be sure this works as expected }
+               { TODO : Done (needs testing testing testing) - Be sure this works as expected }
                t1 := true;
                if not isCallsign(edCall.Text) then
                Begin
@@ -4877,7 +4824,6 @@ begin
           else if IsWordPresent(TrimLeft(TrimRight(UpCase(myscall))), foo, [' ']) Then
           begin
                // doFastDecode
-               { TODO : Maybe (and I stress maybe) not mycall color "slow" decoder output when fast is on }
                lineMyCall := True;
           end
           else if ansicontainstext(foo,edCall.Text) then
@@ -5060,10 +5006,10 @@ Var
 begin
      // Need to (maybe) regenerate message
      i := spinTXDF.Value;
-     if (i > 1050) or (i < -1050) Then
+     if (i > 1100) or (i < -1100) Then
      Begin
-          if i > 1050 Then i := 1050;
-          if i < -1050 Then i := -1050;
+          if i > 1100 Then i := 1000;
+          if i < -1100 Then i := -1000;
           spinTXDF.Value := i;
           edTXMsg.Text := '';
           thisTXMsg := '';
@@ -5452,7 +5398,7 @@ Var
    //itone9        : Array[0..84] Of CTypes.cint;
    //itone9fsk     : Array[0..84] Of CTypes.cdouble;
    //itone9dds     : Array[0..84] Of CTypes.cuint;
-   sm, ft, doit  : Boolean;
+   sm,ft,doit,cw : Boolean;
    baseTX        : CTypes.cdouble;
    //maxf,minf,bw  : CTypes.cdouble;
 begin
@@ -5641,8 +5587,26 @@ begin
           txDirty := True;  // Flag to force an update to the FSK TX
           txValid := True;
           mgendf := IntToStr(txdf-clRebel.txOffset);
-          { TODO : LOOK at this }
-          if spinTXDF.Value <> txdf-clRebel.txOffset Then spinTXDF.Value := txdf-clRebel.txOffset;
+          { TODO : Done - LOOK at this - not sure why I do this.  Still not sure why - it doesn't seem to ever get called so I'm going to leave it as I may have thought of something before I'm missing now.}
+          if spinTXDF.Value <> txdf-clRebel.txOffset Then
+          Begin
+               spinTXDF.Value := txdf-clRebel.txOffset;
+          end;
+          // Display message to send in debug output
+          cw := False;
+          if rbCWIDFree.Checked and txFree Then
+          Begin
+               cw := True;
+          end
+          else if rbCWID73.Checked and (txFree or tx73) Then
+          begin
+               cw := True;
+          end
+          else
+          begin
+               cw := False;
+          end;
+          if cw Then Memo2.Append('Msg: ' + TrimLeft(TrimRight(thisTXMsg)) + ' @ ' + FormatFloat('########.0',baseTX-clRebel.txOffset) + ' Hz (Sync) + CWID') else Memo2.Append('Msg: ' + TrimLeft(TrimRight(thisTXMsg)) + ' @ ' + FormatFloat('########.0',baseTX-clRebel.txOffset) + ' Hz (Sync)');
      end;
 end;
 
@@ -6319,7 +6283,7 @@ begin
                        closeFile(lfile);
                   end;
                except
-                  { TODO : Do something about this }
+                  lbDecodes.Items.Insert(0,'Notice: Failed to save log file');
                end;
                logCallSign.Text := '';
                logQRG.Text := '';
@@ -6508,6 +6472,12 @@ begin
           query.Active := False;
           ComboMacroList.Text := foo;
      end;
+end;
+
+procedure TForm1.bnZeroRXDFClick(Sender: TObject);
+begin
+     if Sender = bnZeroRXDF then spinRXDF.Value := 0;
+     if Sender = bnZeroTXDF then spinTXDF.Value := 0;
 end;
 
 procedure TForm1.btnDoFastClick(Sender: TObject);
@@ -6799,9 +6769,34 @@ end;
 
 procedure TForm1.FormCreate(Sender: TObject);
 begin
-     { TODO : Need to eventually get instance from commnad line }
-     { TODO : FIX Instance hard coded to TWO!!! }
-     instance   := 2; // Range 1..4
+     // Check for command line options
+     // Call hfwst.exe I1 ... I4 to initialize as instance 1 ... 4
+     // Falls back to instance = 1 if not set.
+     instance   := 1; // Range 1..4
+     if paramCount > 1 Then
+     Begin
+          // Needs to be 1 = I and 2 # 1...4
+          if ParamStr(1) = 'I1' Then
+          Begin
+               instance := 1;
+          end
+          else if ParamStr(1) = 'I2' Then
+          Begin
+               instance := 2;
+          end
+          else if ParamStr(1) = 'I3' Then
+          Begin
+               instance := 3;
+          end
+          else if ParamStr(1) = 'I4' Then
+          Begin
+               instance := 4;
+          end
+          else
+          begin
+               instance := 1;
+          end;
+     end;
      srun       := 0.0;
      lrun       := 0.0;
      d65.dmarun := 0.0;
@@ -12148,6 +12143,79 @@ Begin
        +#0#0#0#0#0#0#0#0#0#0#0#0#0#0#0#0#0#0#0#0#0#0#0#0#0#0#0#0#0#0#0#0#0#0#0#0#0#0
        +#0#0#0#0#0#0#0#0#0#0#0#0#0#0#0#0#0#0#0#0#0#0#0#0#0#0#0#0#0#0#0#0#0#0#0#0#0
      ]);
+
+     LazarusResources.Add('transmitv2','PNG',[
+       #137'PNG'#13#10#26#10#0#0#0#13'IHDR'#0#0#0#25#0#0#0#216#8#6#0#0#0#30']Hr'#0#0
+       +#0#6'bKGD'#0#255#0#255#0#255#160#189#167#147#0#0#0#9'pHYs'#0#0#11#19#0#0#11
+       +#19#1#0#154#156#24#0#0#0#7'tIME'#7#221#12#14#21#12'&#'#14#148#9#0#0#0#29'iTX'
+       +'tComment'#0#0#0#0#0'Created with GIMPd.e'#7#0#0#6#11'IDATx'#218#237#219'[l'
+       +#20'U'#24#7#240#255#156#185#238#236#236#246#130'e'#171#20'l'#181'*T'#160'R'
+       +#170#4#139'U#'#4'Ec4A'#229#165#1'c4'#193#248' '#154#136'/j'#31'P'#241'A'#162
+       +#137#137'>`Z'#136'&'#130'!A'#3'r'#19'+*'#196'j'#165#173#208'"B'#17#171'),'
+       +#224'Zv:;'#247'3'#190#180#9'6'#148'n'#217#25'4'#225#156#167#205'9'#155#253
+       +#205#153#239';3'#223#158#217#229#218'S'#169#215#16'q#'#184#2#141'!'#12'a'#8
+       +'C'#24#194#16#134'0'#228#255#141#8'c'#13#204'K'#167#155''''#242'A'#237#169'T'
+       +#243#127':'#19'n"'#21#228#200#236'.u'#212','#187#24#194#144#171#29#225#216#23
+       +'S'#134'0'#228#242#11#137#139#21#19#2#224'L"'#228#204#3#177'X'#251'JM;'#20#10
+       +'2'#186'y'#128#148#166#180#162#213'0*'#252'  '#207'%'#18#221#161'!#'#133#195
+       +'q'#215'M'#188#169#235#11#15#187'n'#237#14#203#154#159'/2'#161#152'T'#139#162
+       +#254'j2'#185#27#0'2'#148'^'#19'y'#224'E'#192#137'$&}'#158#167#189#145#205'.'
+       +#2#128'jA'#232#11#21#25#157'e'#229#132#252#241'JQ'#209#206#200'N'#151#0'8'
+       +#143#171#234'7U'#130'`'#132#138#180#167'R'#205'_'#149#149#173'Y'#17#143'o'
+       +#161#0'yohh'#217'^'#203#186'6'#244#153#196#9#241'Vj'#218#161#251#21#165#141#2
+       +#252#187#186#254' '#13#2'.'#146#211#181':'#153#252#190#132#227#206#166')'#173
+       +'X'#167#235's#A'#20#142#243#159#210#180#29#0#176#213'4'#23#30'w'#221'D$'#235
+       +#228'1U=q'#179' '#244#186#128#210#156#205'.a'#133#4'C'#24'r'#5#17#131'R'#161
+       +'1'#157'~'#233#174'tz'#181'N'#169#16#9#178#193'0jl@u'#128'X'#171'a'#220#26#9
+       +#178#199#182#235'G^'#239#181#172#250#208#145#3#182']6'#224#251#211'R'#132#252
+       +'YN'#200#31#167'('#157#250#157'mO'#14#21#249'$'#151#171#7#128'FY'#238'\'#164
+       +'('#29#0#176'i'#184'/'#20'$K'#169#216#233'8'#181#2#224'.'#143#199#15'/'#143
+       +#199'{d '#215#233'8'#179#7')'#21'CAZ'#12#227'V'#7'P'#166#139'bo'#25#207#219#9
+       +'B'#188':I'#234'v'#1'e'#131'a'#204#12#5#25#9#242'C'#138#210'9'#210#215#20#143
+       +'w'#0#8#246'ZV^w'#198'K'#230#251'>'#203'*OSZ'#1#0'ku}'#197'Z]'#255#215'x'#154
+       +#210#138'}'#150'U~'#183#162#156#190#236#153'l'#202#229#198'='#210'|'#222'3'
+       +#230'L'#254#242'}'#233'g'#215#157#13' h)-}'#167'F'#20#207'_8'#222#235#186'EO'
+       +'f2'#207#255#236#186#179#255#166'tO'#9'!'#206#132'g'#210'j'#24#179'\@'#174
+       +#226#249#190#209#0#0#212#136#226#249'J'#158#239's'#1#185'e'#156#4#24#19'i'
+       +#179#237#185#0'p'#223#5#1#31#221#22#14#143'}5'#206#21#128#21#18#12'aHH;'#18
+       +#13#146't`]I'#201#238#177#198#199'{@'#144#223#237#215'q'#230#253'`'#219#215
+       +'Dz'#186#2#128#127'['#215#239#143#20#169#226#249'c''}'#191#186#213'0'#166'G'
+       +#134#172'J$vq'#0#253#200'0'#22'O'#180#176#203#27#153''''#203#231#238#144#164
+       +#31#244' (Y'#155#205'6D'#150#194'/'''#147#251'd '#247#181'm/'#232'q'#221#162
+       +'H'#144#235'x'#222'|0'#22'k'#243#0#241#173'lvqd'#139#241#133'D'#226#167'RB'
+       +#206#28#245#188#154'-'#185'\U$'#136#200'q'#244#169'x|'''#0#172'7'#140'%'#145
+       +']V'#150#170#234#137'jA'#248'%CiY'#164#215#174#23#19#137#221#4#240'#E'#234'$'
+       +')3_'#146#190#207#247#253#172#144'`'#8'C'#10',$'#0'`'#151'iN'#217#152#203'5'
+       +#158#242#253'r3'#8'4'#149#227#244'*A8'#249'H,v'#240#161'X'#172#191#224#197
+       +#216'244'#227#3#195'x'#28#192'E'#183'f'#243#253#25#195'%g'#178#217'4'#239#5
+       +#192'U'#242#252#241'g5'#237#203':I:'#151#161'T'#222'eY'#149';-'#235#246'PN'
+       +#215' '#165#165#0#240'fq'#241#214#27#4'a'#8#0#18#132'x'#207'hZ'#207'3'#154
+       +#214#19'J'#224#139'8'#238'o'#0#248'phhn'#191#231#169#151#27'x'#254'iM'#187'g'
+       +#204#237#167' 0;]'#183#230#132#239'W}j'#154#13#155's'#185#217'{-k'#234')'#223
+       +#23'fI'#210'9'#129#227#130#130#145'zI:3'#137#144#223'OS'#26#211')M'#154#128
+       +'v'#142#210#201#221#174';c'#155'i'#222'r'#151','#247#22#17#226#134'v'#169'w'
+       +#131#128#252#232'8'#147#190#181#237#202'='#150#213#160#7'Aq'#157'(v'#188'_Z'
+       +#186'-'#180#197'(r'#28#189'S'#150#207#174'N&'#127'\ST'#244'1'#0#28#245#188
+       +#155'"['#241#165#132'X'#0'`'#6#129'Vp'#10'?|'#246#236#211#11'd'#185#235'nY'
+       +#254'm'#166'('#14'ZA@'#218#29''''#181#222'0'#22#2'@1!'#153#130#145'4'#165'S'
+       +#182#152#230#148'-'#166'y'#209'b'#127'i,'#214'VpvU'#10#194#175'F'#16#184'V'
+       +#16#136'N'#16#200#0#160'r'#220'P'#149' '#244#173#212#180'm'#203#226#241#227#5
+       +#207'd'#145#162#12',R'#148#1'v?a'#8'+$.'#189#27#1#0#203'T'#245#243'U'#137#196
+       +#193#11#199'7'#229'r7'#174#211#245#166'|'#238#247'$'#143#163'p'#190#177#237
+       +#218#209#253#219'M'#179'N'#200#243#193#255#184#200'tQ<2'#224#251#211#186#28
+       +#167'd'#164#175#223#243#212'c'#158'7}'#134'('#30#9#5'Y'#162'(]'#0#184'Or'#185
+       +#219'F'#250'6'#26'F-'#5#248#225#177#194#145'Gc'#177#147#26#199#157#239'p'#156
+       +#218#145'G'#227#251#29'g'#142#198'q'#131#143#196'b''CA'#8#199#5#245#146#212
+       +#173#7'A'#241'g'#166'y'#253#23#166'95C'#233#228'zI'#234'&y'#22#18'y'#237#147
+       +'<'#161#170']_'#219'v'#227'v'#203#186#141#0#193'p'#198'u'#23#156#194#163#191
+       +#136'^KH'#255#17#215#173#25#222#157#232#159'#I'#153#208#23'c'#163#162'ty'#128
+       ,#228#1'R'#163',wE'#178#226#155'T'#181'G'#0'\'#1'p'#155'T'#181''''#148#21'?'
+       +#186#149#241#188#189'?'#149'z'#253#234#190'@'#178#29#9#134'0$dd^:'#221'<'#209
+       +#127's'#176#152'0'#132'!'#12'a'#133#4#139#9'C'#174#242#29#137'|'#26#251#251
+       +''''#203'.'#134'0'#132#21#18',&'#12'a'#8'C'#24#194#16#134'0'#132'!'#12'a'#8
+       +'C'#162'i'#255#0'd'#28'zZ'#231#145#227'!'#0#0#0#0'IEND'#174'B`'#130
+     ]);
+
 end;
 
 function TForm1.utcTime: TSystemTime;

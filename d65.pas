@@ -21,8 +21,6 @@ unit d65;
 // Boston, MA 02110-1301, USA.
 //
 
-{ TODO : Rethink single decode setup - it's too complicated for the need using the "bins system" }
-
 {$mode objfpc}{$H+}
 interface
 

@@ -1,4 +1,4 @@
-{ TODO : Look at what RB server says to spots sent - low priority for now }
+{ TODO : Low priority - Look at what RB server says to spots sent - low priority for now }
 // (c) 2013 CQZ Electronics
 unit spot;
 
