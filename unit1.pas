@@ -1,3 +1,5 @@
+{ TODO : Save/restore screen position and size }
+{ TODO : Have changing Rebel T/RX offsets not reset message and working DF offsets - just be sure all things depending upon the offsets get updated proper }
 { TODO : Think about having RX move to keep passband centered for Rebel }
 { TODO : Fix text being white on white in some choices of decoder output coloring }
 { TODO : Begin to graft sound output code in }
@@ -16,10 +18,6 @@ JT65V2 support
 
 JT9 support
 
-Shorthand decoder core dumped - Nope. Not doing SH - done with that crap.  Let them scream.
-Expanding on SH stuff.  I *****am not***** adding support for TX of SH messages.  I **may**
-add a visual indicator to demark an RRR or 73, but, that's it.  SH on HF must die.  Those
-that support it (my own old code included) can go jump in a lake.  Done with it.
 }
 
 {
@@ -888,6 +886,8 @@ Begin
           halt;
      end;
 
+     Form1.Caption := 'HFWST by W6CQZ - Instance #' + IntToStr(instance);
+
      // Setup configuration and data directories
      homedir := getUserDir;
      if not (homeDir[length(homedir)] = pathDelim) Then homeDir := homeDir + PathDelim;
@@ -978,11 +978,11 @@ Begin
 
      cfgpath := TrimFilename(cfgpath);
 
-     // Check that path length won't be a problem.  It needs to be < 256 charcters in length with either kvasd.dat or wisdom3.dat appended
-     // So actual length + 11 < 256 is OK.
-     if Length(cfgpath)+11 > 255 then
+     // Check that path length won't be a problem.  It needs to be < 256 charcters in length with either kvasd.dat or wisdom3#.dat appended
+     // So actual length + 12 < 256 is OK.
+     if Length(cfgpath)+12 > 255 then
      begin
-          ShowMessage('Path length too long [ ' + IntToStr(Length(cfgpath)+11) + ' ]' + 'Program must halt.');
+          ShowMessage('Path length too long [ ' + IntToStr(Length(cfgpath)+12) + ' ]' + 'Program must halt.');
           halt;
      end;
 
@@ -1000,7 +1000,7 @@ Begin
      foo := cfgpath;
 
      // Changing this as of 12.08.2013 to force an update to DB
-     if not fileExists(cfgPath + 'hfwstJ' + IntToStr(instance)) Then
+     if not fileExists(cfgPath + 'hfwst' + IntToStr(instance)) Then
      Begin
           setupDB(cfgPath);
      end;
@@ -1009,13 +1009,12 @@ Begin
      d65.glnd65firstrun := True;
      d65.dmtmpdir := homedir;
      foo := d65.dmtmpdir;
-     d65.dmwispath := TrimFilename(cfgPath+'wisdom3.dat');
-     foo := d65.dmwispath;
+     d65.dmwispath := TrimFilename(cfgPath+'wisdom3' + IntToStr(instance) + '.dat');
      SetExceptionMask([exInvalidOp, exDenormalized, exZeroDivide, exOverflow, exUnderflow, exPrecision]); // This is a big one - must be set or BAD BAD things happen.
 
      // Query db for configuration with instance id = 1 and if it exists
      // read config, if not set to defaults and prompt for config update
-     sqlite3.DatabaseName := cfgPath + 'hfwstJ' + IntToStr(instance);
+     sqlite3.DatabaseName := cfgPath + 'hfwst' + IntToStr(instance);
      query.Active := False;
      query.SQL.Clear;
      query.SQL.Add('SELECT * FROM config WHERE instance = ' + IntToStr(instance) + ';'); // This uses the 1..4 instance!
@@ -1052,6 +1051,17 @@ Begin
      end;
 
      if mustcfg Then setDefaults;
+
+     // Restore screen size/position
+     query.Active := False;
+     query.SQL.Clear;
+     query.SQL.Add('SELECT * FROM gui WHERE instance=' + IntToStr(instance) + ';');
+     query.Active := True;
+     Form1.Left   := query.FieldByName('left').AsInteger;
+     Form1.Top    := query.FieldByName('top').AsInteger;
+     Form1.Width  := query.FieldByName('width').AsInteger;
+     Form1.Height := query.FieldByName('height').AsInteger;
+
      // Read the data from config
      query.Active := False;
      query.SQL.Clear;
@@ -1200,7 +1210,7 @@ Begin
      end
      else
      begin
-          if not fileExists(cfgPath + 'wisdom3.dat') Then
+          if not fileExists(cfgPath + 'wisdom3' + IntToStr(instance) + '.dat') Then
           Begin
                inIcal := 21;
                ShowMessage('First decode cycle will be delayed and will fail to decode - computing optimal FFT values. A one time thing!');
@@ -2375,7 +2385,6 @@ Begin
                     bTX := 1270.5;
                     if not tryStrToInt(edDialQRG.Text,i) Then edDialQRG.Text := '0';
                     bTX := bTX + StrToInt(edDialQRG.Text) + txdf;  // This is the floating point value in Hz of the sync carrier (base frequency - data goes up from this)
-                    //if doCW Then Memo2.Append('Msg: ' + TrimLeft(TrimRight(thisTXMsg)) + ' @ ' + FormatFloat('########.0',bTX) + ' Hz (Sync) + CWID') else Memo2.Append('Msg: ' + TrimLeft(TrimRight(thisTXMsg)) + ' @ ' + FormatFloat('########.0',bTX) + ' Hz (Sync)');
                end;
           end
           else
@@ -2767,6 +2776,7 @@ Begin
                     clRebel.setOffsets;
                     if tryStrToInt(edDialQRG.Text,i) Then
                     Begin
+                         // This is where it leads to message being invalidated for changing the rebel trx offsets
                          qsyQRG := i;
                          setQRG := True;
                     end;
@@ -2785,6 +2795,7 @@ Begin
                     clRebel.setOffsets;
                     if tryStrToInt(edDialQRG.Text,i) Then
                     Begin
+                         // This is where it leads to message being invalidated for changing the rebel trx offsets
                          qsyQRG := i;
                          setQRG := True;
                     end;
@@ -2803,6 +2814,7 @@ Begin
                     clRebel.setOffsets;
                     if tryStrToInt(edDialQRG.Text,i) Then
                     Begin
+                         // This is where it leads to message being invalidated for changing the rebel trx offsets
                          qsyQRG := i;
                          setQRG := True;
                     end;
@@ -2820,6 +2832,7 @@ Begin
                     clRebel.setOffsets;
                     if tryStrToInt(edDialQRG.Text,i) Then
                     Begin
+                         // This is where it leads to message being invalidated for changing the rebel trx offsets
                          qsyQRG := i;
                          setQRG := True;
                     end;
@@ -3187,18 +3200,6 @@ Begin
                // This is 16x lower than optimal
                Label3.Caption := 'Audio Low';
                Label3.Font.Color := clRed;
-          end
-          else if (aulevel*0.4)-20.0 < -6.0 Then
-          Begin
-               // This is 4x lower than optimal
-               Label3.Caption := 'Audio Low';
-               Label3.Font.Color := clYellow;
-          end
-          else if (aulevel*0.4)-20.0 > 12.0 Then
-          Begin
-               // This is 16x higher than optimal
-               Label3.Caption := 'Audio High';
-               Label3.Font.Color := clYellow;
           end
           else if (aulevel*0.4)-20 > 15.0 Then
           Begin
@@ -5594,11 +5595,11 @@ begin
           end;
           // Display message to send in debug output
           cw := False;
-          if rbCWIDFree.Checked and txFree Then
+          if rbCWIDFree.Checked and ft Then
           Begin
                cw := True;
           end
-          else if rbCWID73.Checked and (txFree or tx73) Then
+          else if rbCWID73.Checked and (ft or sm) Then
           begin
                cw := True;
           end
@@ -12325,7 +12326,6 @@ begin
      foo := foo + 'lastqrg=:LASTQRG,sbinspace=:SBIN,mbinspace=:MBIN,txlevel=:TXLEVEL,version=:VER,';
      foo := foo + 'multion=:MON,txeqrxdf=:TXEQRX,needcfg=:NEEDCFG,rebrxoffset=:RXOFFSET,rebtxoffset=:TXOFFSET,';
      foo := foo + 'rebrxoffset40=:RXOFFSET40,rebtxoffset40=:TXOFFSET40 WHERE instance=:INSTANCE';
-
      query.SQL.Text := foo;
      Query.Params.ParamByName('PREFIX').AsString     := t(edPrefix.Text);
      Query.Params.ParamByName('CALL').AsString       := t(edCall.Text);
@@ -12416,17 +12416,49 @@ begin
      transaction.Commit;
      transaction.Active:=False;
      query.Active:=False;
+     transaction.EndTransaction;
+     query.Active:=False;
+     query.SQL.Clear;
+     foo := 'UPDATE gui SET top=:TOP,left=:LEFT,height=:HEIGHT,width=:WIDTH WHERE instance=:INSTANCE';
+     query.SQL.Text := foo;
+     Query.Params.ParamByName('INSTANCE').AsInteger := instance;
+     Query.Params.ParamByName('TOP').AsInteger      := Form1.Top;
+     Query.Params.ParamByName('LEFT').AsInteger     := Form1.Left;
+     Query.Params.ParamByName('HEIGHT').AsInteger   := Form1.Height;
+     Query.Params.ParamByName('WIDTH').AsInteger    := Form1.Width;
+     transaction.StartTransaction;
+     query.ExecSQL;
+     transaction.Commit;
+     transaction.Active:=False;
+     query.Active:=False;
 end;
 
 procedure TForm1.setupDB(const cfgPath : String);
 Var
    foo : String;
 Begin
-     sqlite3.DatabaseName := cfgPath + 'hfwstJ' + IntToStr(instance);
+     sqlite3.DatabaseName := cfgPath + 'hfwst' + IntToStr(instance);
+
+     // Will be used eventually for V2 support.
      query.SQL.Clear;
      query.SQL.Add('CREATE TABLE ngdb(id integer primary key, xlate string(5))');
      query.ExecSQL;
      transaction.Commit;
+
+     // Screen options
+     query.SQL.Clear;
+     query.SQL.Add('CREATE TABLE gui(id integer primary key, instance integer, top integer, left integer, height integer, width integer)');
+     query.ExecSQL;
+     query.SQL.Clear;
+     query.SQL.Text := 'INSERT INTO gui(instance, top, left, height, width) VALUES(:INSTANCE,:TOP,:LEFT,:HEIGHT,:WIDTH);';
+     query.Params.ParamByName('INSTANCE').AsInteger := instance;
+     query.Params.ParamByName('TOP').AsInteger := 0;
+     query.Params.ParamByName('LEFT').AsInteger := 0;
+     query.Params.ParamByName('HEIGHT').AsInteger := 550;
+     query.Params.ParamByName('WIDTH').AsInteger := 960;
+     query.ExecSQL;
+     transaction.Commit;
+
      // QRG Definitions
      query.SQL.Clear;
      query.SQL.Add('CREATE TABLE qrg(id integer primary key, instance integer, fqrg float)');
@@ -12475,13 +12507,16 @@ Begin
      query.Params.ParamByName('QRG').AsFloat := 50276000.0;
      query.ExecSQL;
      transaction.Commit;
+
      // Macro Definitions
      query.SQL.Clear;
      query.SQL.Add('CREATE TABLE macro(id integer primary key, instance integer, text string(13))');
      query.ExecSQL;
      query.SQL.Clear;
      transaction.Commit;
+
      // Configuration
+     query.SQL.Clear;
      foo :='CREATE TABLE config(';
      foo := foo + 'instance integer primary key,prefix string(4),call string(6),suffix string(3), grid string(6), ';
      foo := foo + 'tadc varchar(255), iadc integer, tdac varchar(255), idac integer, mono bool, left bool, ';
@@ -12495,11 +12530,90 @@ Begin
      foo := foo + 'usecsv bool, csvpath varchar(255), adifpath varchar(255), logas varchar(5), remembercomments bool, ';
      foo := foo + 'multioffqso bool, automultion bool, halttxsetsmulti bool, defaultsetsmulti bool, ';
      foo := foo + 'decimal varchar(10), cwid varchar(10), cwidcall varchar(11), disableoptfft bool, disablekv bool, ';
-     foo := foo + 'lastqrg varchar(10), sbinspace integer, mbinspace integer, txlevel integer, version integer, ';
+     foo := foo + 'lastqrg varchar(10), sbinspace integer, mbinspace integer, txlevel integer, version string(8), ';
      foo := foo + 'multion bool, txeqrxdf bool, needcfg bool, rebrxoffset string, rebtxoffset string, rebrxoffset40 string, ';
      foo := foo + 'rebtxoffset40 string)';
-     query.SQL.Clear;
      query.SQL.Add(foo);
+     query.ExecSQL;
+     foo := 'UPDATE config SET ';
+     foo := foo + 'prefix=:PREFIX,call=:CALL,suffix=:SUFFIX,grid=:GRID,';
+     foo := foo + 'tadc=:TADC,iadc=:IADC,tdac=:TDAC,idac=:IDAC,mono=:MONO,left=:LEFT,';
+     foo := foo + 'right=:RIGHT,dgainl=:DGAINL,dgainla=:DGAINLA,dgainr=:DGAINR,dgainra=:DGAINRA,useserial=:USESERIAL,';
+     foo := foo + 'usealt=:USEALT,port=:PORT,pttdtrrts=:PTTDTRRTS,pttrts=:PTTRTS,pttdtr=:PTTDTR,dtrnever=:DTRNEVER,';
+     foo := foo + 'dtralways=:DTRALWAYS,rtsnever=:RTSNEVER,rtsalways=:RTSALWAYS,txwatchdog=:TXWD,txwatchdogcount=:TXWDCOUNT,';
+     foo := foo + 'rigcontrol=:RIGCONTROL,pttcat=:PTTCAT,txdfcat=:TXDFCAT,perioddivide=:PDIVIDE,periodcompact=:PCOMPACT,';
+     foo := foo + 'usecolor=:USECOLOR,cqcolor=:CQCOLOR,mycallcolor=:MYCOLOR,qsocolor=:QSOCOLOR,wfcmap=:WFCMAP,';
+     foo := foo + 'wfspeed=:WFSPEED,wfcontrast=:WFCONTRAST,wfbright=:WFBRIGHT,wfgain=:WFGAIN,wfsmooth=:WFSMOOTH,';
+     foo := foo + 'wfagc=:WFAGC,userb=:USERB,spotcall=:RBCALL,spotinfo=:RBINFO,';
+     foo := foo + 'usecsv=:USECSV,csvpath=:CSVPATH,adifpath=:ADIFPATH,logas=:LOGAS,remembercomments=:REMCOM,';
+     foo := foo + 'multioffqso=:MQSOOFF,automultion=:MAUTOON,halttxsetsmulti=:MHALTMON,defaultsetsmulti=:MDEFMON,';
+     foo := foo + 'decimal=:DECI,cwid=:CWID,cwidcall=:CWCALL,disableoptfft=:NOOPTFFT,disablekv=:NOKV,';
+     foo := foo + 'lastqrg=:LASTQRG,sbinspace=:SBIN,mbinspace=:MBIN,txlevel=:TXLEVEL,version=:VER,';
+     foo := foo + 'multion=:MON,txeqrxdf=:TXEQRX,needcfg=:NEEDCFG,rebrxoffset=:RXOFFSET,rebtxoffset=:TXOFFSET,';
+     foo := foo + 'rebrxoffset40=:RXOFFSET40,rebtxoffset40=:TXOFFSET40 WHERE instance=:INSTANCE';
+     query.SQL.Text := foo;
+     Query.Params.ParamByName('PREFIX').AsString     := '';
+     Query.Params.ParamByName('CALL').AsString       := '';
+     Query.Params.ParamByName('SUFFIX').AsString     := '';
+     Query.Params.ParamByName('GRID').AsString       := '';
+     Query.Params.ParamByName('TADC').AsString       := '';
+     Query.Params.ParamByName('IADC').AsInteger      := -1;
+     Query.Params.ParamByName('TDAC').AsString       := '';
+     Query.Params.ParamByName('IDAC').AsInteger      := -1;
+     Query.Params.ParamByName('MONO').AsBoolean      := False;
+     Query.Params.ParamByName('LEFT').AsBoolean      := True;
+     Query.Params.ParamByName('RIGHT').AsBoolean     := False;
+     Query.Params.ParamByName('DGAINL').AsInteger    := 0;
+     Query.Params.ParamByName('DGAINLA').AsBoolean   := False;
+     Query.Params.ParamByName('DGAINR').AsInteger    := 0;
+     Query.Params.ParamByName('DGAINRA').AsBoolean   := False;
+     Query.Params.ParamByName('USESERIAL').AsBoolean := False;
+     Query.Params.ParamByName('PORT').AsInteger      := -1;
+     Query.Params.ParamByName('TXWD').AsBoolean      := True;
+     Query.Params.ParamByName('TXWDCOUNT').AsInteger := 5;
+     Query.Params.ParamByName('RIGCONTROL').AsString := 'None';
+     Query.Params.ParamByName('PDIVIDE').AsBoolean   := True;
+     Query.Params.ParamByName('PCOMPACT').AsBoolean  := True;
+     Query.Params.ParamByName('USECOLOR').AsBoolean  := True;
+     Query.Params.ParamByName('CQCOLOR').AsInteger   := 8;
+     Query.Params.ParamByName('MYCOLOR').AsInteger   := 7;
+     Query.Params.ParamByName('QSOCOLOR').AsInteger  := 6;
+     Query.Params.ParamByName('WFCMAP').AsInteger    := 3;
+     Query.Params.ParamByName('WFSPEED').AsInteger   := 6;
+     Query.Params.ParamByName('WFCONTRAST').AsInteger := 0;
+     Query.Params.ParamByName('WFBRIGHT').AsInteger   := 0;
+     Query.Params.ParamByName('WFGAIN').AsInteger     := 0;
+     Query.Params.ParamByName('WFSMOOTH').AsBoolean  := True;
+     Query.Params.ParamByName('WFAGC').AsBoolean     := True;
+     Query.Params.ParamByName('USERB').AsBoolean     := True;
+     Query.Params.ParamByName('RBCALL').AsString     := '';
+     Query.Params.ParamByName('RBINFO').AsString     := '';
+     Query.Params.ParamByName('USECSV').AsBoolean    := False;
+     Query.Params.ParamByName('CSVPATH').AsString    := '';
+     Query.Params.ParamByName('ADIFPATH').AsString   := '';
+     Query.Params.ParamByName('REMCOM').AsBoolean    := False;
+     Query.Params.ParamByName('MQSOOFF').AsBoolean   := False;
+     Query.Params.ParamByName('MAUTOON').AsBoolean   := False;
+     Query.Params.ParamByName('MHALTMON').AsBoolean  := False;
+     Query.Params.ParamByName('MDEFMON').AsBoolean   := False;
+     Query.Params.ParamByName('DECI').AsString      := 'Auto';
+     Query.Params.ParamByName('CWID').AsString      := 'Never';
+     Query.Params.ParamByName('CWCALL').AsString    := '';
+     Query.Params.ParamByName('NOOPTFFT').AsBoolean := False;
+     Query.Params.ParamByName('NOKV').AsBoolean     := False;
+     Query.Params.ParamByName('LASTQRG').AsString   := '0';
+     Query.Params.ParamByName('SBIN').AsInteger    := 3;
+     Query.Params.ParamByName('MBIN').AsInteger    := 3;
+     Query.Params.ParamByName('TXLEVEL').AsInteger    := 16;
+     Query.Params.ParamByName('VER').AsString    := PVERSION;
+     Query.Params.ParamByName('MON').AsBoolean    := True;
+     Query.Params.ParamByName('TXEQRX').AsBoolean := True;
+     Query.Params.ParamByName('NEEDCFG').AsBoolean := True;
+     Query.Params.ParamByName('INSTANCE').AsInteger := instance;
+     Query.Params.ParamByName('RXOFFSET').AsString := '650';
+     Query.Params.ParamByName('TXOFFSET').AsString := '0';
+     Query.Params.ParamByName('RXOFFSET40').AsString := '-650';
+     Query.Params.ParamByName('TXOFFSET40').AsString := '0';
      query.ExecSQL;
      transaction.Commit;
 End;
