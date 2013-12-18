@@ -84,7 +84,7 @@ implementation
                     Bitmap.Free;
                     specpms65.Free;
                  Except
-                       // Do nothing for now...
+                       // Cleanup and be done
                        inherited Paint;
                        writer.Free;
                        ccanvas.Free;

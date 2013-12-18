@@ -17,7 +17,7 @@ function adcCallback2(input: Pointer; output: Pointer; frameCount: Longword;
                      statusFlags: TPaStreamCallbackFlags;
                      inputDevice: Pointer): Integer; cdecl;
 Var
-   d65rxIBuffer    : Packed Array[0..661503] of CTypes.cint16;   // Frame sample buffer (V3 integer)
+   d65rxIBuffer    : Packed Array[0..661503] of CTypes.cint16;   // Frame sample buffer
    adclast2k1      : Packed Array[0..2047] of CTypes.cint16;     // For computing audio levels
    adclast4k1      : Packed Array[0..4095] of CTypes.cint16;     // For computing spectrum
    d65rxBufferIdx  : Integer;
@@ -51,6 +51,7 @@ Begin
         Begin
              inc(adcECount);  // Looking for any recursive calls to this - i.e. overruns.
         end;
+        adcRunning := True;
         if adcFirst Then
         Begin
              for i := 0 to 661503 do
@@ -59,7 +60,6 @@ Begin
              end;
              adcFirst := False;
         end;
-        adcRunning := True;
         // Move paAudio Buffer to d65rxBuffer (d65rxBufferIdx ranges 0..661503)
         inptr := input;
         localIdx := d65rxBufferIdx;
@@ -81,7 +81,7 @@ Begin
              Begin
                   tempint1 := inptr^;
                   inc(inptr);
-                  d65rxIBuffer[localIdx] := min(32766,max(-32766,tempint1)); // Left or mono
+                  d65rxIBuffer[localIdx] := min(32766,max(-32766,tempint1)); // Sample to buffer
                   // Update both streams audio level and spectrum buffers - solves an oddity
                   // when switching for those 2 functions.
                   if not haveAU Then adclast2k1[auIDX] := d65rxIBuffer[localIdx];
@@ -91,14 +91,14 @@ Begin
              begin
                   tempint1 := inptr^;
                   inc(inptr);
-                  d65rxIBuffer[localIdx] := min(32766,max(-32766,tempint1)); // Left or mono
+                  d65rxIBuffer[localIdx] := min(32766,max(-32766,tempint1)); // Sample to buffer
                   // Must read the next if in stereo regardless of selected channel
                   tempint1 := inptr^;
                   inc(inptr);
                   // Process for the right channel (buffer2)
                   if adcChan = 2 Then
                   begin
-                       d65rxIBuffer[localIdx] := min(32766,max(-32766,tempint1)); // Left or mono
+                       d65rxIBuffer[localIdx] := min(32766,max(-32766,tempint1)); // Sample to buffer
                   end;
                   // Update both streams audio level and spectrum buffers - solves an oddity
                   // when switching for those 2 functions.
@@ -115,14 +115,14 @@ Begin
              if auIDX = 2048 then haveAU := True;
              if specIDX = 4096 then haveSpec := True;
         End;
-        result := paContinue;
         z := 0;
         inc(adcTick);
-        adcRunning := False;
      except
         inc(adcECount);
      end;
      adcFirst := False;
+     result := paContinue;
+     adcRunning := False;
 End;
 
 function adcCallback2(input: Pointer; output: Pointer; frameCount: Longword;

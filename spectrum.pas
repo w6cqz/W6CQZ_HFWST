@@ -7,9 +7,6 @@ interface
 uses
   Classes, SysUtils, CTypes, cmaps, fftw_jl, graphics, Math, jt65demod;
 
-Const
-  JT_DLL = 'JT65v392.dll';
-
 Type
     PNGPixel = Packed Record
              r : Word;
@@ -18,12 +15,10 @@ Type
              a : Word;
     end;
 
-    //PNGArray = Array[0..749] of PNGPixel;
     PNGArray = Array[0..929] of PNGPixel;
 
 procedure computeSpectrum(Const dBuffer : Array of CTypes.cint16);
 function computeAudio(Const Buffer : Array of CTypes.cint16): Integer;
-procedure flat(ss,n,nsum : Pointer); cdecl;
 
 Var
    specPNG         : Packed Array[0..179] Of PNGArray;
@@ -41,8 +36,6 @@ Var
    specNewSpec65   : Boolean;
 
 implementation
-
-procedure flat(ss,n,nsum : Pointer); cdecl; external JT_DLL name 'flat2_';
 
 function pColorMap(Const integerArray : Array of LongInt; Var rgbArray : PNGArray ): Boolean;
 Var
@@ -76,8 +69,8 @@ Begin
                intVar := min(65535,max(0,intVar));
                rgbArray[i].b := intvar;
           End;
-     End;
-     If specColorMap = 1 Then
+     End
+     Else If specColorMap = 1 Then
      Begin
           for i := 0 to 929 do
           Begin
@@ -100,8 +93,8 @@ Begin
                intVar := min(65535,max(0,intVar));
                rgbArray[i].b := intvar;
           End;
-     End;
-     If specColorMap = 2 Then
+     End
+     Else If specColorMap = 2 Then
      Begin
           for i := 0 to 929 do
           Begin
@@ -124,8 +117,8 @@ Begin
                intVar := min(65535,max(0,intVar));
                rgbArray[i].b := intvar;
           End;
-     End;
-     If specColorMap = 3 Then
+     End
+     Else If specColorMap = 3 Then
      Begin
           for i := 0 to 929 do
           Begin
@@ -148,7 +141,19 @@ Begin
                intVar := min(65535,max(0,intVar));
                rgbArray[i].b := intvar;
           End;
+     End
+     Else If specColorMap = 4 Then
+     Begin
+          // Spectrum types 4 is simple single color mapping.
+          for i := 0 to 929 do
+          Begin
+               rgbarray[i].a := 65535;
+               rgbarray[i].g := min(65535,max(0,integerArray[i]*255));
+               rgbarray[i].r := 0;
+               rgbarray[i].b := 0;
+          end;
      End;
+
      Result := True;
 End;
 
@@ -202,7 +207,6 @@ Begin
         End;
         Result := trunc(flevel);
      Except
-        //dlog.fileDebug('Exception raised in audio level computation');
         Result := 0;
      End;
      audioComputing := False;
@@ -274,8 +278,7 @@ Begin
              gamma := 1.3 + 0.01*specContrast;
              //offset := (specGain+64.0)/2;
              offset := 32.0;
-
-             if specfftCount >= (10-specSpeed2) Then
+             if specfftCount >= (8-specSpeed2) Then
              Begin
                   // Compute spectral display line.
                   jt65demod.jl_flat2(ss65,nh,specfftCount);
@@ -299,30 +302,9 @@ Begin
              // integerSpectra[0..929] now contains the values ready to convert to rgbSpectra via colorMap()
              If doSpec Then
              Begin
-                  // Spectrum types 0..3 need conversion via colorMap()
-                  If specColorMap < 4 then pColorMap(integerSpectra, pngSpectra);
-                  // Spectrum types 4 is simple single color mapping.
-                  If specColorMap = 4 Then
-                  Begin
-                       for i := 0 to 929 do
-                       Begin
-                            pngSpectra[i].a := 65535;
-                            pngSpectra[i].g := integerSpectra[i]*255;
-                            pngSpectra[i].r := 0;
-                            pngSpectra[i].b := 0;
-                       end;
-                  End;
-
+                  // Map spectra values to png RGB pixel values
+                  pColorMap(integerSpectra, pngSpectra);
                   // Shift the lines and add new one then Build the PNG
-                  // Now prepend the new spectra to the spectrum rolling off the former
-          	  // oldest element.  This is held in specDisplayData :
-                  // Array[0..109][0..749] Of CTypes.cint32  Will use tempSpec1 as
-          	  // a copy buffer.
-          	  //
-          	  // Shift specDisplayData 1 line into tempSpec1 remembering that a
-          	  // full spectrum display has 180 lines.  See that I'm copying the
-          	  // newest 179 lines (0 to 178) to temp as lines 1 to 179 then
-          	  // adding the new line as element 0 yielding again 180 lines.
           	  for i := 0 to 178 do specPNGTemp[i+1] := specPNG[i];
           	  // Prepend new spectra to copy buffer
           	  specPNGTemp[0] := pngSpectra;

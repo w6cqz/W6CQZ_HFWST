@@ -1,15 +1,20 @@
-{ TODO : Save/restore screen position and size }
-{ TODO : Have changing Rebel T/RX offsets not reset message and working DF offsets - just be sure all things depending upon the offsets get updated proper }
+{ TODO : Begin to graft sound output code in }
+{ TODO : Rework the pit of despair that is the timing for Rebel TRX }
+{ TODO : Try placing connect to Rebel into thread so it doesn't block on startup }
 { TODO : Think about having RX move to keep passband centered for Rebel }
 { TODO : Fix text being white on white in some choices of decoder output coloring }
-{ TODO : Begin to graft sound output code in }
 { TODO : Add qrg edit/define }
 { TODO : Enhance macro editor }
 { TODO : Add back save receptions to CSV option }
 { TODO : Add worked call tracking taking into consideration call, band and grid. }
 
+{ Done : Compare save Audio I/O devices to current working set and complain if incorrect (after attempting to sort it out) - TEST TEST TEST }
+{ Done : Add back TX by sample generation code }
+
 {
 (Far) Less urgent
+
+Have changing Rebel T/RX offsets not reset message and working DF offsets - just be sure all things depending upon the offsets get updated proper
 
 Slave RX320D control for my setup
 
@@ -54,8 +59,8 @@ interface
 uses
   Classes, SysUtils, FileUtil, Forms, Controls, Graphics, Dialogs, StdCtrls,
   ExtCtrls, Math, StrUtils, CTypes, Windows, lconvencoding, TAGraph, TASeries,
-  ComCtrls, EditBtn, DbCtrls, Types, portaudio, adc, spectrum, waterfall1, spot,
-  BufDataset, sqlite3conn, sqldb, valobject, rebel, d65, LResources, Spin,
+  ComCtrls, EditBtn, DbCtrls, Types, portaudio, adc, dac, spectrum, waterfall1,
+  spot, BufDataset, sqlite3conn, sqldb, valobject, rebel, d65, LResources, Spin,
   blcksock, gettext;
 
 Const
@@ -125,9 +130,14 @@ type
     cbSlowWF: TCheckBox;
     cbWFTX: TCheckBox;
     cbSpecWindow: TCheckBox;
+    cbNetCQ: TCheckBox;
+    cbCATTXDF: TCheckBox;
+    cbCATRXDF: TCheckBox;
+    comboAudioOut: TComboBox;
     edRebRXOffset40: TEdit;
     edRebTXOffset40: TEdit;
     gbRebel: TGroupBox;
+    groupTXDF: TGroupBox;
     groupRXMode: TRadioGroup;
     Image2: TImage;
     Label108: TLabel;
@@ -140,6 +150,7 @@ type
     Label45: TLabel;
     Label46: TLabel;
     Label47: TLabel;
+    Label48: TLabel;
     lbFastDecode: TListBox;
     logExternal: TButton;
     logClearComments: TButton;
@@ -448,7 +459,8 @@ type
                                   var response      : String;
                                   var connectTo     : String;
                                   var fullCall      : String;
-                                  var hisGrid       : String);
+                                  var hisGrid       : String;
+                                  var isCQ          : Boolean);
 
     procedure displayDecodes3;
     procedure specHeader;
@@ -467,15 +479,15 @@ type
     procedure OncePerTick;
     procedure OncePerSecond;
     procedure OncePerMinute;
-    procedure periodicSpecial;
     procedure adcdacTick;
 
     function  asBand(const qrg : Integer) : Integer;
 
     procedure updateDB;
+    procedure setupPA;
     procedure setDefaults;
     procedure setupDB(const cfgPath : String);
-    procedure mgen(const msg : String; var isValid : Boolean; var isBreakIn : Boolean; var level : Integer; var response : String; var connectTo : String; var fullCall : String; var hisGrid : String; var sdf : String; var sdB : String; var txp : Integer);
+    procedure mgen(const msg : String; var isValid : Boolean; var isBreakIn : Boolean; var level : Integer; var response : String; var connectTo : String; var fullCall : String; var hisGrid : String; var sdf : String; var sdB : String; var txp : Integer; var aCQ : Boolean);
 
     function t(const s : String) : String;
     function valV1Prefix(const s : string) : Boolean;
@@ -531,12 +543,14 @@ var
   thisADCTick    : CTypes.cuint;
   lastADCTick    : CTypes.cuint;
   paInParams     : TPaStreamParameters;
-//  paOutParams    : TPaStreamParameters;
+  paOutParams    : TPaStreamParameters;
   ppaInParams    : PPaStreamParameters;
-//  ppaOutParams   : PPaStreamParameters;
+  ppaOutParams   : PPaStreamParameters;
   paInStream     : PPaStream;
   paInStream2    : PPaStream;
-  inDev          : Integer;//,outDev   : Integer;
+  paOutStream    : PPaStream;
+  paOutStream2   : PPaStream;
+  inDev,outDev   : Integer;
   inIcal,pttDev  : Integer;
   auLevel        : Integer;
   auLevel1       : Integer;
@@ -550,7 +564,7 @@ var
   rigThread      : rigComThread;
   decoderThread  : decodeThread;
   srun,lrun      : Double;
-  defI           : Integer;//,defO      : Integer;
+  defI,defO      : Integer;
   qrgValid       : Boolean;
   catmethod      : String;
   catQRG         : Integer;
@@ -569,6 +583,8 @@ var
   pttState       : Boolean;
   savedTADC      : String;
   savedIADC      : Integer;
+  savedTDAC      : String;
+  savedIDAC      : Integer;
   txperiod       : Integer; // 1 = Odd 0 = Even
   canTX          : Boolean; // Only true if callsign and grid is ok
   txDirty        : Boolean; // TX Message content has not been queued since generation if true
@@ -590,7 +606,6 @@ var
   thisTXdf       : Integer; // DF for current TX message
   transmitting   : String;  // Holds message currently being transmitted
   transmitted    : String;  // Last message transmitted (used to compare to above for same TX message count)
-  rxdf,txdf      : CTypes.cint; // Keeps current tx/rx dfs
   dtrejects      : Integer;
   mycall,myscall : String;  // Keeps this stations call and slashed call in order (Same if not a slashed call)
   kvdatdel       : Integer; // Tracing how many calls it takes to delete a stuck KV
@@ -636,6 +651,12 @@ var
   rigP4          : String = '';
   rigP5          : String = '';
   rigP6          : String = '';
+  forceDefaultGUI  : Boolean = false;
+  forceNewConfig   : Boolean = false;
+  forceRebelUnlock : Boolean = false;
+  noTXAudio        : Boolean = false; // Disables soundcard TX output if Rebel is active
+  rebLock          : String = ''; // Lock file name for Rebel in use
+  afskTXOn         : Boolean = false;
 
 implementation
 
@@ -671,23 +692,20 @@ begin
      lastADCTick := thisADCTick;
      if newMinute then newMinute := False;
      if newSecond then newSecond := False;
+     // And that's it for the timing loop calls
      timer1.enabled := True;
-     // And that's it for the timing loop - so much simpler than JT65-HF 1.x
 end;
 
 procedure TForm1.OncePerRuntime;
 Var
-   foo       : String;
-   paInS     : String;
-   i         : Integer;
-   paResult  : TPaError;
-   paDefApi  : Integer;
-   paCount   : Integer;
-   cfgpath   : String;
-   basedir   : String;
-   mustcfg   : Boolean;
-   l,fbl     : String;
-   deci      : PChar;
+   i       : Integer;
+   foo     : String;
+   cfgpath : String;
+   basedir : String;
+   l,fbl   : String;
+   deci    : PChar;
+   mustcfg : Boolean;
+   lfile   : TextFile;
 Begin
      // This runs on first timer interrupt once per run session
      timer1.Enabled:=False;
@@ -716,107 +734,6 @@ Begin
      b200.Width  := 748;
      b200.LoadFromLazarusResource('header200');
 
-     {
-     Thinking about fast decode pass at working DF.  Working DF needs to be defined
-     first.  If calling CQ then working DF is TXDF - otherwise it is the RXDF of a
-     station answered using decoder double click.  There's only so far I can go with
-     guessing where to do the fast decode... if the user is running "split" TRX then
-     I could use RXDF as the determining value.
-
-     So....
-     If multi on then....
-     Decoder tolerance = SINGLE decode tolerance.
-     If Matching TX/RX DF is ****off**** fast decode df = TXDF
-     If Matching TX/RX DF is ****on***** fast decode df = RXDF **** OF STATION BEING WORKED ****
-
-     If multi off it's moot.  :)
-
-     I think the way to do this is if multi on
-
-     Determine working DF
-     Run single decode pass
-     Display result
-     Run multi decode pass
-     Display result but filter out any result gotten in single pass
-
-     Will likely be tedious to work out but well worth effort.
-
-     For the GUI I have an element for the single decode in place that
-     will appear when necessary so I don't have to muck around with the
-     normal decoder output area other than sliding it down 24 pixels when
-     the fast decode output area needs to show.
-
-     }
-
-     //lbDecodes.Top := 344;
-     //lbFastDecode.Visible := True;
-     //lbFastDecode.Items.Insert(0,'Fast working DF output');
-
-     //// This now works fine.  Just need to be sure I can format a string for
-     //// setting the QRG properly. It ***must be*** ###,###.### or I guess
-     //// ###.###,### for Euro convention
-     //// Use leading/trailing 0 to pad it such that QRG is always ###,###.###
-     ////
-     //// On QRG read if result = .000 or (I'm guessing) ,000 Then Commander isn't
-     //// able to read the rig.
-     //try
-     //   This will format an integer to Commander's specs.  Need to have determined
-     //   kilochar and decichar first though.
-     //   i := 1838000;
-     //   foo := formatFloat('000' + kiloString + '000' + deciString + '000',i/1000.0);
-     //   // Direct TCP connect to DX Lab commander
-     //   // For this I need to create a socket - connect to Commander at
-     //   // 127.0.0.1 port 52002
-     //   sock := TTCPBlockSocket.Create;
-     //   sock.Connect('127.0.0.1','52002');
-     //   if sock.LastError = 0 Then
-     //   Begin
-     //        cmd  := 'CmdGetFreq';
-     //        parm := '';
-     //        foo := '<command:'+IntToStr(length(cmd))+'>' + cmd + '<parameters:' + IntToStr(length(parm)) + '>' + parm;
-     //        sock.SendString(foo);
-     //        foo2 := '';
-     //        repeat
-     //              foo2 := foo2 + chr(sock.RecvByte(200));
-     //        until sock.LastError <> 0;
-     //        foo2 := TrimLeft(TrimRight(foo2));
-     //
-     //        if foo2 = '<CmdFreq:4>.000' Then
-     //        Begin
-     //             showMessage('Commander does not seem to be connected to a rig');
-     //        end
-     //        else
-     //        begin
-     //             cmd  := 'CmdSetFreq';
-     //             parm := '<xcvrfreq:10>007,076.100';
-     //             foo := '<command:'+IntToStr(length(cmd))+'>' + cmd + '<parameters:' + IntToStr(length(parm)) + '>' + parm;
-     //             sock.SendString(foo);
-     //
-     //             cmd  := 'CmdGetFreq';
-     //             parm := '';
-     //             foo := '<command:'+IntToStr(length(cmd))+'>' + cmd + '<parameters:' + IntToStr(length(parm)) + '>' + parm;
-     //             sock.SendString(foo);
-     //             foo2 := '';
-     //             repeat
-     //                   foo2 := foo2 + chr(sock.RecvByte(200));
-     //             until sock.LastError <> 0;
-     //             foo2 := TrimLeft(TrimRight(foo2));
-     //        end;
-     //        sock.CloseSocket;
-     //        foo := foo;
-     //   end
-     //   else
-     //   begin
-     //        ShowMessage('DX Lab Commander is not running or not configured to accept TCP/IP connections on port 52002' + sLineBreak + 'Rig control disabled.');
-     //        foo := foo;
-     //   end;
-     //   sock.Destroy;
-     //   except
-     //         //lbDecodes.Items.Insert(0,'Notice: DX Keeper failed. Saved to file');
-     //         foo := foo;
-     //         sock.Destroy;
-     //   end;
-
      // Getting locale settings
      l := '';
      fbl := '';
@@ -831,7 +748,7 @@ Begin
      GetLocaleInfo(LOCALE_USER_DEFAULT,LOCALE_STHOUSAND,deci,255);
      kiloString := TrimLeft(TrimRight(StrPas(deci)));
 
-     // Trying to fix an ANNOYING corruption to my GUI layout
+     // Insuring tab sheet for config is arranged as I want it
      TabSheet1.PageIndex := 0;
      TabSheet6.PageIndex := 1;
      TabSheet2.PageIndex := 2;
@@ -845,7 +762,7 @@ Begin
 
      for i := 0 to 100 do d65.glDecTrace[i].trDIS := True;
 
-     workingDF := 0; // Tracks current working DF for (eventual) fast single decode pass with multi on.
+     workingDF := 0; // Tracks current working DF for fast single decode pass with multi following
      rebBandStart := 0; // Tracks band change if a Rebel is in play
      plotcount := 0;
      dtrejects := 0;
@@ -867,6 +784,8 @@ Begin
 
      // Let adc know it is on first run so it can do its init
      adc.adcFirst := True;
+     dac.dacFirst := True;
+     dac.dacTXOn  := False;
 
      // Setup rebel object and the serial port support so we use this rebel or not.
      clRebel := rebel.TRebel.create;
@@ -938,8 +857,6 @@ Begin
      homedir := homedir + 'hfwst' + PathDelim + 'I' + intToStr(instance) + pathDelim;
      homedir := TrimFilename(homedir);
 
-     foo := homedir;
-
      if not FileExists(homedir + 'kvasd.exe') Then
      Begin
           if not FileUtil.CopyFile('kvasd.exe',homedir + 'kvasd.exe') Then showmessage('Need kvasd.exe in data directory.') else showmessage('kvasd.exe copied to its processing location');
@@ -999,6 +916,12 @@ Begin
 
      foo := cfgpath;
 
+     if forceNewConfig Then
+     Begin
+          // Add code here to wipe out previous configuration and start clean
+          foo := foo;
+     end;
+
      // Changing this as of 12.08.2013 to force an update to DB
      if not fileExists(cfgPath + 'hfwst' + IntToStr(instance)) Then
      Begin
@@ -1053,14 +976,24 @@ Begin
      if mustcfg Then setDefaults;
 
      // Restore screen size/position
-     query.Active := False;
-     query.SQL.Clear;
-     query.SQL.Add('SELECT * FROM gui WHERE instance=' + IntToStr(instance) + ';');
-     query.Active := True;
-     Form1.Left   := query.FieldByName('left').AsInteger;
-     Form1.Top    := query.FieldByName('top').AsInteger;
-     Form1.Width  := query.FieldByName('width').AsInteger;
-     Form1.Height := query.FieldByName('height').AsInteger;
+     if forceDefaultGUI Then
+     Begin
+          Form1.Left   := 4;
+          Form1.Top    := 4;
+          Form1.Width  := 960;
+          Form1.Height := 550;
+     end
+     else
+     begin
+          query.Active := False;
+          query.SQL.Clear;
+          query.SQL.Add('SELECT * FROM gui WHERE instance=' + IntToStr(instance) + ';');
+          query.Active := True;
+          Form1.Left   := query.FieldByName('left').AsInteger;
+          Form1.Top    := query.FieldByName('top').AsInteger;
+          Form1.Width  := query.FieldByName('width').AsInteger;
+          Form1.Height := query.FieldByName('height').AsInteger;
+     end;
 
      // Read the data from config
      query.Active := False;
@@ -1074,6 +1007,8 @@ Begin
      // Need to handle these in audio selector code! PageControl
      savedTADC := query.FieldByName('tadc').AsString;
      savedIADC := query.FieldByName('iadc').AsInteger;
+     savedTDAC := query.FieldByName('tdac').AsString;
+     savedIDAC := query.FieldByName('idac').AsInteger;
      cbUseMono.Checked       := query.FieldByName('mono').AsBoolean;
      rbUseLeftAudio.Checked  := query.FieldByName('left').AsBoolean;
      rbUseRightAudio.Checked := query.FieldByName('right').AsBoolean;
@@ -1110,17 +1045,12 @@ Begin
      tbWFContrast.Position := query.FieldByName('wfcontrast').AsInteger;
      tbWFBright.Position := query.FieldByName('wfbright').AsInteger;
      tbWFGain.Position := query.FieldByName('wfgain').AsInteger;
-     //cbSpecSmooth.Checked := query.FieldByName('wfsmooth').AsBoolean;
      edRBCall.Text := query.FieldByName('spotcall').AsString;
      edStationInfo.Text := query.FieldByName('spotinfo').AsString;
      cbSaveToCSV.Checked := query.FieldByName('usecsv').AsBoolean;
      edCSVPath.Text := query.FieldByName('csvpath').AsString;
      edADIFPath.Text := query.FieldByName('adifpath').AsString;
      cbRememberComments.Checked := query.FieldByName('remembercomments').AsBoolean;
-     //cbMultiOffQSO.Checked := query.FieldByName('multioffqso').AsBoolean;
-     //cbRestoreMulti.Checked := query.FieldByName('automultion').AsBoolean;
-     //cbHaltTXMultiOn.Checked := query.FieldByName('halttxsetsmulti').AsBoolean;
-     //cbDefaultsMultiOn.Checked := query.FieldByName('defaultsetsmulti').AsBoolean;
      if query.FieldByName('decimal').AsString = 'USA' then useDeciAmerican.Checked := True;
      if query.FieldByName('decimal').AsString = 'Euro' then useDeciEuro.Checked := True;
      if query.FieldByName('decimal').AsString = 'Auto' then useDeciAuto.Checked := True;
@@ -1181,26 +1111,10 @@ Begin
      end;
      comboMacroList.ItemIndex := 0;
      query.Active := False;
-     // Populate Macro list
-     comboMacroList.Clear;
-     query.SQL.Clear;
-     query.SQL.Add('SELECT text FROM macro WHERE instance = ' + IntToStr(instance) + ';');
-     query.Active := True;
-     comboMacroList.Items.Add('');
-     if query.RecordCount > 0 Then
-     Begin
-          query.First;
-          for i := 0 to query.RecordCount-1 do
-          begin
-               comboMacroList.Items.Add(query.Fields[0].AsString);
-               query.Next;
-          end;
-     end;
-     comboMacroList.ItemIndex := 0;
-     query.Active := False;
      // Lets read some config
      lastTXDF := '';
      inDev  := savedIADC;
+     outDev := savedIDAC;
      pttDev := -1;
      If not TryStrToInt(edPort.Text,pttDev) Then pttDev := -1;
 
@@ -1413,254 +1327,57 @@ Begin
 
      if not paActive Then
      Begin
-          // Fire up portaudio using default in/out devices.
-          // But first clear the i/o buffers in adc/dac
-          ListBox2.Items.Add('Setting up PortAudio');
-          for i := 0 to Length(adc.d65rxIBuffer)-1 do adc.d65rxIBuffer[i] := 0;
-
-          // Init PA.  If this doesn't work there's no reason to continue.
-          PaResult := portaudio.Pa_Initialize();
-          If PaResult <> 0 Then
-          Begin
-               ShowMessage('Fatal Error.  Could not initialize PortAudio.');
-               halt;
-          end;
-          If PaResult = 0 Then ListBox2.Items.Insert(0,'PortAudio up.');
-          // Now I need to populate the Sound In/Out pulldowns.  First I'm going to get
-          // a list of the portaudio API descriptions.  For now I'm going to stick with
-          // the default windows interface.
-          paDefApi := portaudio.Pa_GetDefaultHostApi();
-          if paDefApi >= 0 Then
-          Begin
-               paCount := portaudio.Pa_GetHostApiInfo(paDefApi)^.deviceCount;
-               i := paCount-1;
-               if i < 0 Then
-               Begin
-                    ShowMessage('PortAudio Reports no audio devices.');
-                    Halt;
-               End;
-               comboAudioIn.Clear;
-               //comboAudioOut.Clear;
-               i := 0;
-               While i < paCount do
-               Begin
-                    // I need to populate the pulldowns with the devices supported by
-                    // the default portaudio API, select the default in/out devices for
-                    // said API or restore the saved value of the user's choice of in
-                    // out devices.
-                    If portaudio.Pa_GetDeviceInfo(i)^.maxInputChannels > 0 Then
-                    Begin
-                         if i < 10 Then paInS := '0' + IntToStr(i) + '-' + ConvertEncoding(StrPas(portaudio.Pa_GetDeviceInfo(i)^.name),GuessEncoding(StrPas(portaudio.Pa_GetDeviceInfo(i)^.name)),EncodingUTF8) else paInS := IntToStr(i) + '-' + ConvertEncoding(StrPas(portaudio.Pa_GetDeviceInfo(i)^.name),GuessEncoding(StrPas(portaudio.Pa_GetDeviceInfo(i)^.name)),EncodingUTF8);
-                         comboAudioIn.Items.Add(paInS);
-                         ListBox2.Items.Insert(0,'Input:  ' + paInS);
-                    End;
-                    //If portaudio.Pa_GetDeviceInfo(i)^.maxOutputChannels > 0 Then
-                    //Begin
-                    //     if i < 10 Then paOutS := '0' + IntToStr(i) +  '-' + ConvertEncoding(StrPas(portaudio.Pa_GetDeviceInfo(i)^.name),GuessEncoding(StrPas(portaudio.Pa_GetDeviceInfo(i)^.name)),EncodingUTF8) else paOutS := IntToStr(i) +  '-' + ConvertEncoding(StrPas(portaudio.Pa_GetDeviceInfo(i)^.name),GuessEncoding(StrPas(portaudio.Pa_GetDeviceInfo(i)^.name)),EncodingUTF8);
-                    //     comboAudioOut.Items.Add(paOutS);
-                    //     ListBox2.Items.Insert(0,'Output:  ' + paOutS);
-                    //End;
-                    inc(i);
-               End;
-
-               foo := IntToStr(portaudio.Pa_GetHostApiInfo(paDefApi)^.defaultInputDevice);
-               if length(foo)=1 then foo := '0'+foo;
-               for i := 0 to comboAudioIn.Items.Count -1 do
-               begin
-                    if comboAudioIn.Items.Strings[i][1..2] = foo then break;
-               end;
-               comboAudioIn.ItemIndex := i;
-               foo := IntToStr(portaudio.Pa_GetHostApiInfo(paDefApi)^.defaultOutputDevice);
-               if length(foo)=1 then foo := '0'+foo;
-               //for i := 0 to comboAudioOut.Items.Count -1 do
-               //begin
-               //     if comboAudioOut.Items.Strings[i][1..2] = foo then break;
-               //end;
-               //comboAudioOut.ItemIndex := i;
-
-               defI := portaudio.Pa_GetHostApiInfo(paDefApi)^.defaultInputDevice;
-               //defO := portaudio.Pa_GetHostApiInfo(paDefApi)^.defaultOutputDevice;
-               ListBox2.Items.Insert(0,'Default input:  ' + IntToStr(defI));
-               //ListBox2.Items.Insert(0,'Default output:  ' + IntToStr(defO));
-
-               //if (inDev > -1) and (outDev > -1) Then
-               //Begin
-               //     ListBox2.Items.Insert(0,'Setting up ADC/DAC.  ADC:  ' + IntToStr(inDev) + ' DAC:  ' + IntToStr(outDev));
-               //end
-               //else
-               //Begin
-               //     ListBox2.Items.Insert(0,'Using DEFAULT input/output devices');
-               //     ListBox2.Items.Insert(0,'Setting up ADC/DAC.  ADC:  ' + IntToStr(defI) + ' DAC:  ' + IntToStr(defO));
-               //end;
-
-               //if (inDev > -1) and (outDev > -1) Then
-               //Begin
-               //     ListBox2.Items.Insert(0,'Setting up ADC.  ADC:  ' + IntToStr(inDev));
-               //end
-               //else
-               //Begin
-               //     ListBox2.Items.Insert(0,'Using DEFAULT input device.');
-               //     ListBox2.Items.Insert(0,'Setting up ADC.  ADC:  ' + IntToStr(defI));
-               //end;
-
-               if (inDev > -1) Then
-               Begin
-                    ListBox2.Items.Insert(0,'Setting up ADC.  ADC:  ' + IntToStr(inDev));
-               end
-               else
-               Begin
-                    ListBox2.Items.Insert(0,'Using DEFAULT input device.');
-                    ListBox2.Items.Insert(0,'Setting up ADC.  ADC:  ' + IntToStr(defI));
-               end;
-
-               // Setup input device
-               // Set parameters before call to start
-               // Input
-               if cbUseMono.Checked Then
-               Begin
-                    paInParams.channelCount := 1;
-                    adc.adcMono := True;
-                    ListBox2.Items.Insert(0,'Using Mono');
-               end
-               else
-               begin
-                    paInParams.channelCount := 2;
-                    adc.adcMono := False;
-                    ListBox2.Items.Insert(0,'Using Stereo');
-               end;
-               if inDev > -1 Then paInParams.device := inDev else paInParams.device := defI;
-               paInParams.sampleFormat := paInt16;
-               paInParams.suggestedLatency := 1;
-               paInParams.hostApiSpecificStreamInfo := Nil;
-               ppaInParams := @paInParams;
-               // Set rxBuffer index to start of array.
-               adc.d65rxBufferIdx := 0;
-               adc.adcTick := 0;
-               adc.adcECount := 0;
-               adc.adcChan := 1;
-               adc.adcLDgain := 0;
-               adc.adcRDgain := 0;
-               // output
-               //paOutParams.channelCount := 2;
-               //if outDev > -1 Then paOutParams.device := outDev else paOutParams.device := defO;
-               //paOutParams.sampleFormat := paInt16;
-               //paOutParams.suggestedLatency := 1;
-               //paOutParams.hostApiSpecificStreamInfo := Nil;
-               //ppaOutParams := @paOutParams;
-               // Set txBuffer index to start of array.
-               //dac.d65txBufferIdx := 0;
-               //dac.dacECount := 0;
-               //dac.dacTick := 0;
-               // Attempt to open selected devices, both must pass open/start to continue.
-
-               // Initialize RX stream for 11025
-               paResult := portaudio.Pa_OpenStream(PPaStream(paInStream),PPaStreamParameters(ppaInParams),PPaStreamParameters(Nil),CTypes.cdouble(11025.0),CTypes.culong(2048),TPaStreamFlags(0),PPaStreamCallback(@adc.adcCallback),Pointer(Self));
-               if paResult <> 0 Then
-               Begin
-                    // Was unable to open RX.
-                    ShowMessage('Unable to start PortAudio Input Stream.');
-                    Halt;
-               end;
-               ListBox2.Items.Insert(0,'Opened input');
-
-               // Initialize RX stream for 12000
-               //paResult := portaudio.Pa_OpenStream(PPaStream(paInStream2),PPaStreamParameters(ppaInParams),PPaStreamParameters(Nil),CTypes.cdouble(12000.0),CTypes.culong(2048),TPaStreamFlags(0),PPaStreamCallback(@adc.adcCallback2),Pointer(Self));
-               //if paResult <> 0 Then
-               //Begin
-                    // Was unable to open RX.
-                    //ShowMessage('Unable to start secondary PortAudio Input Stream.');
-                    //Halt;
-               //end;
-               //ListBox2.Items.Insert(0,'Opened secondary input');
-
-               // Start the RX stream for 11025
-               paResult := portaudio.Pa_StartStream(paInStream);
-               if paResult <> 0 Then
-               Begin
-                    // Was unable to start RX stream.
-                    ShowMessage('Unable to start PortAudio Input Stream.');
-                    Halt;
-               end;
-               ListBox2.Items.Insert(0,'Started input');
-
-               // Start the RX stream for 12000
-               //paResult := portaudio.Pa_StartStream(paInStream2);
-               //if paResult <> 0 Then
-               //Begin
-                    // Was unable to start RX stream.
-                    //ShowMessage('Unable to start secondary PortAudio Input Stream.');
-                    //Halt;
-               //end;
-               //ListBox2.Items.Insert(0,'Started secondary input');
-
-               // Initialize tx stream.
-               txEnabled := false;
-               //paResult := portaudio.Pa_OpenStream(PPaStream(paOutStream),PPaStreamParameters(Nil),PPaStreamParameters(ppaOutParams),CTypes.cdouble(11025.0),CTypes.culong(0),TPaStreamFlags(0),PPaStreamCallback(@dac.dacCallback),Pointer(Self));
-               //if paResult <> 0 Then
-               //Begin
-                    // Was unable to open TX.
-                    //ShowMessage('Unable to open PA TX Stream.');
-                    //Halt;
-               //end;
-               // Start the TX stream.
-               //paResult := portaudio.Pa_StartStream(paOutStream);
-               //if paResult <> 0 Then
-               //Begin
-                    // Was unable to start TX stream.
-                    //ShowMessage('Unable to start PA TX Stream.');
-                    //Halt;
-               //end;
-               //i := 0;
-               //while portAudio.Pa_IsStreamActive(paOutStream) > 0 do
-               //Begin
-                    // Stream is still running
-                    //inc(i);
-                    //sleep(1);
-                    //application.ProcessMessages;
-               //End;
-               //paresult := portAudio.Pa_CloseStream(paOutStream);
-               //paOutStream := Nil;
-               //dac.dacTick := 0;
-          end
-          else
-          begin
-               ShowMessage('PortAudio Error.  No default API value.');
-               halt;
-          end;
-          paActive := True;
-
-          ListBox2.Items.Insert(0,'PortAudio configured and running');
-          ListBox2.Items.Insert(0,'Waiting for sync to second = 0');
-
-          // Set the audio selector to configured device so it doesn't
-          // trigger any random changes when configuration is opened.
-          for i := 0 to comboAudioIn.Items.Count-1 do
-          begin
-               if comboAudioIn.Items.Strings[i] = savedTADC Then
-               Begin
-                    comboAudioIn.ItemIndex := i;
-                    break;
-               end;
-          end;
-
-          //for i := 0 to comboAudioOut.Items.Count-1 do
-          //begin
-          //     if comboAudioOut.Items.Strings[i] = tdac.Text Then
-          //     Begin
-          //          comboAudioOut.ItemIndex := i;
-          //          break;
-          //     end;
-          //end;
+          // Calling setupPA
+          setupPA;
      end;
 
-     { TODO : Low Priority - For multiple instances I need to work out a lock mechanism such the multiple instances don't attempt attach to same Rebel. }
      if rigRebel.Checked Then
      Begin
-          haveRebel := rebelSet;
+          // Check for a lock file barring this rebel from use
+          i := -2;
+          rebLock := '';
+          if tryStrToInt(TrimLeft(TrimRight(edPort.Text)),i) Then
+          Begin
+               if i>0 then rebLock := 'rebLock'+TrimLeft(TrimRight(edPort.Text));
+          end;
+          if rebLock <> '' Then
+          Begin
+               rebLock := homedir + rebLock;
+               // Have a lock file name - see if it already exists
+               if FileExists(rebLock) Then
+               Begin
+                    if forceRebelUnlock then
+                    begin
+                         FileUtil.DeleteFileUTF8(reblock);
+                         ShowMessage('Connecting to Rebel - this will take a few seconds');
+                         haveRebel := rebelSet;
+                    end
+                    else
+                    begin
+                         ShowMessage('Lock file indicates selected Rebel is in use' + sLineBreak + rebLock);
+                         haveRebel := False;
+                    end;
+               end
+               else
+               begin
+                    ShowMessage('Connecting to Rebel - this will take a few seconds');
+                    haveRebel := rebelSet;
+               end;
+          end;
+
           if not haveRebel Then
           Begin
                rigNone.Checked := True;  // Disables Rebel in PTT/Rig Control setup.
                lbDecodes.Items.Insert(0,'Notice: Rig set to none');
+          end
+          else
+          begin
+               // Make a lock thread based upon com port this rebel is connected to
+               // Need to create lock file
+               AssignFile(lfile, rebLock);
+               rewrite(lfile);
+               closeFile(lfile);
+               // Need to delete this when program closes :)
           end;
      end;
 
@@ -1682,6 +1399,404 @@ Begin
      spectrum.specWindow := cbSpecWindow.Checked;
      readQRG   := True;
      firstTick := False;
+     if haveRebel Then noTXAudio := true else noTXAudio := False;
+end;
+
+procedure TForm1.setupPA;
+Var
+   foo          : String;
+   paInS,paOutS : String;
+   i,j          : Integer;
+   paDefApi     : Integer;
+   paCount      : Integer;
+   paResult     : TPaError;
+   found        : Boolean;
+Begin
+     // Fire up portaudio using default in/out devices.
+     // But first clear the i/o buffers in adc/dac
+     ListBox2.Items.Add('Setting up PortAudio');
+     for i := 0 to Length(adc.d65rxIBuffer)-1 do adc.d65rxIBuffer[i] := 0;
+
+     // Init PA.  If this doesn't work there's no reason to continue.
+     PaResult := portaudio.Pa_Initialize();
+     If PaResult <> 0 Then
+     Begin
+          ShowMessage('Fatal Error.  Could not initialize PortAudio.');
+          halt;
+     end;
+     // Now I need to populate the Sound In/Out pulldowns.  First I'm going to get
+     // a list of the portaudio API descriptions.  For now I'm going to stick with
+     // the default windows interface.
+     paDefApi := portaudio.Pa_GetDefaultHostApi();
+     if paDefApi >= 0 Then
+     Begin
+          paCount := portaudio.Pa_GetHostApiInfo(paDefApi)^.deviceCount;
+          i := paCount-1;
+          if i < 0 Then
+          Begin
+               ShowMessage('PortAudio Reports no audio devices.');
+               Halt;
+          End;
+          comboAudioIn.Clear;
+          comboAudioOut.Clear;
+          i := 0;
+          While i < paCount do
+          Begin
+               // I need to populate the pulldowns with the devices supported by
+               // the default portaudio API, select the default in/out devices for
+               // said API or restore the saved value of the user's choice of in
+               // out devices.
+               If portaudio.Pa_GetDeviceInfo(i)^.maxInputChannels > 0 Then
+               Begin
+                    if i < 10 Then paInS := '0' + IntToStr(i) + '-' + ConvertEncoding(StrPas(portaudio.Pa_GetDeviceInfo(i)^.name),GuessEncoding(StrPas(portaudio.Pa_GetDeviceInfo(i)^.name)),EncodingUTF8) else paInS := IntToStr(i) + '-' + ConvertEncoding(StrPas(portaudio.Pa_GetDeviceInfo(i)^.name),GuessEncoding(StrPas(portaudio.Pa_GetDeviceInfo(i)^.name)),EncodingUTF8);
+                    comboAudioIn.Items.Add(paInS);
+                    ListBox2.Items.Insert(0,'Input:  ' + paInS);
+               End
+               Else If portaudio.Pa_GetDeviceInfo(i)^.maxOutputChannels > 0 Then
+               Begin
+                    if i < 10 Then paOutS := '0' + IntToStr(i) +  '-' + ConvertEncoding(StrPas(portaudio.Pa_GetDeviceInfo(i)^.name),GuessEncoding(StrPas(portaudio.Pa_GetDeviceInfo(i)^.name)),EncodingUTF8) else paOutS := IntToStr(i) +  '-' + ConvertEncoding(StrPas(portaudio.Pa_GetDeviceInfo(i)^.name),GuessEncoding(StrPas(portaudio.Pa_GetDeviceInfo(i)^.name)),EncodingUTF8);
+                    comboAudioOut.Items.Add(paOutS);
+                    ListBox2.Items.Insert(0,'Output:  ' + paOutS);
+               End;
+               inc(i);
+          End;
+
+          // Now at this point I have the list of I/O devices AND the last session's
+          // saved choices.  What I want to do is restore the former I/O devices and
+          // that ***should*** be simple, but it isn't.  The device ordering may have
+          // changed since last run leading to I = 1 and O = 7 (for example) not being
+          // same device they once were.  The savedTADC and savedIADC variables hold
+          // the string of the last selected ADC (In) and DAC (Out) devices.  If all
+          // is well those will be found in the proper dropdowns as is.  If the order
+          // has changed the device may still be there but at a different index.
+          // If I strip the first 3 characters on savedTDAC/savedTADC I will have the
+          // device name as returned by portaudio and can look for it.  BUT this can
+          // only work if the name is unique.  If I have more than (for example) USB
+          // Audio Codec and that's what I'm looking for then I have no clue as to
+          // which is the right one.
+          //
+          // Sooooooo... :)
+          //
+          // I have 4 conditions.
+          // 1:  The device is in the current list at the correct index
+          // 2:  The device is in the current list at a different index
+          // 3:  The device is not in the current list at any index
+          // 4:  The device may be in the list but can't be determined due to dupes
+          // For 1 and 2 I just push on but notify if it's case 2 so the user can be sure my choice is the right one.
+          // For 3 and 4 I fall back to default and warn user.
+
+          // First step is to look for the savedTADC string as is
+          found := False;
+          for i := 0 to comboAudioIn.Items.Count - 1 do
+          begin
+               if comboAudioIn.Items.Strings[i] = savedTADC then
+               begin
+                    found := true;
+                    break;
+               end;
+          end;
+
+          if not found then
+          begin
+               // Didn't find input device at the saved index.  Looking for
+               // it at a possible changed index.
+               // First pass make sure it's there and not ambiguous (dupes)
+               j := 0;
+               for i := 0 to comboAudioIn.Items.Count -1 do
+               begin
+                    if comboAudioIn.Items.Strings[i][3..Length(comboAudioIn.Items.Strings[i])] = savedTADC[3..Length(savedTADC)] then
+                    begin
+                         inc(j);
+                    end;
+               end;
+
+               // Ok J must = 1 for this to work.  If 0 the device is gone
+               // if > 1 then I can't guess which is the right one.
+               if j = 0 Then
+               Begin
+                    // It's not there - warn and fall back to default device
+                    ShowMessage('The audio in device used and saved in last session' + sLineBreak + 'is no longer present.  Using default input!');
+                    foo := IntToStr(portaudio.Pa_GetHostApiInfo(paDefApi)^.defaultInputDevice);
+                    if length(foo)=1 then foo := '0'+foo;
+                    for i := 0 to comboAudioIn.Items.Count -1 do
+                    begin
+                         if comboAudioIn.Items.Strings[i][1..2] = foo then break;
+                    end;
+                    savedTADC := comboAudioIn.Items.Strings[i];
+                    comboAudioIn.ItemIndex := i;
+                    inDev := -1;
+                    savedIADC := inDev;
+               end
+               else if j = 1 Then
+               Begin
+                    // Found it - update to new device index and warn
+                    for i := 0 to comboAudioIn.Items.Count -1 do
+                    begin
+                         if comboAudioIn.Items.Strings[i][3..Length(comboAudioIn.Items.Strings[i])] = savedTADC[3..Length(savedTADC)] then break;
+                    end;
+                    comboAudioIn.ItemIndex := i;
+                    savedTADC := comboAudioIn.Items.Strings[i];
+                    foo := comboAudioIn.Items.Strings[i][1..2];
+                    if tryStrToInt(foo,i) then inDev := i else inDev := -1;
+                    savedIADC := inDev;
+                    ShowMessage('The audio in device used and saved in last session' + sLineBreak + 'has changed to a new index.  Please CONFIRM' + sLineBreak + 'the device is correct in setup!');
+               end
+               else
+               begin
+                    // Now way to know which is correct since multiple devices
+                    // present same name.  Warn and fall back to default.
+                    ShowMessage('The audio in device used and saved in last session' + sLineBreak + 'has changed to a new index but multiple devices' + sLineBreak + 'exist.' + sLineBreak + sLineBreak + 'Using default input!' + sLineBreak + sLineBreak + 'Please manually correct in setup!');
+                    foo := IntToStr(portaudio.Pa_GetHostApiInfo(paDefApi)^.defaultInputDevice);
+                    if length(foo)=1 then foo := '0'+foo;
+                    for i := 0 to comboAudioIn.Items.Count -1 do
+                    begin
+                         if comboAudioIn.Items.Strings[i][1..2] = foo then break;
+                    end;
+                    savedTADC := comboAudioIn.Items.Strings[i];
+                    comboAudioIn.ItemIndex := i;
+                    inDev := -1;
+                    savedIADC := inDev;
+               end;
+          end;
+
+          // Second step is to look for the savedTDAC string as is
+          found := False;
+          for i := 0 to comboAudioOut.Items.Count - 1 do
+          begin
+               if comboAudioOut.Items.Strings[i] = savedTDAC then
+               begin
+                    found := true;
+                    break;
+               end;
+          end;
+
+          if not found then
+          begin
+               // Didn't find output device at the saved index.  Looking for
+               // it at a possible changed index.
+               // First pass make sure it's there and not ambiguous (dupes)
+               j := 0;
+               for i := 0 to comboAudioOut.Items.Count -1 do
+               begin
+                    if comboAudioOut.Items.Strings[i][3..Length(comboAudioOut.Items.Strings[i])] = savedTDAC[3..Length(savedTDAC)] then
+                    begin
+                         inc(j);
+                    end;
+               end;
+
+               // Ok J must = 1 for this to work.  If 0 the device is gone
+               // if > 1 then I can't guess which is the right one.
+               if j = 0 Then
+               Begin
+                    // It's not there - warn and fall back to default device
+                    ShowMessage('The audio out device used and saved in last session' + sLineBreak + 'is no longer present.  Using default input!');
+                    foo := IntToStr(portaudio.Pa_GetHostApiInfo(paDefApi)^.defaultOutputDevice);
+                    if length(foo)=1 then foo := '0'+foo;
+                    for i := 0 to comboAudioOut.Items.Count -1 do
+                    begin
+                         if comboAudioOut.Items.Strings[i][1..2] = foo then break;
+                    end;
+                    savedTDAC := comboAudioOut.Items.Strings[i];
+                    comboAudioOut.ItemIndex := i;
+                    outDev := -1;
+                    savedIADC := outDev;
+               end
+               else if j = 1 Then
+               Begin
+                    // Found it - update to new device index and warn
+                    for i := 0 to comboAudioOut.Items.Count -1 do
+                    begin
+                         if comboAudioOut.Items.Strings[i][3..Length(comboAudioOut.Items.Strings[i])] = savedTDAC[3..Length(savedTDAC)] then break;
+                    end;
+                    comboAudioOut.ItemIndex := i;
+                    savedTDAC := comboAudioOut.Items.Strings[i];
+                    foo := comboAudioOut.Items.Strings[i][1..2];
+                    if tryStrToInt(foo,i) then outDev := i else outDev := -1;
+                    savedIDAC := outDev;
+                    ShowMessage('The audio out device used and saved in last session' + sLineBreak + 'has changed to a new index.  Please CONFIRM' + sLineBreak + 'the device is correct in setup!');
+               end
+               else
+               begin
+                    // Now way to know which is correct since multiple devices
+                    // present same name.  Warn and fall back to default.
+                    ShowMessage('The audio out device used and saved in last session' + sLineBreak + 'has changed to a new index but multiple devices' + sLineBreak + 'exist.' + sLineBreak + sLineBreak + 'Using default input!' + sLineBreak + sLineBreak + 'Please manually correct in setup!');
+                    foo := IntToStr(portaudio.Pa_GetHostApiInfo(paDefApi)^.defaultOutputDevice);
+                    if length(foo)=1 then foo := '0'+foo;
+                    for i := 0 to comboAudioOut.Items.Count -1 do
+                    begin
+                         if comboAudioOut.Items.Strings[i][1..2] = foo then break;
+                    end;
+                    savedTDAC := comboAudioOut.Items.Strings[i];
+                    comboAudioOut.ItemIndex := i;
+                    outDev := -1;
+                    savedIADC := outDev;
+               end;
+          end;
+
+          defI := portaudio.Pa_GetHostApiInfo(paDefApi)^.defaultInputDevice;
+          defO := portaudio.Pa_GetHostApiInfo(paDefApi)^.defaultOutputDevice;
+
+          ListBox2.Items.Insert(0,'Default in:  ' + IntToStr(defI) + '  Default out:  ' + IntToStr(defO));
+
+          if inDev < 0 then
+          begin
+               ListBox2.Items.Insert(0,'Using DEFAULT input device');
+               i := defI;
+          end
+          else
+          begin
+               i := inDev;
+          end;
+          if outDev < 0 then
+          begin
+               ListBox2.Items.Insert(0,'Using DEFAULT output device');
+               j := defO;
+          end
+          else
+          begin
+               j := outDev;
+          end;
+
+          ListBox2.Items.Insert(0,'Setting up ADC/DAC.  ADC:  ' + IntToStr(i) + '   DAC:  ' + IntToStr(j));
+
+          // Setup input device
+          // Set parameters before call to start
+          // Input
+          if cbUseMono.Checked Then
+          Begin
+               paInParams.channelCount := 1;
+               adc.adcMono := True;
+               //ListBox2.Items.Insert(0,'Using Mono');
+          end
+          else
+          begin
+               paInParams.channelCount := 2;
+               adc.adcMono := False;
+               //ListBox2.Items.Insert(0,'Using Stereo');
+          end;
+          if inDev > -1 Then paInParams.device := inDev else paInParams.device := defI;
+          paInParams.sampleFormat := paInt16;
+          paInParams.suggestedLatency := 1;
+          paInParams.hostApiSpecificStreamInfo := Nil;
+          ppaInParams := @paInParams;
+          // Set rxBuffer index to start of array.
+          adc.d65rxBufferIdx := 0;
+          adc.adcTick := 0;
+          adc.adcECount := 0;
+          adc.adcChan := 1;
+          adc.adcLDgain := 0;
+          adc.adcRDgain := 0;
+
+          // Attempt to open selected devices, both must pass open/start to continue.
+
+          // Initialize RX stream for 11025
+          paResult := portaudio.Pa_OpenStream(PPaStream(paInStream),PPaStreamParameters(ppaInParams),PPaStreamParameters(Nil),CTypes.cdouble(11025.0),CTypes.culong(2048),TPaStreamFlags(0),PPaStreamCallback(@adc.adcCallback),Pointer(Self));
+          if paResult <> 0 Then
+          Begin
+               // Was unable to open RX.
+               ShowMessage('Unable to start PortAudio Input Stream.');
+               Halt;
+          end;
+
+          // Initialize RX stream for 12000
+          //paResult := portaudio.Pa_OpenStream(PPaStream(paInStream2),PPaStreamParameters(ppaInParams),PPaStreamParameters(Nil),CTypes.cdouble(12000.0),CTypes.culong(2048),TPaStreamFlags(0),PPaStreamCallback(@adc.adcCallback2),Pointer(Self));
+          //if paResult <> 0 Then
+          //Begin
+               // Was unable to open RX.
+               //ShowMessage('Unable to start secondary PortAudio Input Stream.');
+               //Halt;
+          //end;
+          //ListBox2.Items.Insert(0,'Opened secondary input');
+
+          // Start the RX stream for 11025
+          paResult := portaudio.Pa_StartStream(paInStream);
+          if paResult <> 0 Then
+          Begin
+               // Was unable to start RX stream.
+               ShowMessage('Unable to start PortAudio Input Stream.');
+               Halt;
+          end;
+
+          // Start the RX stream for 12000
+          //paResult := portaudio.Pa_StartStream(paInStream2);
+          //if paResult <> 0 Then
+          //Begin
+               // Was unable to start RX stream.
+               //ShowMessage('Unable to start secondary PortAudio Input Stream.');
+               //Halt;
+          //end;
+          //ListBox2.Items.Insert(0,'Started secondary input');
+
+          // output
+          paOutParams.channelCount := 2;
+          i := outDev;
+          i := defO;
+          if outDev > -1 Then paOutParams.device := outDev else paOutParams.device := defO;
+          paOutParams.sampleFormat := paInt16;
+          paOutParams.suggestedLatency := 1;
+          paOutParams.hostApiSpecificStreamInfo := Nil;
+          ppaOutParams := @paOutParams;
+          // Set txBuffer index to start of array.
+          dac.dacTXOn        := False;
+          dac.dacFirst       := True;
+          // Don't start/stop it here or it'll trigger PTT on the interfaces that see silence as golden
+          // Initialize tx stream.
+          txEnabled := false;
+          //paResult := portaudio.Pa_OpenStream(PPaStream(paOutStream),PPaStreamParameters(Nil),PPaStreamParameters(ppaOutParams),CTypes.cdouble(11025.0),CTypes.culong(2048),TPaStreamFlags(0),PPaStreamCallback(@dac.dacCallback),Pointer(Self));
+          //if paResult <> 0 Then
+          //Begin
+               // Was unable to open TX.
+               //ShowMessage('Unable to open PA TX Stream.' + sLineBreak + StrPas(portaudio.Pa_GetErrorText(paResult)));
+               //Halt;
+          //end;
+          // Start the TX stream.
+          //paResult := portaudio.Pa_StartStream(paOutStream);
+          //if paResult <> 0 Then
+          //Begin
+               // Was unable to start TX stream.
+               //ShowMessage('Unable to start PA TX Stream.');
+               //Halt;
+          //end;
+          //i := 0;
+          //while portAudio.Pa_IsStreamActive(paOutStream) > 0 do
+          //Begin
+               //// Stream is still running
+               //inc(i);
+               //sleep(1);
+               //application.ProcessMessages;
+          //End;
+          //paresult := portAudio.Pa_CloseStream(paOutStream);
+          //paOutStream := Nil;
+     end
+     else
+     begin
+          ShowMessage('PortAudio Error.  No default API value.');
+          halt;
+     end;
+     paActive := True;
+
+     ListBox2.Items.Insert(0,'PortAudio configured and running');
+     ListBox2.Items.Insert(0,'Waiting for sync to second = 0');
+
+     // Set the audio selector to configured device so it doesn't
+     // trigger any random changes when configuration is opened.
+     for i := 0 to comboAudioIn.Items.Count-1 do
+     begin
+          if comboAudioIn.Items.Strings[i] = savedTADC Then
+          Begin
+               comboAudioIn.ItemIndex := i;
+               break;
+          end;
+     end;
+
+     for i := 0 to comboAudioOut.Items.Count-1 do
+     begin
+          if comboAudioOut.Items.Strings[i] = savedTDAC Then
+          Begin
+               comboAudioOut.ItemIndex := i;
+               break;
+          end;
+     end;
 end;
 
 function TForm1.rebelSet: Boolean;
@@ -1956,7 +2071,7 @@ Var
    nc1t,pfxt,ngt : String;
    sfxt,nc2t,sh  : String;
    c1,c2,c3      : Array[0..125] of String;
-   ff,dta,btx    : Double;
+   ff,dta        : Double;
    valid,sm,ft   : Boolean;
    adjtime       : Boolean;
 Begin
@@ -1968,6 +2083,7 @@ Begin
      thisUTC     := utcTime;
      thisSecond  := thisUTC.Second;
      thisADCTick := adc.adcTick;
+
 
      // This is a high priortiy item.
      if not txOn Then
@@ -2029,7 +2145,7 @@ Begin
           if qsycount > 6 Then
           Begin
                // Mark message needing regeneration
-               genTX(edTXMsg.Text, spinTXDF.Value+clRebel.txOffset);
+               genTX(edTXMsg.Text, spinTXDF.Value);
                qsycount := 0;
           end;
      end
@@ -2064,8 +2180,6 @@ Begin
      mval.forceDecimalAmer := False;
      mval.forceDecimalEuro := False;
      if mval.evalQRG(fs,'STRICT',ff,fi,fsc) Then qrgValid := True else qrgValid := False;
-     rxdf := spinRXDF.Value;
-     txdf := spinTXDF.Value;
 
      Label121.Caption := 'Decoder Resolution:  ' + IntToStr(d65.glbinspace) + ' Hz';
      if d65.glRunCount < 1 Then
@@ -2254,61 +2368,68 @@ Begin
 
      if canTX and txValid and txDirty Then
      Begin
-          // A valid message is awaiting upload to Rebel
-          // Load it into the class data buffer
-          if (not clRebel.txStat) and (not clRebel.busy) Then
+          if haveRebel Then
           Begin
-               for i := 0 to 127 do clRebel.setData(i,StrToInt(qrgset[i]));
-               if clRebel.ltx then txDirty := False else txDirty := True;
-               //
-               // clRebel.debug holds the symbols sent
-               // clRebel.dumptx holds the symbols read back
-               // qrgset[0..125] holds the calculated
-               // All 3 need to match.
-               for i := 0 to 125 do
-               begin
-                    c1[i] := '0';
-                    c2[i] := '0';
-                    c3[i] := qrgset[i];
-               end;
-               // Break debug set into array first.
-               if wordcount(clRebel.debug,[',']) > 126 Then
+               // A valid message is awaiting upload to Rebel
+               // Load it into the class data buffer
+               if (not clRebel.txStat) and (not clRebel.busy) Then
                Begin
-                    for i := 3 to wordcount(clRebel.debug,[','])-2 do c1[i-3] := ExtractWord(i,clRebel.debug,[',']);
-               end;
-
-               if wordcount(clRebel.dumptx,[',']) > 126 Then
-               Begin
-                    for i := 3 to wordcount(clRebel.debug,[','])-2 do c2[i-3] := ExtractWord(i,clRebel.debug,[',']);
-               end;
-
-               valid := true;
-               for i := 0 to 125 do
-               begin
-                    if (c1[i]=c2[i]) and (c2[i]=c3[i]) Then
-                    Begin
-                         // all good
-                    end
-                    else
+                    for i := 0 to 127 do clRebel.setData(i,StrToInt(qrgset[i]));
+                    if clRebel.ltx then txDirty := False else txDirty := True;
+                    //
+                    // clRebel.debug holds the symbols sent
+                    // clRebel.dumptx holds the symbols read back
+                    // qrgset[0..125] holds the calculated
+                    // All 3 need to match.
+                    for i := 0 to 125 do
                     begin
-                         valid := false;
+                         c1[i] := '0';
+                         c2[i] := '0';
+                         c3[i] := qrgset[i];
+                    end;
+                    // Break debug set into array first.
+                    if wordcount(clRebel.debug,[',']) > 126 Then
+                    Begin
+                         for i := 3 to wordcount(clRebel.debug,[','])-2 do c1[i-3] := ExtractWord(i,clRebel.debug,[',']);
+                    end;
+                    if wordcount(clRebel.dumptx,[',']) > 126 Then
+                    Begin
+                         for i := 3 to wordcount(clRebel.debug,[','])-2 do c2[i-3] := ExtractWord(i,clRebel.debug,[',']);
+                    end;
+                    valid := true;
+                    for i := 0 to 125 do
+                    begin
+                         if (c1[i]=c2[i]) and (c2[i]=c3[i]) Then
+                         Begin
+                              // all good
+                         end
+                         else
+                         begin
+                              valid := false;
+                         end;
+                    end;
+                    if not valid then
+                    Begin
+                         lbDecodes.Items.Insert(0,'WARNING: Rebel refused message');
+                         // Changing this to delete the TX buffer message so it doesn't go
+                         // into an infinite loop should the Rebel be in distress for some
+                         // reason.
+                         edTXMsg.Text := '';
+                         thisTXMsg := '';
                     end;
                end;
-
-               if not valid then
-               Begin
-                    lbDecodes.Items.Insert(0,'WARNING: Rebel refused message');
-                    // Changing this to delete the TX buffer message so it doesn't go
-                    // into an infinite loop should the Rebel be in distress for some
-                    // reason.
-                    edTXMsg.Text := '';
-                    thisTXMsg := '';
-               end;
+          end
+          else
+          begin
+               // AFSK TX
+               valid := True;
+               txDirty := False;
           end;
      end;
 
-     If not clRebel.txStat And not clRebel.busy And txControl And txEnabled Then
+     If not clRebel.txStat And not clRebel.busy And txControl And haveRebel and txEnabled and valid Then
      Begin
+          // FSK TX on time
           // We checked that Rebel is not already transmitting
           // We checked that Rebel is not currently busy
           // We validated message content and sender data
@@ -2382,101 +2503,98 @@ Begin
                     begin
                          doCW := False;
                     end;
-                    bTX := 1270.5;
-                    if not tryStrToInt(edDialQRG.Text,i) Then edDialQRG.Text := '0';
-                    bTX := bTX + StrToInt(edDialQRG.Text) + txdf;  // This is the floating point value in Hz of the sync carrier (base frequency - data goes up from this)
                end;
           end
           else
           begin
                // Late TX start - first see if it could even happen this late.
                // Not sure I could get here if thisSecond <= 1, but lets be sure.
-               if thisSecond > 1 Then
+               if not clRebel.txStat And not clRebel.busy And haveRebel and txEnabled Then
                Begin
-                    i := lateTXOffset;
-                    if i > -1 Then
+                    // FSK TX late start
+                    if thisSecond > 1 Then
                     Begin
-                         // Can do.  Send Rebel late TX start command with offset
-                         // to proper symbol to begin TX at.
-                         // Check for repeat TX and case of exceeding watchdog counter for runaway TX
-                         if lastTXMsg = thisTXmsg Then
+                         i := lateTXOffset;
+                         if i > -1 Then
                          Begin
-                              inc(sameTXCount);
-                              i := -1;
-                              if tryStrToInt(edTXWD.Text,i) Then
+                              // Can do.  Send Rebel late TX start command with offset
+                              // to proper symbol to begin TX at.
+                              // Check for repeat TX and case of exceeding watchdog counter for runaway TX
+                              if lastTXMsg = thisTXmsg Then
                               Begin
-                                   if i > 0 Then
+                                   inc(sameTXCount);
+                                   i := -1;
+                                   if tryStrToInt(edTXWD.Text,i) Then
                                    Begin
-                                        if sameTXCount > i-1 Then
+                                        if i > 0 Then
                                         Begin
-                                             txOn := False;
-                                             lastTXMsg := '';
-                                             sameTXCount := 0;
-                                             lbDecodes.Items.Insert(0,'Notice: Same TX Message ' + edTXWD.Text + ' times.  TX is OFF');
+                                             if sameTXCount > i-1 Then
+                                             Begin
+                                                  txOn := False;
+                                                  lastTXMsg := '';
+                                                  sameTXCount := 0;
+                                                  lbDecodes.Items.Insert(0,'Notice: Same TX Message ' + edTXWD.Text + ' times.  TX is OFF');
+                                             end;
                                         end;
+                                   end;
+                              end
+                              else
+                              begin
+                                   lastTXMsg := thisTXmsg;
+                                   sameTXCount := 0;
+                              end;
+                              //ListBox2.Items.Insert(0,'TX On at offset = ' + IntToStr(i));
+                              clRebel.lateOffset := i;
+                              // PTT on
+                              clRebel.latePTTOn;
+                              if not clRebel.txStat Then
+                              Begin
+                                   // If for some reason it didn't enter TX clear the TX request
+                                   // It will be reset if necessary and attempt again.
+                                   txEnabled := false;
+                              end
+                              else
+                              begin
+                                   // Indicate TX triggered during this minute
+                                   didTX := True;
+                                   // Indicate it is in TX
+                                   Image1.Picture.LoadFromLazarusResource('transmitv2');
+                                   transmitting := thisTXmsg;
+                                   // Double checking to clear Late TX offset value
+                                   clRebel.lateOffset := 0;
+                                   // Refresh the message mainly to keep CWID in play
+                                   sm    := false;
+                                   ft    := false;
+                                   nc1t  := '';
+                                   pfxt  := '';
+                                   sfxt  := '';
+                                   nc2t  := '';
+                                   ngt   := '';
+                                   sh    := '';
+                                   proto := '';
+                                   if messageParser(TrimLeft(TrimRight(UpCase(thisTXMsg))), nc1t, pfxt, sfxt, nc2t, ngt, sh, proto) then sm := true else ft := true;
+                                   if sm and (ngt = '73') then tx73 := True else tx73 := False;
+                                   if ft then txFree := True else txFree := false;
+                                   doCW := False;
+                                   if rbCWIDFree.Checked and txFree Then
+                                   Begin
+                                        doCW := True;
+                                   end
+                                   else if rbCWID73.Checked and (txFree or tx73) Then
+                                   begin
+                                        doCW := True;
+                                   end
+                                   else
+                                   begin
+                                        doCW := False;
                                    end;
                               end;
                          end
                          else
                          begin
-                              lastTXMsg := thisTXmsg;
-                              sameTXCount := 0;
+                              // Was too late
+                              lbDecodes.Items.Insert(0,'Notice: Too late for TX to start');
                          end;
-                         //ListBox2.Items.Insert(0,'TX On at offset = ' + IntToStr(i));
-                         clRebel.lateOffset := i;
-                         // PTT on
-                         clRebel.latePTTOn;
-                         if not clRebel.txStat Then
-                         Begin
-                              // If for some reason it didn't enter TX clear the TX request
-                              // It will be reset if necessary and attempt again.
-                              txEnabled := false;
-                         end
-                         else
-                         begin
-                              // Indicate TX triggered during this minute
-                              didTX := True;
-                              // Indicate it is in TX
-                              Image1.Picture.LoadFromLazarusResource('transmitv2');
-                              transmitting := thisTXmsg;
-                              // Double checking to clear Late TX offset value
-                              clRebel.lateOffset := 0;
-                              // Refresh the message mainly to keep CWID in play
-                              sm    := false;
-                              ft    := false;
-                              nc1t  := '';
-                              pfxt  := '';
-                              sfxt  := '';
-                              nc2t  := '';
-                              ngt   := '';
-                              sh    := '';
-                              proto := '';
-                              if messageParser(TrimLeft(TrimRight(UpCase(thisTXMsg))), nc1t, pfxt, sfxt, nc2t, ngt, sh, proto) then sm := true else ft := true;
-                              if sm and (ngt = '73') then tx73 := True else tx73 := False;
-                              if ft then txFree := True else txFree := false;
-                              doCW := False;
-                              if rbCWIDFree.Checked and txFree Then
-                              Begin
-                                   doCW := True;
-                              end
-                              else if rbCWID73.Checked and (txFree or tx73) Then
-                              begin
-                                   doCW := True;
-                              end
-                              else
-                              begin
-                                   doCW := False;
-                              end;
-                              bTX := 1270.5;
-                              if not tryStrToInt(edDialQRG.Text,i) Then edDialQRG.Text := '0';
-                              bTX := bTX + StrToInt(edDialQRG.Text) + txdf;  // This is the floating point value in Hz of the sync carrier (base frequency - data goes up from this)
-                              //if doCW Then Memo2.Append('Msg: ' + TrimLeft(TrimRight(thisTXMsg)) + ' @ ' + FormatFloat('########.0',bTX) + ' Hz (Sync) + CWID') else Memo2.Append('Msg: ' + TrimLeft(TrimRight(thisTXMsg)) + ' @ ' + FormatFloat('########.0',bTX) + ' Hz (Sync)');
-                         end;
-                    end
-                    else
-                    begin
-                         // Was too late
-                         lbDecodes.Items.Insert(0,'Notice: Too late for TX to start');
                     end;
                end;
           end;
@@ -2600,7 +2718,7 @@ Begin
           else
           begin
                glSteps := 0;
-               d65.glMouseDF := rxdf;
+               d65.glMouseDF := spinRXDF.Value;
                If tbMultiBin.Position = 1 then d65.glbinspace := 20 else If tbMultiBin.Position = 2 then d65.glbinspace := 50 else If tbMultiBin.Position = 3 then d65.glbinspace := 100 else If tbMultiBin.Position = 4 then d65.glbinspace := 200 else d65.glbinspace := 100;
           end;
           doFastDone   := True;
@@ -2630,7 +2748,10 @@ Begin
           end;
      end;
 
-     if cbTXEqRXDF.Checked And (spinTXDF.Value <> spinRXDF.Value) Then spinTXDF.Value := spinRXDF.Value;
+     if cbTXEqRXDF.Checked And (spinTXDF.Value <> spinRXDF.Value) Then
+     Begin
+          spinTXDF.Value := spinRXDF.Value;
+     end;
      if cbTXeqRXDF.Checked Then
      Begin
           spinTXDF.Visible := False;
@@ -2647,6 +2768,9 @@ Begin
      end;
 
      if spinRXDF.Value = 0 Then bnZeroRXDF.Visible := False else bnZeroRXDF.Visible := True;
+
+     if afskTXOn then afskTXOn := dac.dacTXOn;
+
 end;
 
 procedure TForm1.OncePerSecond;
@@ -2670,7 +2794,7 @@ Begin
                txEnabled := False;
                if rbTXEven.Checked and (not Odd(thisUTC.Minute)) and (not txEnabled) Then
                Begin
-                    txEnabled := true;
+                     txEnabled := true;
                end;
                if rbTXOdd.Checked and Odd(thisUTC.Minute) and (not txEnabled) Then
                Begin
@@ -2729,12 +2853,8 @@ Begin
                if (workingDF < -1150) or (workingDF > 1150) Then workingDF := 0;
                spinRXDF.Value := workingDF;
                glSteps := 0;
-               { TODO : Done (needs testing testing testing) - Investigate issue with fail on 20 Hz BW single decode }
-               // Not sure why yet but at 20 Hz single I'm seeing too many fails.  Locking to 50
-               //d65.glDFTolerance := 50;
                If tbSingleBin.Position = 1 then d65.glDFTolerance := 20 else If tbSingleBin.Position = 2 then d65.glDFTolerance := 50 else If tbSingleBin.Position = 3 then d65.glDFTolerance := 100 else If tbSingleBin.Position = 4 then d65.glDFTolerance := 200 else d65.glDFTolerance := 100;
                d65.glMouseDF := workingDF;
-               //Memo2.Lines.Insert(0,'Fast decode set for ' + IntToStr(d65.glMouseDF) + ' Hz @ ' + IntToStr(d65.glDFTolerance) + ' BW');
                runDecode := True;
           end
           else
@@ -2748,7 +2868,7 @@ Begin
                else
                begin
                     glSteps := 0;
-                    d65.glMouseDF := rxdf;
+                    d65.glMouseDF := spinRXDF.Value;
                     If tbSingleBin.Position = 1 then d65.glDFTolerance := 20 else If tbSingleBin.Position = 2 then d65.glDFTolerance := 50 else If tbSingleBin.Position = 3 then d65.glDFTolerance := 100 else If tbSingleBin.Position = 4 then d65.glDFTolerance := 200 else d65.glDFTolerance := 100;
                end;
                runDecode    := True;
@@ -3123,7 +3243,8 @@ end;
 
 procedure TForm1.OncePerMinute;
 Var
-  i        : Integer;
+  i,offset : Integer;
+  lUTC     : TSystemTime;
 Begin
      for i := 0 to 1023 do psAcc[i] := 0.0;
      pstick := 1;
@@ -3131,6 +3252,7 @@ Begin
      SetExceptionMask([exInvalidOp, exDenormalized, exZeroDivide, exOverflow, exUnderflow, exPrecision]);
      // RX to index = 0
      adc.d65rxBufferIdx := 0;
+     afskTXOn := dac.dacTXOn;
      didTX := False;
      if not inSync Then
      Begin
@@ -3138,8 +3260,76 @@ Begin
           ListBox2.Items.Insert(0,'Timing loop now in sync');
      end;
 
+     txEnabled := False;
+     if rbTXEven.Checked and (not Odd(thisUTC.Minute)) and (not txEnabled) Then
+     Begin
+           txEnabled := true;
+     end;
+     if rbTXOdd.Checked and Odd(thisUTC.Minute) and (not txEnabled) Then
+     Begin
+          txEnabled := true;
+     end;
+
+     //if (not haveRebel) and (not afskTXOn) and txControl and txEnabled Then
+     // BIG FAT DEBUG
+     if (not haveRebel) and (not afskTXOn) Then
+     Begin
+          // Looking like about 300 ms latency on stream start
+          // Should fire up AFSK TX
+          // AFSK TX on time
+          lUTC := utcTime;
+          // Lets experiment with sliding the SOD window a touch to see what kind of timing
+          // imporovement I can get. I have 1000 ms of silence at start.  My "built in" latency
+          // is 300 to 400 ms so I'll split and call it 350.
+          // TX should start it 1000 ms.  If I'm 350 late to start that I need to move forward
+          // the starting point 350, but I may not be on second = 0 ms = 0 so I need to account
+          // for the current mS and compensate it as well.
+
+          // Offset SHOULD be 1000 ms - time started ms then less latency.  So if I have latency
+          // of 400 ms and tx started at 100 ms the offset would be 500 ms.  If tx started at second
+          // = 0 ms = 0 and latency = 0 then offset would be 0. So - as I increase lateness I start
+          // LATER
+          //         (1000 - latency) - late tx start
+          //offset := 400 + lUTC.Millisecond; // with 400 - lUTC showing + .1 DT on decode with a start at ~200 ms .2 at ~100 ms .3 at ~50ms
+//          offset := 300 + lUTC.Millisecond; //
+//          offset := 400 + lUTC.Millisecond; //
+//          offset := 500 + lUTC.Millisecond; // with 500 holding a steady -.1 to +.1 range over the various delays.  Reasonable.
+//          offset := 600 + lUTC.Millisecond; //
+//          offset := 700 + lUTC.Millisecond; //
+          offset := 800 + lUTC.Millisecond; //
+//          offset := 825 + lUTC.Millisecond; //
+//          offset := 850 + lUTC.Millisecond; //
+//          offset := 875 + lUTC.Millisecond; //
+//          offset := 900 + lUTC.Millisecond; //  This seems right for using the fixed 4096 sample block transfers.
+          // Now to get the offset in samples. I do;
+          i := Round((offset/1000.0) / (1.0/11025.0));
+          if i < 0 then i := 0 else if i > 11024 then i := 11024;
+          //dac.dacSOD := 0;
+          dacSOD := i;
+          dac.dacFirst := True;
+          dac.dacTXOn := True;
+          ListBox2.Items.Insert(0,'TX Trigger at S=' + IntToStr(lUTC.Second) + '  mS=' + IntToStr(lUTC.Millisecond) + '  SOD=' + IntToStr(dac.dacSOD));
+          //i := portaudio.Pa_OpenStream(PPaStream(paOutStream),PPaStreamParameters(Nil),PPaStreamParameters(ppaOutParams),CTypes.cdouble(11025.0),CTypes.culong(0),TPaStreamFlags(0),PPaStreamCallback(@dac.dacCallback),Pointer(Self));
+          i := portaudio.Pa_OpenStream(PPaStream(paOutStream),PPaStreamParameters(Nil),PPaStreamParameters(ppaOutParams),CTypes.cdouble(11025.0),CTypes.culong(4096),TPaStreamFlags(0),PPaStreamCallback(@dac.dacCallback),Pointer(Self));
+          if i <> 0 Then
+          Begin
+               // Was unable to start TX stream.
+               ShowMessage('Unable to open PA TX Stream.' + sLineBreak + StrPas(portaudio.Pa_GetErrorText(i)));
+               Halt;
+          end;
+          i := portaudio.Pa_StartStream(paOutStream);
+          if i <> 0 Then
+          Begin
+               // Was unable to start TX stream.
+               ShowMessage('Unable to open PA TX Stream.' + sLineBreak + StrPas(portaudio.Pa_GetErrorText(i)));
+               Halt;
+          end;
+          afskTXOn := True;
+          didTX := True;
+     end;
+
      // Prune decoder output display
-     if lbDecodes.Items.Count > 250 Then
+     if lbDecodes.Items.Count > 500 Then
      Begin
           Try
              for i := lbDecodes.Items.Count-1 downto 99 do
@@ -3156,15 +3346,10 @@ Begin
      rb.clearErr;
 end;
 
-procedure TForm1.periodicSpecial;
-Begin
-     // Nothing
-end;
-
 procedure TForm1.adcdacTick;
 Begin
      // Events triggered from ADC/DAC callback counter change
-     // Compute spectrum and audio levels.
+     // Compute spectrum and audio levels. Be careful here each tick
      if cbWFTX.Checked Then
      Begin
           If adc.haveSpec And (not d65.glinprog) and (not cfgShowing) and (not logShowing) Then
@@ -4068,7 +4253,7 @@ Begin
      end;
 end;
 
-procedure TForm1.mgen(const msg : String; var isValid : Boolean; var isBreakIn : Boolean; var level : Integer; var response : String; var connectTo : String; var fullCall : String; var hisGrid : String; var sdf : String; var sdB : String; var txp : Integer);
+procedure TForm1.mgen(const msg : String; var isValid : Boolean; var isBreakIn : Boolean; var level : Integer; var response : String; var connectTo : String; var fullCall : String; var hisGrid : String; var sdf : String; var sdB : String; var txp : Integer; var aCQ : Boolean);
 Var
   foo       : String;
   exchange  : exch;
@@ -4077,14 +4262,15 @@ Var
   gonogo    : Boolean;
   toparse   : String;
 Begin
-     gonogo   := False;
-     isValid  := False;
+     aCQ       := False;
+     gonogo    := False;
+     isValid   := False;
      isBreakIn := False;
-     level := 0;
-     response := '';
+     level     := 0;
+     response  := '';
      connectTo := '';
-     fullCall := '';
-     hisGrid := '';
+     fullCall  := '';
+     hisGrid   := '';
      // Get the decode to parse
      foo := msg;
      foo := DelSpace1(foo);
@@ -4193,7 +4379,7 @@ Begin
                if wc = 5 Then toParse := exchange.nc1  + ' ' + exchange.nc2;
                if wc = 6 Then toParse := exchange.nc1  + ' ' + exchange.nc2 + ' ' + exchange.ng;
                if wc = 7 Then toParse := exchange.nc1  + ' ' + exchange.nc1s + ' ' + exchange.nc2 + ' ' + exchange.ng;
-               v1DecomposeDecode(toParse,inQSOWith,isValid,isBreakIn,level,response,connectTo,fullCall,hisGrid);
+               v1DecomposeDecode(toParse,inQSOWith,isValid,isBreakIn,level,response,connectTo,fullCall,hisGrid,aCQ);
                //sdb := exchange.db;
                sdf := exchange.df;
                // compute TX period
@@ -4219,7 +4405,8 @@ procedure TForm1.v1DecomposeDecode(const exchange    : String;
                                  var response      : String;
                                  var connectTo     : String;
                                  var fullCall      : String;
-                                 var hisGrid       : String);
+                                 var hisGrid       : String;
+                                 var isCQ          : Boolean);
 Var
    wc,i         : Integer;
    nc1,nc2,ng   : String;
@@ -4227,6 +4414,7 @@ Var
    siglevel     : String;
 Begin
      // Handles message parsing and response generation for strict JT65V1 compliance }
+     isCQ      := False;
      isValid   := False;
      isBreakin := True;
      level     := 1;
@@ -4311,6 +4499,7 @@ Begin
 
                if ((nc1='CQ') or (nc1='QRZ')) And isV1Call(nc2) Then
                Begin
+                    isCQ := True;
                     // Now - I CAN NOT have both the remote and local call have / - JT65 doesn't allow this.
                     if isSlashedCall(nc2) and isSlashedCall(myscall) Then
                     Begin
@@ -4439,6 +4628,7 @@ Begin
           // CALL CALL CONTROL
           if ((nc1='CQ') or (nc1='QRZ')) and isV1Call(nc2) and isGrid(ng) Then
           Begin
+               isCQ := True;
                // Ok this is a good one - only constraint is if myscall is slashed
                if isSlashedCall(nc2) and isSlashedCall(myscall) Then
                Begin
@@ -4664,7 +4854,6 @@ Begin
           if t1 Then
           Begin
                // Message is valid.  Check callsign and grid
-               { TODO : Done (needs testing testing testing) - Be sure this works as expected }
                t1 := true;
                if not isCallsign(edCall.Text) then
                Begin
@@ -4693,7 +4882,7 @@ Begin
      end;
      if txDirty then t1 := False; // Message has not been uploaded to Rebel
      if not txValid then t1 := False; // txValid is set true by mgen when a valid message is in place
-     if rigRebel.Checked and (not haveRebel) Then t1 := False; // Can't TX if Rebel isn't here
+     if rigRebel.Checked and (not haveRebel) Then t1 := False; // Can't use Rebel TX if Rebel isn't here
      result := t1;
 end;
 
@@ -4709,6 +4898,7 @@ Var
   fullCall  : String;
   hisGrid   : String;
   sdb, sdf  : String;
+  ansCQ     : Boolean = false;
 begin
      i := lbDecodes.ItemIndex;
      if i > -1 Then
@@ -4726,8 +4916,9 @@ begin
           sdf       := '9999';
           isBreakIn := False;
           txp       := 2;
+          ansCQ     := False;
 
-          mgen(foo, tValid, isBreakin, Level, response, connectTo, fullCall, hisgrid, sdf, sdb, txp);
+          mgen(foo, tValid, isBreakin, Level, response, connectTo, fullCall, hisgrid, sdf, sdb, txp, ansCQ);
           if tValid Then
           Begin
                ldate := IntToStr(thisUTC.Year);
@@ -4747,21 +4938,29 @@ begin
                edTXToCall.Text := fullCall;
                edTXReport.Text := sdb;
 
-               if cbTXeqRXDF.Checked Then
+               if ansCQ and cbNetCQ.Checked Then
+               Begin
+                    // Parser says we're answering a CQ call - I would like to force
+                    // matching DF in this case (with an option to over-ride)
+                    spinTXDF.Value := StrToInt(sdf);
+                    spinRXDF.Value := spinTXDF.Value;
+                    if cbMultiOn.Checked Then doFastDecode := True else doFastDecode := False;
+               end
+               else if cbTXeqRXDF.Checked Then
                Begin
                     spinTXDF.Value := StrToInt(sdf);
                     spinRXDF.Value := spinTXDF.Value;
-                    doFastDecode := True;
+                    if cbMultiOn.Checked Then doFastDecode := True else doFastDecode := False;
                end
                else
                begin
-                    doFastDecode := True;
+                    spinRXDF.Value := StrToInt(sdf);
+                    if cbMultiOn.Checked Then doFastDecode := True else doFastDecode := False;
                end;
 
                if isFText(response) or isSText(response) Then
                Begin
-                    if not tryStrToInt(sdf,i) then sdf := '0';
-                    genTX(response, StrToInt(sdf)+clRebel.txOffset);
+                    genTX(response, spinTXDF.Value);
                     if txp=0 then rbTxEven.Checked := True else rbTxOdd.Checked := True;
                     if not isBreakin then txOn := True else txOn := False;
                end
@@ -5396,12 +5595,15 @@ Var
    pfxt,sfxt     : String;
    syms          : Array[0..11] Of CTypes.cint;
    tsyms         : Array[0..62] Of CTypes.cint;
+   afskTones     : Array[0..127] Of CTypes.cdouble;
    //itone9        : Array[0..84] Of CTypes.cint;
    //itone9fsk     : Array[0..84] Of CTypes.cdouble;
    //itone9dds     : Array[0..84] Of CTypes.cuint;
+   //afsk          : CTypes.cint16;
    sm,ft,doit,cw : Boolean;
-   baseTX        : CTypes.cdouble;
-   //maxf,minf,bw  : CTypes.cdouble;
+   rebs          : Boolean;
+   baseTX,f,f0   : CTypes.cdouble;
+   phi,dphi      : CTypes.cdouble;
 begin
      // Validate the message for proper content BEFORE calling this
      nc1t := '';
@@ -5554,9 +5756,13 @@ begin
           end;
      end;
 
-     // Generate FSK values
+     // Debugging code
+     rebs := haveRebel;
+     haveRebel := False;
+
      if doit and haveRebel Then
      Begin
+          // Generate FSK values
           // tsyms holds the 63 TX symbols - will need to look at TXDF and current dial
           // RX QRG to compute the true RF TX QRG list.  TXDF 0 = 1270.5 Hz so if dial
           // is 14076.0 and TXDF = 0 then first tone (sync) will be at 14,077,270.5 Hz
@@ -5565,7 +5771,7 @@ begin
           //isyms         : Array[0..62] Of CTypes.cint;
           //ssyms         : Array[0..62] Of String;
           // So.... tone 0 (sync) = Dial QRG + 1270.5 + TXDF
-          baseTX   := 1270.5;
+          baseTX   := 1270.5+clRebel.txOffset; // This adjusts in case the user has set a TX offset in rebel's config.
           if not tryStrToInt(edDialQRG.Text,i) Then edDialQRG.Text := '0';
           baseTX   := baseTX + StrToInt(edDialQRG.Text) + txdf;  // This is the floating point value in Hz of the sync carrier (base frequency - data goes up from this)
           k := rebelTuning(baseTX); // Base sync tone as RF tuning word
@@ -5608,7 +5814,89 @@ begin
                cw := False;
           end;
           if cw Then Memo2.Append('Msg: ' + TrimLeft(TrimRight(thisTXMsg)) + ' @ ' + FormatFloat('########.0',baseTX-clRebel.txOffset) + ' Hz (Sync) + CWID') else Memo2.Append('Msg: ' + TrimLeft(TrimRight(thisTXMsg)) + ' @ ' + FormatFloat('########.0',baseTX-clRebel.txOffset) + ' Hz (Sync)');
+     end
+     else
+     begin
+          // Generate AFSK values
+          // tsyms holds the 63 TX symbols - will need to look at TXDF and current dial
+          // RX QRG to compute the true RF TX QRG list.  TXDF 0 = 1270.5 Hz so if dial
+          // is 14076.0 and TXDF = 0 then first tone (sync) will be at 14,077,270.5 Hz
+          // Then call rebelTuning(double f in hz) to get back an UINT32 tuning word
+          // for the AD9834.
+          //isyms         : Array[0..62] Of CTypes.cint;
+          //ssyms         : Array[0..62] Of String;
+          // So.... tone 0 (sync) = Dial QRG + 1270.5 + TXDF
+          baseTX   := 1270.5;
+          baseTX   := baseTX + txdf;  // This is the floating point value in Hz of the AFSK sync carrier (base frequency - data goes up from this)
+          // For this we clear the whole 128 and it's 128 because of way I pass FSK values to Rebel - it only uses 126 :)
+          for i := 0 to 127 do afskTones[i] := 0.0;
+          j := 0;
+          // Two passes - stuff sync then stuff data.
+          // Once I debug and am sure can try rolling it into one pass.
+          // Stuff the values - sync where SYNC65[i]=1 data where SYNC65[i]=0;
+          // NOTE for this it's 125 on qrgset - DONT'T bork this and do 127 :)
+          for i := 0 to 125 do if SYNC65[i]=1 Then afskTones[i] := baseTX;
+          for i := 0 to 125 do
+          begin
+               if SYNC65[i]=0 Then
+               Begin
+                    afskTones[i] := baseTX + (2.6917 * (tsyms[j]+2));
+                    inc(j); // Not to self - yes it generates nice 2 tone FSK if you leave this line out.
+               end;
+          end;
+
+          // Now have 126 AFSK values.  Generate a sample set for them.
+          phi  := 0.0;
+          dphi := 0.0;
+          k := 0;
+          for k := 0 to 11025 do d65txbuffer[i] := 0; // Testing something
+          for i := 0 to 125 do
+          begin
+               f0 := afskTones[i];  // Starting frequency in Hz
+               f := f0;
+               dphi := (pi()*2)* (1/11025.0) * f;
+               for j := 0 to 4095 do
+               begin
+                    phi  := phi+dphi;
+                    d65txBuffer[k] := Round(512.0 * sin(phi)); // 32767 WILL be replaced by a variable to control peak level
+                    inc(k);
+               end;
+          end;
+          for k := k to length(d65txBuffer)-1 do d65txBuffer[k] := 0;
+          // Remainder of buffer is silence.
+          // Cut off (dacEOD) = first even dividable point after 516096 (actually 516096 is good but need some lead out)
+          dac.dacSOD := 0;  // Where to start TX samples
+          dac.dacEOD := 518144; // This cuts it off on a multiple of 2048 samples
+
+          txDirty := True;  // Flag to force an update to the TX
+          txValid := True;
+          mgendf := IntToStr(txdf-clRebel.txOffset);
+
+          { TODO : Done - LOOK at this - not sure why I do this.  Still not sure why - it doesn't seem to ever get called so I'm going to leave it as I may have thought of something before I'm missing now.}
+          if spinTXDF.Value <> txdf-clRebel.txOffset Then
+          Begin
+               spinTXDF.Value := txdf-clRebel.txOffset;
+          end;
+
+          // Display message to send in debug output
+          cw := False;
+          if rbCWIDFree.Checked and ft Then
+          Begin
+               cw := True;
+          end
+          else if rbCWID73.Checked and (ft or sm) Then
+          begin
+               cw := True;
+          end
+          else
+          begin
+               cw := False;
+          end;
+          if cw Then Memo2.Append('Msg: ' + TrimLeft(TrimRight(thisTXMsg)) + ' @ ' + FormatFloat('########.0',baseTX) + ' Hz (Sync) + CWID') else Memo2.Append('Msg: ' + TrimLeft(TrimRight(thisTXMsg)) + ' @ ' + FormatFloat('########.0',baseTX) + ' Hz (Sync)');
      end;
+
+     // Debugging code
+     haveRebel := rebs;
 end;
 
 function TForm1.genSigRep(var s : String) : Boolean;
@@ -5668,7 +5956,7 @@ begin
                if isSlashedCall(myscall) Then thisTXmsg := 'CQ ' + thisTXCall else thisTXmsg := 'CQ ' + thisTXCall + ' ' + getLocalGrid;
                edTXMsg.Text := thisTXmsg;
                spinRXDF.Value := spinTXDF.Value;
-               doFastDecode := True;
+               if cbMultiOn.Checked Then doFastDecode := True else doFastDecode := False;
                // Not sure this is best idea... but when calling CQ one should not move.
                cbTXeqRXDF.Checked := False;
           end;
@@ -5678,7 +5966,7 @@ begin
                if isSlashedCall(myscall) Then thisTXmsg := 'QRZ ' + thisTXCall else thisTXmsg := 'QRZ ' + thisTXCall + ' ' + getLocalGrid;
                edTXMsg.Text := thisTXmsg;
                spinRXDF.Value := spinTXDF.Value;
-               doFastDecode := True;
+               if cbMultiOn.Checked Then doFastDecode := True else doFastDecode := False;
                // Not sure this is best idea... but when calling CQ one should not move.
                cbTXeqRXDF.Checked := False;
           end;
@@ -5885,7 +6173,7 @@ begin
           // Final QC check
           if length(thisTXmsg)>1 Then
           Begin
-               if (isFText(thisTXmsg) or isSText(thisTXmsg)) Then genTX(thisTXmsg, spinTXDF.Value+clRebel.txOffset) else thisTXmsg := '';
+               if (isFText(thisTXmsg) or isSText(thisTXmsg)) Then genTX(thisTXmsg, spinTXDF.Value) else thisTXmsg := '';
                edTXMsg.Text := thisTXmsg; // this double checks for valid message.
                if thisTXMsg = '' Then ShowMessage('Error.. odd... no message from a button?  Please tell W6CQZ');
           end;
@@ -5940,6 +6228,7 @@ Var
   fullCall  : String;
   hisGrid   : String;
   sdb, sdf  : String;
+  ansCQ     : Boolean = false;
 begin
      i := lbFastDecode.ItemIndex;
      if i > -1 Then
@@ -5957,8 +6246,9 @@ begin
           sdf       := '9999';
           isBreakIn := False;
           txp       := 2;
+          ansCQ     := False;
 
-          mgen(foo, tValid, isBreakin, Level, response, connectTo, fullCall, hisgrid, sdf, sdb, txp);
+          mgen(foo, tValid, isBreakin, Level, response, connectTo, fullCall, hisgrid, sdf, sdb, txp, ansCQ);
           if tValid Then
           Begin
                ldate := IntToStr(thisUTC.Year);
@@ -5977,20 +6267,30 @@ begin
                thisTXMsg := response;
                edTXToCall.Text := fullCall;
                edTXReport.Text := sdb;
-               if cbTXeqRXDF.Checked Then
+
+               if ansCQ and cbNetCQ.Checked Then
+               Begin
+                    // Parser says we're answering a CQ call - I would like to force
+                    // matching DF in this case (with an option to over-ride)
+                    spinTXDF.Value := StrToInt(sdf);
+                    spinRXDF.Value := spinTXDF.Value;
+                    if cbMultiOn.Checked Then doFastDecode := True else doFastDecode := False;
+               end
+               else if cbTXeqRXDF.Checked Then
                Begin
                     spinTXDF.Value := StrToInt(sdf);
                     spinRXDF.Value := spinTXDF.Value;
+                    if cbMultiOn.Checked Then doFastDecode := True else doFastDecode := False;
                end
                else
                begin
-                    sdf := IntToStr(spinTXDF.Value);
+                    spinRXDF.Value := StrToInt(sdf);
+                    if cbMultiOn.Checked Then doFastDecode := True else doFastDecode := False;
                end;
 
                if isFText(response) or isSText(response) Then
                Begin
-                    if not tryStrToInt(sdf,i) then sdf := '0';
-                    genTX(response, StrToInt(sdf)+clRebel.txOffset);
+                    genTX(response, spinTXDF.Value);
                     if txp=0 then rbTxEven.Checked := True else rbTxOdd.Checked := True;
                     if not isBreakin then txOn := True else txOn := False;
                end
@@ -6333,6 +6633,7 @@ Var
    foo       : String;
    paResult  : TPaError;
    iadcText  : String;
+   idacText  : String;
 begin
      // Handle change to and saving of audio device setting
      If Sender = comboAudioIn Then
@@ -6358,6 +6659,8 @@ begin
                ListBox2.Items.Insert(0,'Using Stereo');
           end;
           paInParams.device := StrToInt(iadcText);
+          savedIADC := paInParams.device;
+          savedTADC := foo;
           paInParams.sampleFormat := paInt16;
           paInParams.suggestedLatency := 1;
           paInParams.hostApiSpecificStreamInfo := Nil;
@@ -6393,6 +6696,16 @@ begin
           adc.d65rxBufferIdx := 0;
           adc.adcTick := 0;
           adc.adcECount := 0;
+     end
+     else If Sender = comboAudioOut Then
+     Begin
+          // Audio Output device change.  Set PA to new device and update DB
+          ListBox2.Items.Insert(0,'Changing PortAudio output device');
+          foo := comboAudioOut.Items.Strings[comboAudioOut.ItemIndex];
+          if foo[1] = '0' Then idacText := foo[2] else idacText := foo[1..2];
+          paOutParams.device := StrToInt(idacText);
+          savedIDAC := paOutParams.device;
+          savedTDAC := foo;
      end;
 end;
 
@@ -6422,7 +6735,15 @@ end;
 
 procedure TForm1.bnEnableTXClick(Sender: TObject);
 begin
-     if txOn Then txOn := False else txOn := True;
+     if txOn Then
+     begin
+          txOn := False;
+          dac.dacTXOn := False;
+     end
+     else
+     begin
+          txOn := True;
+     end;
      doCW := False;
 end;
 
@@ -6583,7 +6904,7 @@ begin
      if isFText(comboMacroList.Text) or isSText(comboMacroList.Text) Then
      Begin
           thisTXMsg := comboMacroList.Text;
-          if isFText(thisTXmsg) or isSText(thisTXmsg) Then genTX(thisTXmsg, spinTXDF.Value+clRebel.txOffset) else thisTXmsg := '';
+          if isFText(thisTXmsg) or isSText(thisTXmsg) Then genTX(thisTXmsg, spinTXDF.Value) else thisTXmsg := '';
           edTXMsg.Text := thisTXmsg; // this double checks for valid message.
      end;
 end;
@@ -6765,6 +7086,10 @@ begin
           if not rigThread.FreeOnTerminate Then rigThread.Free;
           if clRebel.txStat Then clRebel.pttOff;
           clRebel.destroy;
+          if rebLock <> '' Then
+          Begin
+               if FileExists(reblock) Then FileUtil.DeleteFileUTF8(reblock);
+          end;
      end;
 end;
 
@@ -6773,8 +7098,13 @@ begin
      // Check for command line options
      // Call hfwst.exe I1 ... I4 to initialize as instance 1 ... 4
      // Falls back to instance = 1 if not set.
+     // Adding 2 options C for clean database allowing for a 100% clean start
+     // and W to set window size and position to defaults
+     forceDefaultGUI := false;
+     forceNewConfig  := false;
+     forceRebelUnlock := false;
      instance   := 1; // Range 1..4
-     if paramCount > 1 Then
+     If paramCount = 1 Then
      Begin
           // Needs to be 1 = I and 2 # 1...4
           if ParamStr(1) = 'I1' Then
@@ -6793,9 +7123,20 @@ begin
           Begin
                instance := 4;
           end
-          else
-          begin
-               instance := 1;
+          else if ParamStr(1) = 'C' Then
+          Begin
+               // Starts with a fresh and EMPTY config
+               forceNewConfig := true;
+          end
+          else if ParamStr(1) = 'W' Then
+          Begin
+               // Sets screen position and size to default
+               forceDefaultGui := true;
+          end
+          else if ParamStr(1) = 'U' Then
+          Begin
+               // Forces removal of a locked Rebel
+               forceRebelUnlock := true;
           end;
      end;
      srun       := 0.0;
@@ -12333,9 +12674,8 @@ begin
      Query.Params.ParamByName('GRID').AsString       := t(edGrid.Text);
      Query.Params.ParamByName('TADC').AsString       := t(savedTADC);
      Query.Params.ParamByName('IADC').AsInteger      := savedIADC;
-     //Query.Params.ParamByName('TDAC').AsString       := t(tdac.Text);
-     //If not TryStrToInt(t(idac.Text),i) then i := -1;
-     //Query.Params.ParamByName('IDAC').AsInteger      := i;
+     Query.Params.ParamByName('TDAC').AsString       := t(savedTDAC);
+     Query.Params.ParamByName('IDAC').AsInteger      := savedIDAC;
      Query.Params.ParamByName('MONO').AsBoolean      := cbUseMono.Checked;
      Query.Params.ParamByName('LEFT').AsBoolean      := rbUseLeftAudio.Checked;
      Query.Params.ParamByName('RIGHT').AsBoolean     := rbUseRightAudio.Checked;
@@ -12708,4 +13048,69 @@ Begin
      PageControl.Visible := True;
 end;
 end.
+//// DX Lab Commander QRG control
+//// This now works fine.  Just need to be sure I can format a string for
+//// setting the QRG properly. It ***must be*** ###,###.### or I guess
+//// ###.###,### for Euro convention
+//// Use leading/trailing 0 to pad it such that QRG is always ###,###.###
+////
+//// On QRG read if result = .000 or (I'm guessing) ,000 Then Commander isn't
+//// able to read the rig.
+//try
+//   This will format an integer to Commander's specs.  Need to have determined
+//   kilochar and decichar first though.
+//   i := 1838000;
+//   foo := formatFloat('000' + kiloString + '000' + deciString + '000',i/1000.0);
+//   // Direct TCP connect to DX Lab commander
+//   // For this I need to create a socket - connect to Commander at
+//   // 127.0.0.1 port 52002
+//   sock := TTCPBlockSocket.Create;
+//   sock.Connect('127.0.0.1','52002');
+//   if sock.LastError = 0 Then
+//   Begin
+//        cmd  := 'CmdGetFreq';
+//        parm := '';
+//        foo := '<command:'+IntToStr(length(cmd))+'>' + cmd + '<parameters:' + IntToStr(length(parm)) + '>' + parm;
+//        sock.SendString(foo);
+//        foo2 := '';
+//        repeat
+//              foo2 := foo2 + chr(sock.RecvByte(200));
+//        until sock.LastError <> 0;
+//        foo2 := TrimLeft(TrimRight(foo2));
+//
+//        if foo2 = '<CmdFreq:4>.000' Then
+//        Begin
+//             showMessage('Commander does not seem to be connected to a rig');
+//        end
+//        else
+//        begin
+//             cmd  := 'CmdSetFreq';
+//             parm := '<xcvrfreq:10>007,076.100';
+//             foo := '<command:'+IntToStr(length(cmd))+'>' + cmd + '<parameters:' + IntToStr(length(parm)) + '>' + parm;
+//             sock.SendString(foo);
+//
+//             cmd  := 'CmdGetFreq';
+//             parm := '';
+//             foo := '<command:'+IntToStr(length(cmd))+'>' + cmd + '<parameters:' + IntToStr(length(parm)) + '>' + parm;
+//             sock.SendString(foo);
+//             foo2 := '';
+//             repeat
+//                   foo2 := foo2 + chr(sock.RecvByte(200));
+//             until sock.LastError <> 0;
+//             foo2 := TrimLeft(TrimRight(foo2));
+//        end;
+//        sock.CloseSocket;
+//        foo := foo;
+//   end
+//   else
+//   begin
+//        ShowMessage('DX Lab Commander is not running or not configured to accept TCP/IP connections on port 52002' + sLineBreak + 'Rig control disabled.');
+//        foo := foo;
+//   end;
+//   sock.Destroy;
+//   except
+//         //lbDecodes.Items.Insert(0,'Notice: DX Keeper failed. Saved to file');
+//         foo := foo;
+//         sock.Destroy;
+//   end;
 

@@ -5,7 +5,7 @@ unit dac;
 interface
 
 uses
-  Classes, SysUtils, CTypes, PortAudio, globalData;
+  Classes, SysUtils, CTypes, PortAudio;
 
 function dacCallback(input: Pointer; output: Pointer; frameCount: Longword;
                        timeInfo: PPaStreamCallbackTimeInfo;
@@ -13,12 +13,12 @@ function dacCallback(input: Pointer; output: Pointer; frameCount: Longword;
                        inputDevice: Pointer): Integer; cdecl;
 
 Var
-   d65txBuffer    : Packed Array[0..661503] of CTypes.cint16;
-   d65txBufferIdx : Integer;
-   dacRunning     : Boolean;
-   dacECount      : Integer;
-   dacTick        : CTypes.cuint;
-   dacMono        : Boolean;
+   d65txBuffer           : Packed Array[0..661503] of CTypes.cint16;
+   d65txBufferIdx,dacEOD : Integer;
+   dacRunning,dacFirst   : Boolean;
+   dacECount,dacSOD      : Integer;
+   dacTick               : CTypes.cuint;
+   dacMono,dacTXOn       : Boolean;
 
 implementation
 
@@ -30,11 +30,19 @@ Var
    i    : Integer;
    optr : ^smallint;
 Begin
+     if dacFirst Then
+     Begin
+          dacTick := 0;
+          dacECount := 0;
+          if dacSOD = 0 then d65txBufferIdx := 0 else d65txBufferIdx := dacSOD;
+          dacSOD := 0;
+          dacFirst := False;
+     end;
      inc(dacTick);
      if dacRunning Then inc(dacECount);
      dacRunning := True;
      optr := output;
-     if globalData.txInProgress Then
+     if dacTXOn Then
      Begin
           // Send real samples
           for i := 0 to frameCount-1 do
@@ -45,11 +53,11 @@ Begin
                inc(optr);
           End;
           d65txBufferIdx := d65txBufferIdx+Integer(frameCount);
-          if d65txBufferIdx > 661503 then d65txBufferIdx := 0;
-     End
-     Else
-     Begin
-          // Send silence samples
+          if d65txBufferIdx >= dacEOD Then dacTXon := False;
+     end
+     else
+     begin
+          // Send silence
           for i := 0 to frameCount-1 do
           Begin
                optr^ := 0;
@@ -57,8 +65,9 @@ Begin
                optr^ := 0;
                inc(optr);
           End;
-     End;
-     if globalData.txInProgress Then result := paContinue else result := paComplete;
+     end;
+     //result := paContinue;
+     if dacTXOn Then result := paContinue else result := paComplete;
      dacRunning := False;
 End;
 end.
