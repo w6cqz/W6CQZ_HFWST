@@ -1,5 +1,4 @@
 { TODO : Begin to graft sound output code in }
-{ TODO : Rework the pit of despair that is the timing for Rebel TRX }
 { TODO : Try placing connect to Rebel into thread so it doesn't block on startup }
 { TODO : Think about having RX move to keep passband centered for Rebel }
 { TODO : Fix text being white on white in some choices of decoder output coloring }
@@ -7,9 +6,6 @@
 { TODO : Enhance macro editor }
 { TODO : Add back save receptions to CSV option }
 { TODO : Add worked call tracking taking into consideration call, band and grid. }
-
-{ Done : Compare save Audio I/O devices to current working set and complain if incorrect (after attempting to sort it out) - TEST TEST TEST }
-{ Done : Add back TX by sample generation code }
 
 {
 (Far) Less urgent
@@ -132,6 +128,7 @@ type
     cbNetCQ: TCheckBox;
     cbCATTXDF: TCheckBox;
     cbCATRXDF: TCheckBox;
+    cbSmartCWID: TCheckBox;
     comboAudioOut: TComboBox;
     edRebRXOffset40: TEdit;
     edRebTXOffset40: TEdit;
@@ -666,6 +663,8 @@ var
   threadRigResult  : Boolean = false;
   threadRigQSY     : Boolean = false;
   threadFSKPending : Boolean = false;
+  rebImage         : Integer = 0;  // Keeps track of eye candy for Rebel
+  trxImage         : Integer = 0;
 
 
 implementation
@@ -811,7 +810,7 @@ Begin
      // Check instance is 1..4
      if (instance<1) or (instance>4) Then
      Begin
-          showmessage('Invalid instance number (' + IntToStr(instance) + ')' + sLineBreak + 'Program must halt.');
+          showmessage('Invalid instance number (' + IntToStr(instance) + ')' + sLineBreak + 'Please notifty W6CQZ w6cqz@w6cqz.org');
           halt;
      end;
 
@@ -825,7 +824,7 @@ Begin
      Begin
           if not createDir(homedir + 'hfwst') Then
           Begin
-               showmessage('Could not create data directory' + sLineBreak + 'Program must halt.');
+               showmessage('Could not create data directory' + sLineBreak + 'Please notifty W6CQZ w6cqz@w6cqz.org');
                halt;
           end;
      end;
@@ -835,7 +834,7 @@ Begin
      Begin
           if not createDir(homedir + 'hfwst' + PathDelim + 'I1') Then
           Begin
-               showmessage('Could not create Instance 1 data directory' + sLineBreak + 'Program must halt.');
+               showmessage('Could not create Instance 1 data directory' + sLineBreak + 'Please notifty W6CQZ w6cqz@w6cqz.org');
                halt;
           end;
      end;
@@ -843,7 +842,7 @@ Begin
      Begin
           if not createDir(homedir + 'hfwst' + PathDelim + 'I2') Then
           Begin
-               showmessage('Could not create Instance 2 data directory' + sLineBreak + 'Program must halt.');
+               showmessage('Could not create Instance 2 data directory' + sLineBreak + 'Please notifty W6CQZ w6cqz@w6cqz.org');
                halt;
           end;
      end;
@@ -851,7 +850,7 @@ Begin
      Begin
           if not createDir(homedir + 'hfwst' + PathDelim + 'I3') Then
           Begin
-               showmessage('Could not create Instance 3 data directory' + sLineBreak + 'Program must halt.');
+               showmessage('Could not create Instance 3 data directory' + sLineBreak + 'Please notifty W6CQZ w6cqz@w6cqz.org');
                halt;
           end;
      end;
@@ -859,7 +858,7 @@ Begin
      Begin
           if not createDir(homedir + 'hfwst' + PathDelim + 'I4') Then
           Begin
-               showmessage('Could not create Instance 4 data directory' + sLineBreak + 'Program must halt.');
+               showmessage('Could not create Instance 4 data directory' + sLineBreak + 'Please notifty W6CQZ w6cqz@w6cqz.org');
                halt;
           end;
      end;
@@ -869,7 +868,12 @@ Begin
 
      if not FileExists(homedir + 'kvasd.exe') Then
      Begin
-          if not FileUtil.CopyFile('kvasd.exe',homedir + 'kvasd.exe') Then showmessage('Need kvasd.exe in data directory.') else showmessage('kvasd.exe copied to its processing location');
+          if not FileUtil.CopyFile('kvasd.exe',homedir + 'kvasd.exe') Then
+          Begin
+               // Couldn't copy KVASD.EXE
+               ShowMessage('Fatal error - could not move kvasd.exe' + sLineBreak + 'Please notifty W6CQZ w6cqz@w6cqz.org');
+               halt;
+          end;
      end;
      if FileExists(homedir + 'KVASD.DAT') Then
      Begin
@@ -877,7 +881,7 @@ Begin
           try
              FileUtil.DeleteFileUTF8(homedir + 'KVASD.DAT');
           except
-             ShowMessage('Debug - could not remove orphaned kvasd.dat' + sLineBreak + 'Please notify W6CQZ');
+             ShowMessage('Could not remove orphaned kvasd.dat' + sLineBreak + 'Please notify W6CQZ w6cqz@w6cqz.org');
           end;
      end;
 
@@ -889,7 +893,7 @@ Begin
      Begin
           if not createDir(basedir) Then
           begin
-               ShowMessage('Could not create base configuration directory' + sLineBreak + 'Program must halt.');
+               ShowMessage('Could not create base configuration directory' + sLineBreak + 'Please notifty W6CQZ w6cqz@w6cqz.org');
                halt;
           end;
      end;
@@ -909,7 +913,7 @@ Begin
      // So actual length + 12 < 256 is OK.
      if Length(cfgpath)+12 > 255 then
      begin
-          ShowMessage('Path length too long [ ' + IntToStr(Length(cfgpath)+12) + ' ]' + 'Program must halt.');
+          ShowMessage('Path length too long [ ' + IntToStr(Length(cfgpath)+12) + ' ]' + 'Please notifty W6CQZ w6cqz@w6cqz.org');
           halt;
      end;
 
@@ -917,7 +921,7 @@ Begin
      Begin
           if not createDir(cfgpath) Then
           begin
-               ShowMessage('Could not create instance configuration directory (' + IntToStr(instance) + ')' + sLineBreak + 'Program must halt.');
+               ShowMessage('Could not create instance configuration directory (' + IntToStr(instance) + ')' + sLineBreak + 'Please notifty W6CQZ w6cqz@w6cqz.org');
                halt;
           end;
      end;
@@ -967,7 +971,7 @@ Begin
      query.Active := True;
      if query.RecordCount = 0 then
      begin
-          ShowMessage('Error - no instance data (' + IntToStr(instance) + '. This is a fatal error please notify Joe w6cqz@w6cqz.org');
+          ShowMessage('Error - no instance data (' + IntToStr(instance) + 'Please notifty W6CQZ w6cqz@w6cqz.org');
           halt;
      end
      else
@@ -1356,17 +1360,17 @@ Begin
                // Have a lock file name - see if it already exists
                if FileExists(rebLock) Then
                Begin
-                    if forceRebelUnlock then
-                    begin
+                    //if forceRebelUnlock then
+                    //begin
                          FileUtil.DeleteFileUTF8(reblock);
                          ShowMessage('Connecting to Rebel - this will take a few seconds');
                          haveRebel := rebelSet;
-                    end
-                    else
-                    begin
-                         ShowMessage('Lock file indicates selected Rebel is in use' + sLineBreak + rebLock);
-                         haveRebel := False;
-                    end;
+                    //end
+                    //else
+                    //begin
+                         //ShowMessage('Lock file indicates selected Rebel is in use' + sLineBreak + rebLock);
+                         //haveRebel := False;
+                    //end;
                end
                else
                begin
@@ -1410,6 +1414,9 @@ Begin
      readQRG   := True;
      firstTick := False;
      if haveRebel Then noTXAudio := true else noTXAudio := False;
+     Image3.Picture.LoadFromLazarusResource('rebel_blank');
+     rebImage := 0;
+
 end;
 
 procedure TForm1.setupPA;
@@ -1431,7 +1438,7 @@ Begin
      PaResult := portaudio.Pa_Initialize();
      If PaResult <> 0 Then
      Begin
-          ShowMessage('Fatal Error.  Could not initialize PortAudio.');
+          ShowMessage('Fatal Error.  Could not initialize PortAudio.' + sLineBreak + 'Please notifty W6CQZ w6cqz@w6cqz.org');
           halt;
      end;
      // Now I need to populate the Sound In/Out pulldowns.  First I'm going to get
@@ -1444,7 +1451,7 @@ Begin
           i := paCount-1;
           if i < 0 Then
           Begin
-               ShowMessage('PortAudio Reports no audio devices.');
+               ShowMessage('PortAudio Reports no audio devices. Fatal error.  Add some sound devices.');
                Halt;
           End;
           comboAudioIn.Clear;
@@ -1506,7 +1513,7 @@ Begin
                end;
           end;
 
-          if not found then
+          if (length(savedTADC) > 0) and (not found) Then
           begin
                // Didn't find input device at the saved index.  Looking for
                // it at a possible changed index.
@@ -1553,7 +1560,7 @@ Begin
                end
                else
                begin
-                    // Now way to know which is correct since multiple devices
+                    // No way to know which is correct since multiple devices
                     // present same name.  Warn and fall back to default.
                     ShowMessage('The audio in device used and saved in last session' + sLineBreak + 'has changed to a new index but multiple devices' + sLineBreak + 'exist.' + sLineBreak + sLineBreak + 'Using default input!' + sLineBreak + sLineBreak + 'Please manually correct in setup!');
                     foo := IntToStr(portaudio.Pa_GetHostApiInfo(paDefApi)^.defaultInputDevice);
@@ -1567,6 +1574,20 @@ Begin
                     inDev := -1;
                     savedIADC := inDev;
                end;
+          end
+          else
+          begin
+               // Likely a new setup fallback to default.
+               foo := IntToStr(portaudio.Pa_GetHostApiInfo(paDefApi)^.defaultInputDevice);
+               if length(foo)=1 then foo := '0'+foo;
+               for i := 0 to comboAudioIn.Items.Count -1 do
+               begin
+                    if comboAudioIn.Items.Strings[i][1..2] = foo then break;
+               end;
+               savedTADC := comboAudioIn.Items.Strings[i];
+               comboAudioIn.ItemIndex := i;
+               inDev := -1;
+               savedIADC := inDev;
           end;
 
           // Second step is to look for the savedTDAC string as is
@@ -1580,7 +1601,7 @@ Begin
                end;
           end;
 
-          if not found then
+          if (length(savedTDAC) > 0) and (not found) Then
           begin
                // Didn't find output device at the saved index.  Looking for
                // it at a possible changed index.
@@ -1641,6 +1662,20 @@ Begin
                     outDev := -1;
                     savedIADC := outDev;
                end;
+          end
+          else
+          begin
+               // Likely a new setup fallback to default
+               foo := IntToStr(portaudio.Pa_GetHostApiInfo(paDefApi)^.defaultOutputDevice);
+               if length(foo)=1 then foo := '0'+foo;
+               for i := 0 to comboAudioOut.Items.Count -1 do
+               begin
+                    if comboAudioOut.Items.Strings[i][1..2] = foo then break;
+               end;
+               savedTDAC := comboAudioOut.Items.Strings[i];
+               comboAudioOut.ItemIndex := i;
+               outDev := -1;
+               savedIADC := outDev;
           end;
 
           defI := portaudio.Pa_GetHostApiInfo(paDefApi)^.defaultInputDevice;
@@ -1704,7 +1739,7 @@ Begin
           if paResult <> 0 Then
           Begin
                // Was unable to open RX.
-               ShowMessage('Unable to start PortAudio Input Stream.');
+               ShowMessage('Unable to start PortAudio Input Stream.' + sLineBreak + 'Please notifty W6CQZ w6cqz@w6cqz.org');
                Halt;
           end;
 
@@ -1723,7 +1758,7 @@ Begin
           if paResult <> 0 Then
           Begin
                // Was unable to start RX stream.
-               ShowMessage('Unable to start PortAudio Input Stream.');
+               ShowMessage('Unable to start PortAudio Input Stream.' + sLineBreak + 'Please notifty W6CQZ w6cqz@w6cqz.org');
                Halt;
           end;
 
@@ -1780,7 +1815,7 @@ Begin
      end
      else
      begin
-          ShowMessage('PortAudio Error.  No default API value.');
+          ShowMessage('PortAudio Error.  No default API value.' + sLineBreak + 'Please notifty W6CQZ w6cqz@w6cqz.org');
           halt;
      end;
      paActive := True;
@@ -1915,7 +1950,7 @@ Begin
                     if tryStrToInt(edRebRXOffset.Text,i) then clRebel.rxOffset := i else clRebel.rxOffset := 0;
                end;
                // push changes to Rebel
-               if not clRebel.setOffsets Then ShowMessage('Could not set offsets.' + sLineBreak + clRebel.lerror);
+               //if not clRebel.setOffsets Then ShowMessage('Could not set offsets.' + sLineBreak + clRebel.lerror);
           end
           else if clRebel.band = 40 Then
           Begin
@@ -1932,7 +1967,7 @@ Begin
                     if tryStrToInt(edRebRXOffset40.Text,i) then clRebel.rxOffset := i else clRebel.rxOffset := 0;
                end;
                // push changes to Rebel
-               if not clRebel.setOffsets Then ShowMessage('Could not set offsets.' + sLineBreak + clRebel.lerror);
+               //if not clRebel.setOffsets Then ShowMessage('Could not set offsets.' + sLineBreak + clRebel.lerror);
           end;
           // Need to take into account Rebel may have had a band change since last run
           // so be sure band currently active fits last QRG setting.
@@ -2097,7 +2132,7 @@ Begin
                else
                begin
                     // Shouldn't be able to get here
-                    ShowMessage('Rebel indicates it is not on 20 or 40 meters.' + sLineBreak + 'Notify Joe w6cqz@w6cqz.org of this specific error.');
+                    ShowMessage('Rebel indicates it is not on 20 or 40 meters.' + sLineBreak + 'Please notifty W6CQZ w6cqz@w6cqz.org');
                end;
           end;
      end;
@@ -2119,7 +2154,14 @@ Begin
      Begin
           // TX should be off
           if not clRebel.busy then clRebel.pttOff; // This gets handled more aggressively elsewhere in case it is busy.
-          if (not clRebel.txStat) And (not d65.glinprog) and (not sendingCWID) and (not doCW) Then Image1.Picture.LoadFromLazarusResource('receive');
+          if (not clRebel.txStat) And (not d65.glinprog) and (not sendingCWID) and (not doCW) Then
+          Begin
+               if trxImage <> 0 then
+               Begin
+                    trxImage := 0;
+                    Image1.Picture.LoadFromLazarusResource('receive');
+               end;
+          end;
      end;
      if (thisSecond=48) and haveRebel and clRebel.txStat and (not clRebel.busy) Then
      Begin
@@ -2139,6 +2181,11 @@ var
 Begin
      if threadFSKPending Then
      Begin
+          if rebImage <> 1 Then
+          Begin
+               Image3.Picture.LoadFromLazarusResource('rebel_loadingfsk');
+               rebImage := 1;
+          end;
           // Disable stacking messages to FSK generator while it's busy uploading
           // to Rebel in thread.
           buttonXferMacro.Enabled := False;
@@ -2149,10 +2196,27 @@ Begin
           bRReport.Enabled := False;
           b73.Enabled := False;
           bQRZ.Enabled := False;
+          spinTXDF.Enabled := False;
           // Also disable double clicking decoder outputs.
      end
      else
      begin
+          if clRebel.txStat Then
+          Begin
+               If rebImage <> 2 Then
+               Begin
+                    Image3.Picture.LoadFromLazarusResource('rebel_tx');
+                    rebImage := 2;
+               end;
+          end
+          else
+          begin
+               If rebImage <> 3 Then
+               Begin
+                    Image3.Picture.LoadFromLazarusResource('rebel_rx');
+                    rebImage := 3;
+               end;
+          end;
           buttonXferMacro.Enabled := True;
           bCQ.Enabled := True;
           bReport.Enabled := True;
@@ -2161,15 +2225,18 @@ Begin
           bRReport.Enabled := True;
           b73.Enabled := True;
           bQRZ.Enabled := True;
+          spinTXDF.Enabled := True;
           // Also enable double clicking decoder outputs.
      end;
+
+     if haveRebel Then Image3.Visible := True else image3.Visible := False;
+
      if spinRXDF.Value < -1100 Then spinRXDF.Value := -1000;
      if spinRXDF.Value > 1100 Then spinRXDF.Value := 1000;
      if spinTXDF.Value < -1100 Then spinTXDF.Value := -1000;
      if spinTXDF.Value > 1100 Then spinTXDF.Value := 1000;
      if cbNoKV.Checked Then d65.glUseKV := False else d65.glUseKV := True;
      if cbNoOptFFT.Checked Then d65.glUseWisdom := False else d65.glUseWisdom := True;
-     if threadFSKPending Then Image3.Visible := True else Image3.Visible := False;
      if cbSlowWF.Checked Then Waterfall1.delayed := True else Waterfall1.delayed := False;
      If txOn then bnEnableTX.Caption := 'Halt TX' else bnEnableTX.Caption := 'Enable TX';
      if not d65.glinprog and d65.gld65HaveDecodes Then DisplayDecodes3;
@@ -2343,8 +2410,22 @@ Begin
           kChar := kiloString[1];
      end;
      // Indicate status with picture
-     if d65.glinprog Then Image1.Picture.LoadFromLazarusResource('decode');
-     if (not clRebel.txStat) And (not afskTXOn) And (not d65.glinprog) and (not sendingCWID) and (not doCW) Then Image1.Picture.LoadFromLazarusResource('receive');
+     if d65.glinprog Then
+     Begin
+          if trxImage <> 2 then
+          Begin
+               trxImage := 2;
+               Image1.Picture.LoadFromLazarusResource('decode');
+          end;
+     end;
+     if (not clRebel.txStat) And (not afskTXOn) And (not d65.glinprog) and (not sendingCWID) and (not doCW) Then
+     Begin
+          if trxImage <> 0 then
+          Begin
+               trxImage := 0;
+               Image1.Picture.LoadFromLazarusResource('receive');
+          end;
+     end;
      // Keep station callsign in sync with any changes
      If (Length(TrimLeft(TrimRight(edPrefix.Text))) < 1) And (Length(TrimLeft(TrimRight(edSuffix.Text))) <1) Then
      Begin
@@ -2760,7 +2841,11 @@ Begin
                          didTX := False;
                          transmitting := '';
                          doCW  := False; // Doesn't really apply to AFSK but setting to be safe
-                         Image1.Picture.LoadFromLazarusResource('receive');
+                         if trxImage <> 0 then
+                         Begin
+                              trxImage := 0;
+                              Image1.Picture.LoadFromLazarusResource('receive');
+                         end;
                     end;
                     i := portaudio.Pa_StartStream(paOutStream);
                     if i <> 0 Then
@@ -2772,7 +2857,11 @@ Begin
                          didTX := False;
                          transmitting := '';
                          doCW  := False; // Doesn't really apply to AFSK but setting to be safe
-                         Image1.Picture.LoadFromLazarusResource('receive');
+                         if trxImage <> 0 then
+                         Begin
+                              trxImage := 0;
+                              Image1.Picture.LoadFromLazarusResource('receive');
+                         end;
                     end
                     else
                     begin
@@ -2782,7 +2871,11 @@ Begin
                          didTX := True;
                          doCW  := False; // Doesn't really apply to AFSK but setting to be safe
                          transmitting := thisTXmsg;
-                         Image1.Picture.LoadFromLazarusResource('transmitv2');
+                         if trxImage <> 1 then
+                         Begin
+                              trxImage := 1;
+                              Image1.Picture.LoadFromLazarusResource('transmitv2');
+                         end;
                     end;
                end
                else
@@ -2793,7 +2886,11 @@ Begin
                     didTX := False;
                     transmitting := '';
                     doCW  := False; // Doesn't really apply to AFSK but setting to be safe
-                    Image1.Picture.LoadFromLazarusResource('receive');
+                    if trxImage <> 0 then
+                    Begin
+                         trxImage := 0;
+                         Image1.Picture.LoadFromLazarusResource('receive');
+                    end;
                end;
           end
           else
@@ -2804,7 +2901,11 @@ Begin
                afskTXOn := False;
                didTX := False;
                doCW  := False; // Doesn't really apply to AFSK but setting to be safe
-               Image1.Picture.LoadFromLazarusResource('receive');
+               if trxImage <> 0 then
+               Begin
+                    trxImage := 0;
+                    Image1.Picture.LoadFromLazarusResource('receive');
+               end;
           end;
      end;
 
@@ -2850,7 +2951,11 @@ Begin
                     // Indicate TX triggered during this minute
                     didTX := True;
                     // Indicate it is in TX
-                    Image1.Picture.LoadFromLazarusResource('transmitv2');
+                    if trxImage <> 1 then
+                    Begin
+                         trxImage := 1;
+                         Image1.Picture.LoadFromLazarusResource('transmitv2');
+                    end;
                     transmitting := thisTXmsg;
                     // Refresh the message mainly to keep CWID in play
                     sm    := false;
@@ -2868,7 +2973,28 @@ Begin
                     doCW := False;
                     if rbCWIDFree.Checked and txFree Then
                     Begin
-                         doCW := True;
+                         If cbSmartCWID.Checked Then
+                         Begin
+                              If length(TrimLeft(TrimRight(edCWID.Text))) > 2 Then
+                              Begin
+                                   If AnsiContainsText(thisTXMsg,myscall) or AnsiContainsText(thisTXMsg,TrimLeft(TrimRight(edCWID.text)))  then
+                                   Begin
+                                        doCW := False;
+                                   end
+                                   else
+                                   begin
+                                        doCW := True;
+                                   end;
+                              end
+                              else
+                              begin
+                                   If AnsiContainsText(thisTXMsg,myscall) then doCW := False else doCW := True;
+                              end;
+                         end
+                         else
+                         begin
+                              doCW := True;
+                         end;
                     end
                     else if rbCWID73.Checked and (txFree or tx73) Then
                     begin
@@ -2953,7 +3079,11 @@ Begin
      if haveRebel and (thisSecond=49) and (lastSecond=48) and didTX and doCW and not sendingCWID Then
      Begin
           // Send CWID with threaded rig control so it doesn't block us
-          Image1.Picture.LoadFromLazarusResource('transmitv2');
+          if trxImage <> 1 then
+          Begin
+               trxImage := 1;
+               Image1.Picture.LoadFromLazarusResource('transmitv2');
+          end;
           doCW := False;
           sendCWID;
      end;
@@ -4879,7 +5009,14 @@ Var
   sdb, sdf  : String;
   ansCQ     : Boolean = false;
 begin
-     if threadFSKPending Then i := -1 else i := lbDecodes.ItemIndex; // Disable message stacking while FSK uploader is busy
+     if threadFSKPending Then
+     Begin
+          i := -1;
+     end
+     else
+     begin
+          i := lbDecodes.ItemIndex; // Disable message stacking while FSK uploader is busy
+     end;
      if i > -1 Then
      Begin
           // Get the decode to parse
@@ -5776,7 +5913,28 @@ begin
           cw := False;
           if rbCWIDFree.Checked and ft Then
           Begin
-               cw := True;
+               If cbSmartCWID.Checked Then
+               Begin
+                    If length(TrimLeft(TrimRight(edCWID.Text))) > 2 Then
+                    Begin
+                         If AnsiContainsText(thisTXMsg,myscall) or AnsiContainsText(thisTXMsg,TrimLeft(TrimRight(edCWID.text)))  then
+                         Begin
+                              cw := False;
+                         end
+                         else
+                         begin
+                              cw := True;
+                         end;
+                    end
+                    else
+                    begin
+                         If AnsiContainsText(thisTXMsg,myscall) then cw := False else cw := True;
+                    end;
+               end
+               else
+               begin
+                    cw := True;
+               end;
           end
           else if rbCWID73.Checked and (ft or sm) Then
           begin
@@ -6147,7 +6305,7 @@ begin
           Begin
                if (isFText(thisTXmsg) or isSText(thisTXmsg)) Then genTX(thisTXmsg, spinTXDF.Value) else thisTXmsg := '';
                edTXMsg.Text := thisTXmsg; // this double checks for valid message.
-               if thisTXMsg = '' Then ShowMessage('Error.. odd... no message from a button?  Please tell W6CQZ');
+               if thisTXMsg = '' Then ShowMessage('Error.. odd... no message from a button?  Please notifty W6CQZ w6cqz@w6cqz.org');
           end;
      end;
 end;
@@ -6202,7 +6360,14 @@ Var
   sdb, sdf  : String;
   ansCQ     : Boolean = false;
 begin
-     if threadFSKPending Then i := -1 else i := lbDecodes.ItemIndex; // Disable message stacking while FSK uploader is busy
+     if threadFSKPending Then
+     Begin
+          i := -1;
+     end
+     else
+     begin
+          i := lbFastDecode.ItemIndex; // Disable message stacking while FSK uploader is busy
+     end;
      if i > -1 Then
      Begin
           // Get the decode to parse
@@ -6578,7 +6743,6 @@ begin
           begin
                // A required field is invalid
                ShowMessage(err);
-
           end;
      end;
 end;
@@ -6650,7 +6814,7 @@ begin
           if paResult <> 0 Then
           Begin
                // Was unable to open RX.
-               ShowMessage('Unable to start PA RX Stream.');
+               ShowMessage('Unable to start PA RX Stream.' + sLineBreak + 'Please notifty W6CQZ w6cqz@w6cqz.org');
                Halt;
           end;
           // Start the RX stream.
@@ -6658,7 +6822,7 @@ begin
           if paResult <> 0 Then
           Begin
                // Was unable to start RX stream.
-               ShowMessage('Unable to start PA RX Stream.');
+               ShowMessage('Unable to start PA RX Stream.' + sLineBreak + 'Please notifty W6CQZ w6cqz@w6cqz.org');
                Halt;
           end;
           ListBox2.Items.Insert(0,'Changed input to device:  ' + IntToStr(paInParams.device));
@@ -6696,7 +6860,7 @@ begin
      k := rebelTuning(b); // Base sync tone as RF tuning word
      // Compute ID String
      if Length(TrimLeft(TrimRight(edCWID.Text))) > 2 Then f := TrimLeft(TrimRight(LowerCase(edCWID.Text))) else f := TrimLeft(TrimRight(LowerCase(myscall)));
-     if Length('de ' + f) < 15 Then f := 'de ' + f;
+     //if Length('de ' + f) < 15 Then f := 'de ' + f;
      // Setup commands for threaded rig control send
      rigP1 := IntToStr(k);
      rigP2 := f;
@@ -12637,6 +12801,622 @@ Begin
        +'C'#162'i'#255#0'd'#28'zZ'#231#145#227'!'#0#0#0#0'IEND'#174'B`'#130
      ]);
 
+     LazarusResources.Add('rebel_blank','PNG',[
+       #137'PNG'#13#10#26#10#0#0#0#13'IHDR'#0#0#0#133#0#0#0#26#8#6#0#0#0#153#234#159
+       +#170#0#0#0#6'bKGD'#0#255#0#255#0#255#160#189#167#147#0#0#0#9'pHYs'#0#0#11#19
+       +#0#0#11#19#1#0#154#156#24#0#0#0#7'tIME'#7#221#12#19#19#7#12#189#191'w'#228#0
+       +#0#0#29'iTXtComment'#0#0#0#0#0'Created with GIMPd.e'#7#0#0#10'xIDATh'#222#237
+       +#155#253#179']'#213'Y'#199'?'#207'z'#217#251#156's_'#147#155#228#134'6!'#129
+       +'4$'#132#192't'#176#136'F'#27'i'#139'v'#176#131'P'#7#172'E'#166'V'#139#17'm'
+       +#131'C!)b'#181#188'H'#129#182'P'#20'u'#168'V'#7'k'#241'e*'#4#131#188#164'!'#5
+       +'l'#177#209'icZ '#165#2'm'#174'I'#243'z'#19'rs'#223#206#222'{'#173#245#248
+       +#195'>'#247'V'#255#130#243#203'yf'#206#15'{'#206#153'Y?<'#223#253']'#223#231
+       +#179#214#145'u'#231#174'Qc-1FRJ'#180#139'@'#210#10'T1'#198'"'#0#2#214'ZRT@P'
+       +#20'%'#161#154'0b@'#21#159'e'#196#144'P'#13#248#204#19#170#136#152#250';c=1'
+       +#5'R'#149#176'NI)a'#156#197#0#206'g'#8#22#17'AD'#136')b'#172#197#212'+'#247
+       +#170#11#229#196#24'RJ'#168'*"'#194#196#228'qfg'#2#222'x'#196#128'F%'#203'=6'
+       +#23#140#8#170#134#162']'#160#177'B'#196'P'#133#128's'#13#178#204#16'B'#162'('
+       +#20'#m'#172's'#136'X'#172'u`'#0#20'p'#204'L'#206#144#231#25'U'#140#132'T2'
+       +#208#26'`'#197#138'e'#20'EA'#21#202'Z'#16#198'@'#210'^w'#186'%'#10'k-eU!"'
+       +#168'*3'#211#129#167'w>B'#230#6#200#27'9'#3#253#3',^'#188#152'+'#175#248' '
+       +#197#244'4'#199#142#157#228#166'O'#252'&'#151#190#251'r'#188#247#12'/'#24'`'
+       +#225#240'"~'#233'}'#215#176#255#224'>^'#248#250'W1XT#'#227#227''''#249#251'/'
+       +'='#198#11'_'#251#6'S'#237'6'#135#143#30'd'#219#191'>'#204#162'E'#163#244#15
+       +#13#210#236'k'#146'I'#131'K/'#185#12'D'#201#178#140#168'J'#25'*2'#227'z'#221
+       +#233#150'(T'#193#136#224#156'#'#132'@'#230'2'#222#182'b=KG'#151#227#156'#)'
+       +#140#159#24#231#153#167#191#202#154#183#157#199#229'Wn'#228'C'#31#216#194#226
+       +#209'~'#192#160#154'p6'#199#226'hf-'#150#142#156#131' '#136'1'#12#245'O'#178
+       +#229#19#235'8|'#232'Vv'#238'|'#154'='#223#250'&y'#163#159#225#225#17'H'#2'&b'
+       +']'#142#241'9N'#18'U'#138#24#21#172#207' '#134'^w'#186'%'#138#16#170#249#135
+       +#170#170'Xy'#214#153'\v'#217#149#8#134#164#145#169#233'I'#158#251#218'N'#150
+       +',YB'#187'p'#252#212#134#11#8#177#205#234#213#27'X:'#156'SV'#137#150#207#136
+       +':'#203#2#215#199'%?'#253#147#24#155'Q'#20#21'C#'#195'<'#245#244'S'#172':{'
+       +#13#219'f'#30#193#251#22#187'v'#190#200']'#159#254#20#141#172#1#170'`3'#136
+       +'%j'#29#177#10'd.'''#132#128#237'E'#138#238'n'#31#170#157#240'g'#12'!'#150
+       +#136#24'b'#172'P'#148#16'">'#243'('#6#213#128#145#28'$0;='#139'.l'#209#231#20
+       +'y'#243#4#19#227#211'L'#218#146#149#203#222#10#185'`'#27#142#24'O'#131#177#12
+       +#12#14'`'#140#193'8ad'#248#12#218#237#138#204'{'#172#181#132#212'&j"V%'#206
+       +'Z'#18#169#215#149'n'#139'"'#198#136'1'#134#24'#'#214'ZT'#168#243#5#181'P'#20
+       +'0'#198#213'S'#135'V'#132'X'#145#146#226'3CND'#15#237#231#163'7\'#199#165'Q'
+       +#201#154#253'<'#255#150#149#220's'#215#3'd'#2#131#139#250#9'!a'#172#3#18'1T'
+       +#196#164'hJ('#137'vQ'#205#175'%'#128#8#196#20#235''''#233'YE'#215'D'#129'0?y'
+       +'HG'#16'1'#165#249#17#209#25#233#244'G1jI'#4'PPM'#140#189'<'#198'wv~'#133#236
+       +#234#171#241#249#20'Q'#224#189#211#240#206#167'vq'#249'ol'#134#216#135#17'0'
+       +#8'1*'#6#199#204#236'4'#206':H'#130'5'#142#132#226#140#16#171'P'#143#188#157
+       +#223#247#170'{e'#230#132' "$'#17'RR'#172#181'Xk'#169#170#138#162',0bk6'#161
+       +#129#20'k{'#239#243#13#174#255#232'O'#144'}'#242#179#228#253#5#154'9'#176#14
+       +#211'r'#244#223#180#137'5'#235'.BLD'#128'<'#203'p'#206'u'#198'MK'#210#4#210
+       +'q''c'#169#138#18#231#28#8'8k'#241#222#247':'#211'MQ8'#235#231'9'#197#156'c'
+       +#204'e'#12#231#28#214'z'#18#17#193#224#157'A'#140'v|'#190#226#226'w^'#205#190
+       +'#'#175'!$\'#138'X'#2#154'E'#202'#o0'#188'd'#1#146#2'I'#161#10'UGL'#134',o'
+       +#160'(1V5'#143#208'z'#20#13'!'#212'.'#21'#'#237'v'#187#215#153'n'#138'b.K'#0
+       +#136#216'yqX[SF'#239','#6'C'#172#18'*JJB'#163#145'#Fx'#246#153'gyet%'#24'E1'
+       +#136'X$'#128#29#24#226#208#225'6Vr'#172#179#28'<x'#24'#B'#138#129#20'KD'#5
+       +#239#27' t'#28#168'^'#207#24'S'#239'i'#190#199'('#186#188'}'#200#188'CXc'#16
+       +#169#201'e'#212#132#24#135#144#234#134#137'2['#150#244#181'Z'#140#159'<'#201
+       +#155'3S'#236#250#183#239#176#241#190#219#249'b'#219'PT'#9'm''b'#169#28#184
+       +#227'Q'#246#191#186#155#194#24'4'#10'g,'#29'A'#12'X'#231'i6'#27#196#168#132
+       +#216#174#179'I'#135'\'#170#234#143#221'"'#197'^g'#186#26'4'#129#148#234#198
+       +#147'b''T'#10'-'#159'Q'#17#8#141'&U'#161#136#24#172#8#222'e,'#26#26'A'#196' '
+       +'Y'#139'k?'#252'1>'#180#249'S'#252#199#130#197#188#189#213#199#223#189'z'#148
+       +'/m'#222'L>'#146'#x'#188#183#228#205#156'$B_'#171#159'S'#167#10#172'Ou'#198
+       +#149'Z'#140'!'#132#250'l%%b'#140#168'('#29'6'#222#171'.'#148#172'_'#191'N'#1
+       +#146'&'#140#8'>s'#156#156'8'#197#207'n'#220#192#219'/<'#31#159#15#240'G7'#223
+       +#134's'#150'U'#171#150's'#248#240'8'#237#217'iV'#174'ZQ'#191#229')b'#171#138
+       +#241#227#167#209'T'#177'x'#233#8#201'84BI'#201#193#131#19',\'#144'3'#178'h1c'
+       +'?<'#140'k'#228#140'.'#26'"'#198'@'#187'('#176#214#16'c'#157'_'#230#28'#i'
+       +#196#187#172#215#157'n'#137'b'#237#218's'#212'{'#143#24'C'#158'{'#222'|s'#130
+       ,'/?'#246'0&'#14'"'#214'!'#4#30#250#147#127#224#197#221#143#146'gMRJ'#160#9'+'
+       +#158#178'*'#201'3_['#127#138'Xc'#176#198#161#170#196'P!'#206#161')'#145'T'
+       +#137#169'Bpx'#231#168#170#138'9h'#22'b'#133#17';'#207'JD'#132#164#17'g{'#19
+       +'H'#215'2E'#158#231#245#246'!'#134#137#169'I'#30#127#226'Q'#22#244#173#224
+       +#137'mO1:'#186#128#193#190'A'#158'{a;'#153'o'#146#146#144'g91'#128'u'#6#159#9
+       +'A'#19'.'#243#24#17'$&RP'#162'&'#172#183#24'1$Q'#182#222#250'{'#220#247#249
+       +'/"jjq'#136#212'9'#197#26#4#153#15#183#170#138'1'#134#204#231#189#206't3S'
+       +#164'9Pe'#148']'#207'>'#203#233#153#130'='#187#191#203#27'G'#246'03y'#13#227
+       +'?'#154#166#149'e'#244'/nr'#243#199'?'#198#185'k'#222#129#9#13#254#250#175
+       +#254#153#127'|'#252#179'|e'#251'c'#140#142','#231#219#255#254'-'#238#189#243
+       +'6'#14#156'>'#194'{'#222#187#145'_'#191'v'#19#235'W'#175#229#212#161'Y'#14
+       +#140#239'eh`'#25'F'#18#24'K'#138#145#16'B'#7#173#215'S'#206#28'f7'#157#163
+       +#252'^uU'#20#145#148#20#240#236#219#247'2g'#158#181#150'ekF'#185#231']'#127
+       +#202#236'd'#155#223#222't'#21#191'p'#229'/r'#227#141'['#233#203#154'l'#250
+       +#173'O'#242#195#253#223'F'#171'Y^'#216#245'M2?'#200#221#159#185#151'-[n'#226
+       +'{'#175#29#231#187'/'#189'L'#17''''#248#254#171#199#248#200#175#253#1'c'#7
+       +#246#242#193#15#191#155#11#207'_'#141#26#129#14#28#155'?k'#9'a~$UU'#230#176
+       +#187'j'#239'>E'#215#182#15'c'#12'Y'#238#9'1'#210#232#203'p.'#163#191'o'#136
+       +'W^z'#141'_'#185#250#26#242#190'~'#254#236#254#207#19#171'6'#15'<'#240' {'
+       +#254#235#159#168#138'S4'#250#26#252#232#208#24'G'#143#30'e'#195'%'#23'q'#236
+       +#127'N0'#180'p'#152#153#242#13'|6'#200#7#174#250'y'#190#247#250#243'(%'#231
+       +'\'#184#129#19#19#167#9'I1'#252#24#171#215'lD'#254#223''''#165#212's'#138'n'
+       +#139'BUA'#161#217'j'#178'x'#201'0'#179#179'Sd'#206's'#222#250#179#185#248'g.'
+       +'`'#242#212#12#255#242#196'6'#138#160'\'#247#187#215#241#131#215#143#178#252
+       +#204#11#168#170'6w~'#250'.'#156'7'#188#235#226'KX'#186'b![n'#217#132#149'Q'
+       +#138'r'#154#147#167'O'#240#133#135#30'ajv'#134#179#151'-a'#239#158#255'$s'#14
+       +'c\'#7#150#9')E'#16#197'{?/'#10'k-!'#244#238'Rt'#29'^'#165#164#180#219#179','
+       +#28#26'e'#225#130#17#254#242#193#135'x'#229#165#239's'#239'g>'#199#142#231
+       +#183#179#253#153''''#233'o69~l'#130#139#222#241'~'#254'{'#223'n'#170#178#228
+       +#200#241'c,_'#246'V'#238#186#227#11#252#225#214#219#185#226#253'Wq'#162'='
+       +#205#130#193'~'#182#222'x''7'#223'x+'#141','#227'-'#163'KhO'#159'bjv'#134#179
+       +#214#157#137'u'#173#14#19'1X'#177#243#249'b'#14#175#247#206'>'#186#237#20'h}'
+       +'*'#170#134#31#188'>Ff'#29#223'x'#241'9n'#217#186#149#181#171'.'#224#203#127
+       +#251'8'#147#227'Ky'#240#190#7'8'#227#140'an'#189#237'#l|'#223#207'q'#197'/_'
+       +#197'{.'#221#136'Jbll'#15#173#193#128'M'#137#187#127#255#14#218'S'#211'||'
+       +#235#245#144#159#226#154'k'#127#149#195#7#10#254#248#238'['#216#177'c'#7#127
+       +#243#231#15#179'j'#245'E'#248#204#162'"'#196'X'#7']'#235':'#240#170'#'#144'^'
+       +'u'#145'S'#156'{'#238#26#245#141#28#196#209'l$'#142#30'9'#201#232#232'"'#218
+       +#179#29#186'i'#5#137'J'#179#217'"&a'#219'cO'#226'|'#201#13#155#239'f'#255#216
+       +'n'#182'?'#249#12')'#6#156#181#252#206#245'w26'#246'u'#246#191#177#159'G'#183
+       +'='#206#185#231#173#227#224#129'qn'#191'c'#11#247#223#255#23#12#13'9n'#216'|'
+       +#15'{'#247#238#192';K'#25#19#169',A'#4#239'=1'#198#255#27'vz'#221#233#150'('
+       +#206'?'#255'<'#13#161'"'#203'3B'#5'I#'#214#130's'#142#162']'#17'EhxOJ'#245#27
+       +#156#249#22'B'#2'I'#24'kQ'#132#233#169'i2'#215'Bl'#137'1'#30'c'#4'R"'#226'@'
+       +#21#155#148#137#233')'#242#166#199#137#7#27'H'#234'1'#162#164#24#208#206#150
+       +'1'#247'7'#131'<'#207#169#170#170#215#157'n'#141#164#0#222'g'#20#237#2'c,1E'
+       +#178#188'IUV8g'#17'U'#170'P!'#154#176#222#211'.'#167'0'#198#212'x'#186'*'#177
+       +#214#208'h'#228'$"HF'#8#17'1'#169#190#151'!'#17'U'#161#136#5#253#3'9b<1V'#160
+       +#14'k'#165'sY'#7#196#26#202#178#156'w'#136#162'(zN'#209'MQ'#204#29'FY'#235'0'
+       +'b0'#206#206#179#131#148'R}&2'#135#175#147#226'\'#141#181#171'*'#226#156'C5'
+       +#17'S'#0#169'/'#250#170#130#195#146'4"("'#137',k'#146'R$'#134'vg'#194'pTeY'
+       +#243#10'U'#136#138#237#136#160#151''''#186'_'#255#11'K$7F1'#138#143'2'#0#0#0
+       +#0'IEND'#174'B`'#130
+     ]);
+     LazarusResources.Add('rebel_loadingfsk','PNG',[
+       #137'PNG'#13#10#26#10#0#0#0#13'IHDR'#0#0#0#133#0#0#0#26#8#6#0#0#0#153#234#159
+       +#170#0#0#0#6'bKGD'#0#255#0#255#0#255#160#189#167#147#0#0#0#9'pHYs'#0#0#11#19
+       +#0#0#11#19#1#0#154#156#24#0#0#0#7'tIME'#7#221#12#19#19#7'%'#255#13#239#136#0
+       +#0#0#29'iTXtComment'#0#0#0#0#0'Created with GIMPd.e'#7#0#0#15#195'IDATh'#222
+       +#237#154'{'#148#21#197#181#198#127#245#232#238'3'#239'af`Py('#239'a'#144#248
+       +#138'&'#220#196#24'1'#228#154'D'#3#136'h'#140'KQ'#25#212#209'A'#20'!>'#136
+       +#130'^A'#227#29#228#170'7A'#197#4#241#145#24#148'!'#130#2'A'#9#18'cL"'#8#145
+       +#1#18#31'a'#28#144#199#12#207'y'#157's'#186#171'*'#127#156'3'''#140#162#178
+       +#174#174#16's'#217'k'#245#31']'#189#187#170'V'#237#175'w}'#251#171#22#3#203
+       +#250';'#169#20#198#24#172#181#196#19#17#214#133#224#28'R*'#4#128#0#165#20#214
+       +'8@'#224'p8,'#206'Y'#164#144#224#28#158#239'c"'#139's'#17#158#239#17#133#6'!'
+       +'S'#207#164#242'06'#194#134#22#165#29#214'Z'#164'VH@{>'#2#133#16#2'!'#4#198
+       +#26#164'R'#200#212#200'G'#236'0'#152#22'Rb'#173#197'9'#135#16#130'}M'#13#180
+       +#181'Fx'#210'CHp'#198#225#7#30'*'#16'H!pN'#146#136'''p&D'#8'I'#24'Eh'#29#195
+       +#247'%QdI$'#28'R'#196'QZ#'#132'B)'#13#18#192#1#154#214#166'V'#130#192'''4'
+       +#134#200'&'#201#203#206#163'g'#207'n$'#18#9#194'('#153#2#132#148'`'#221#145
+       +#232#28'.P('#165'H'#134'!B'#8#156's'#180#182'D,Y'#254'$'#190#206'#'#136#5#228
+       +#229#230#209#185'sg'#134#127#247'{$ZZ'#216#185's7'#19#127'p9g'#157'y'#14#158
+       +#231'Q'#216')'#143#162#194#18#206#253#246'El'#222#178#129#151#127#251'k$'#10
+       +#231#12#141#141#187'yj'#222#2'^^'#241#10#205#241'8'#219'vl'#161'f'#241'\JJJ'
+       +#201'-'#200'''+'''#11'_'#196'8'#235#140#179'A8|'#223#199'8G2'#10#241#165'>'
+       +#18#157#195#5#10#231'@'#10#129#214#154'('#138#240#181'O'#159#158#131#232'Z'
+       +#218#29#173'5'#214'A'#227#174'F'#150'.'#249'5'#253#251#148's'#206#240#211#185
+       +#228#130'It.'#205#5'$'#206'Y'#180#10'Ph'#178#252'l'#186#22#247'C '#16'RR'#144
+       +#219#196#164#31#12'd'#219#251#183#176'|'#249#18#214#188#254'{'#130'X.'#133
+       +#133#197'`'#5'H'#131#210#1#210#11#208#194#18'Z'#131't'#2#229#249'`'#162'#'
+       +#209'9\'#160#136#162'0s'#19#134'!'#199#30#215#131#179#207#30#142'@b'#157#161
+       +#185#165#137#223#172'XN'#151'.]'#136'''4_'#26'2'#152#200#196#233#219'w'#8']'
+       +#11#3#146#161'%'#219#243'1'#174#141'N:'#135'3'#190'|*R'#249'$'#18'!'#5#197
+       +#133#188#176#228#5'z'#247#234'OM'#235#147'x^6/-'#255#29'wM'#191#157#152#31#3
+       +#231'@'#249'`'#146'8'#165'1a'#132#175#3#162'(B'#29#161#20#135'w'#251'p.M'#254
+       +#164'$2I'#132#144#24#19#226'pD'#145#193#243'='#28#18#231'"'#164#8'@D'#180#181
+       +#180#225#138#178#201#209#14#177'g'#23#251#26'[hRI'#142#237'v'#12#4#2#21#211
+       +#24#179#31#164'"/?'#15')%R'#11#138#11#143'"'#30#15#241'='#15#165#20#145#141
+       +'c'#156#197#132'I'#180'RX'#236#145#168#28'nP'#24'c'#144'Rb'#140'A)'#133#19
+       +#164#248#5')'#160'8@J'#157#170':\HdB'#172'ux'#190'$'#192#224#222#223#204'5'
+       +#227#199'r'#150'q'#248'Y'#185#172'<'#250'X'#238#190'k'#22#190#128#252#146'\'
+       +#162#200'"'#149#6',&'#10'1'#214#225#172#197'a'#137''''#194#204'X'#2#16#2#140
+       +'5'#169';'#145'J'#21#11#23#254#130#225#195'/<l'#11't'#224#248#255#172#185',\'
+       +#248#139#131#182#127'p'#236'3'#207#252#26'C'#135#158#193#209'G'#31'M^^'#14
+       +#187'v'#237#166#182'v'#3#203#150#173#224'/'#127#249#235'G'#206'977'#151#169
+       +'So'#225#15#127#248#19#243#231#215'|'#24#20#8'2'#149#135'H'#3#194'X'#155')'
+       +#17#181#20#233#248'8'#164'SX"p'#224#156#165'n}'#29#235#150#207#199'?'#255'|'
+       +#188#160#25'#'#224#155'-'#240#213#23'^'#226#156#203#170#192#228' '#5'H'#4#198
+       +'8$'#154#214#182#22#180#210'`'#5'Jj,'#14'-'#5'&'#140'R%o'#218#255#255#187'}'
+       +#18#248#198#141#27'Cii)'#143'='#246#4#239#189#183#149'0'#12#233#210#165#132
+       +'/|a0W\q'#9#147'''O9'#232'{EE'#157#152':'#245'VV'#172'x'#153#133#11#23'}DI*@'
+       +#164#131'`'#5'`'#29#237'[J"'#145' '#145'L '#133'Ji'#19'.'#194#154'Tz'#207#241
+       +'b\vM'#31#252')'#247#18#228'&0B'#131#5#153#13#185#19#199#209#127#224'Whl'#253
+       +'+'#2#8'|'#31#173'u'#186#220'TXgAHL'#20#162'='#143'D<'#142#239#251'Xk'#209'J'
+       +'!'#165#198#152#240's'#23#168#127#166'}'#253#235'g0v'#236'5'#180#180#180'd'
+       +#218#182'm'#219#193#182'm'#203'Y'#186't'#249'A'#223#233#218#181#148'i'#211'n'
+       +'e'#209#162'%,^'#188#228#163#183#15#173'<'#194#246#146#20#210'ZDj'#235#208'Z'
+       +#163#148#135#197' '#144'xZ"'#164'K'#231#249#144#211#190'z>'#27#22#207#224'$,'
+       +#218'Z'#12#14#231#11#194#237#239'P8'#248#28'v'#189#27'a'#29#132'Q'#152#6#147
+       +#196#15'b8'#28#198#132')='#194#165'J'#209'('#138'Pi'#17'-'#153#140#240'<u'
+       +#200#11'4l'#216'PF'#140'8'#135#206#157'Khhhd'#193#130#231'X'#190'|E'#7#159'N'
+       +#157#10'9'#239#188#225#12#29#250'5'#246#239'o'#226#213'W'#127#207#147'O'#206
+       +''''#138#162#3#210#241#233#140#30'}'#30'%%'#197'444PS'#179#248'c'#183#146#234
+       +#234#251#25'1'#226';t'#239#222#141#230#230'6'#214#174']'#199#156'9'#143'u'#8
+       +#212'7'#190'q&'#163'F'#13#167#184#184'('#211'gee'#197#167#6#216#238#221#187
+       +')+'#235#207#235#175#175'9$'#255#158'={p'#251#237'73'#127'~'#13'K'#150#252
+       +#250#147'9'#133'R'#10'k-B('#156'5'#0#153#0'yZ!'#145#152#208#226#132#195'ZA,'
+       +#22' '#164#224#197#165'/'#210#191#244'XN'#218#190#21'gdj'#155#137','#170#168
+       ,#128#247#183#197'Q"@i'#197#150'-'#219#144'B`M'#132'5I'#132#19'x^'#140#200'$'
+       +#211#25'('#149#157#218#185#141#246'tZ'#236#250'd;'#245#212'S'#24'=z$'#179'f'
+       +#253#152#183#222'z'#135#190'}{3aB%{'#246#236#237#176'`w'#223'}'#7'O?'#253#12
+       +#143'?'#254's'#242#243's'#185#228#146#239's'#225#133#163'x'#226#137#212#254
+       +'}'#194#9#131#185#224#130'Q'#220#127#255#143'y'#251#237#191#209#187'w/&L'#168
+       +#252#216#177'G'#143#30#193'C'#15#205#229#173#183#222'&;;'#139'1c.f'#220#184
+       +#203#184#239#190#7#1'8'#249#228#19#25'5jx'#166#207'>}'#142'c'#252#248#202#207
+       +'$S'#204#158#253'(7'#220'p-'#219#182#237#160#182'v#['#182'l'#165#182'v'#19
+       +#141#141#141#31#242#237#215#175'/S'#166'L'#230#241#199#127#254#161#143#229'`'
+       +'&'#219'E+!'#4'JJ'#132'H)'#151#198'Y'#132#212#8'l*`'#194#209#150'L'#146#147
+       +#157'M'#227#238#221#236'im'#230#165'U'#235'8'#189'z'#26's'#226#146'Dhqq'#139
+       +'I:'#234#239'x'#150#205#155'^#!%'#206#8#142#234'Z'#140#144#160#180'GVV'#12'c'
+       +#28#145#137#167#184'IZ'#185't'#206#17'EQF'#234'>T'#27'1'#226#28#30'~'#248#167
+       +#172'__K"'#17'g'#253#250'Z'#30'~'#248'g'#140#28'yn'#7#191'+'#175#28#207#138
+       +#21#171'H$'#18'44'#236'b'#246#236'9|'#229'+_'#206'<'#31'5j'#4#143'<2'#151#218
+       +#218'M$'#18#9'6l'#216#200#156'9s?v'#236#234#234#7#211#227'&'#216#179'g/'#143
+       +'>'#250#24''''#158'88'#243'|'#228#200'sy'#248#225#159'e'#250#172#173#221#196
+       +'#'#143#204'=d'#178#249#193#235'@{'#243#205'Z'#174#188'r<'#207'<S'#131'1'#134
+       +#211'N;'#133#153'3gp'#219'm7SXX'#208#193#183'W'#175'c'#209'Z'#178'y'#243'{'
+       +#135'V}'#0'X'#155#10'<'#214#164'I'#165' '#219#243#9#137#136'bY'#132#9#135#16
+       +#18'%'#4#158#246'))(F'#8#137#240#179#185'x'#204#181'\Ru;'#127#232#212#153#19
+       +#178'sx|'#211#14#230'UU'#17#20#7#8'<<O'#17'd'#5'X!'#200#201#206'e'#239#222#4
+       +#202#179')'#142'+R`l'#223':'#172#181#24'cp'#194#145#214#198'?'#209#186'u;'
+       +#134#218#218#141#29#218'jk7PUu'#213#1'l;'#135#11'/<'#159'SN9'#137#226#226'B<'
+       +#207#7' '#138#254'Q'#254#246#232#209#141#13#27'>'#216#207#198#143#29'{'#243
+       +#230#186#14#247#251#247'7'#145#159#159#127'@'#159#221#217#184'qS'#7#159#15
+       +#222#127#26#254#146'L'#134#172'Y'#179#142'5k'#214#165#185#128#166#162'b'#12
+       +'W_='#150#25'3'#170'3~K'#151'.'#199#24#195#180'i73}'#250'L'#214#175#175#253
+       +'dP('#149'"'#127'R'#8'|_'#179'{'#223'^N'#248#226#16'N8'#233'x'#188' '#143#129
+       +#229#131#209'Z'#209#183'_w&^7'#157'x'#219#173#28#219#187'''I'#235'@'#194#156
+       +'yO'#210#216#176#31'gC:w-'#198#229'k'#218#226#17#239'n'#174#167#168#168'+E'
+       +#157#2#6#244#237'K'#239#227#250#163'c'#1#165'%'#157'0&"'#158'H'#162#148#196
+       +#152'T'#181#3#233'r'#216'}'#182'Z'#197'u'#215'U'#210#216#184#139'i'#211#238
+       +#162#161'a'#23'Q'#20#17#4'>O?=/'#227#211'>'#254#231#217#162'(b'#222#188#167
+       +#152'3'#231#193#15'=['#190'|'#5'mmqn'#189#245'F'#170#171#31#248'X.'#162#163
+       +'('#194#243'<'#180#242#8#2#143'={'#246#241#244#194#167#144'&'#31#161'4'#130
+       +#136#209#163#175#228'w'#175'=Kh'#12'E%'#5#224#242'0IK2L'#18#248#30#161#242
+       +#200#233'R'#136#146#18'#5'#206'9'#12'!J'#199#232#209#195#199':Gsk'#19'%'#165
+       +#133'xZ'#147'H&PJ'#165#8#166#9'S'#149'I'#154'O'#8'!2'#213#208#161#216#150'-['
+       +#25'8'#176#140'?'#253'iu'#166#173#188#188#140#250#250'-'#153#251'A'#131#202
+       +#184#252#242'J'#218#218#226#153#182#193#131#143#239#208'O]]='#3#7#150'uX'#172
+       +#242#242#178'O'#21#164#247#222#171#167#172'l'#0#171'W'#191#145'i'#27'0'#160
+       +#255'g'#2#128#177'c/'#229#209'G'#231#225#156#251#0#161#238'Dkk'#219'A'#223'y'
+       +#229#149'Wikk'#227#198#27#171#248#201'O'#230#176'j'#213#171#7#231#20'A'#16
+       +#164#182#15'!'#217#215#220#196#194'E'#207#210')'#167''''#139'j^'#160#180#180
+       +#19#249'9'#249#252#230#229#231#240#189','#172#21#4'~'#128#137'@i'#137#231#11
+       +'"g'#209#190#135#20#2'a,6r'#24'gQ'#158'B'#10#137#21#142#201#183'\G'#245'}s'
+       +#16'Nbl'#170#210'QJ!'#149'D'#144#226'4'#237#151#148#18#223#11#14'yqjj'#22'QQ'
+       +'1'#134#129#3#203#8#130#128#129#3#203#24';v'#12#11#22'<'#151#241'y'#247#221
+       +':F'#140#248'.'#185#185'9dgg1d'#200'iTV'#142#237#208#207#179#207#214'PQ1'#134
+       +#242#242#1#29#250#249'4'#182'`'#193'sTT\FYY?'#130#192#167#172#172#31#21#21
+       +#151'}&'#160#248#206'w'#206#166#186#250'.N='#245'd'#178#178'b'#196'b1'#6#13
+       +'*g'#226#196'*'#158#127'~'#217'G'#190#183'z'#245#27#220'y'#231#189#140#27'7'
+       +#150'a'#195#134#30'<S'#216'v'#161'J:^z'#241'E'#246#183'&X'#243#218#159'yg'
+       +#251#26'Z'#155'.'#162'qk'#11#217#190'On'#231',n'#188#225'Z'#202#250#159#130
+       +#140'b<'#250#200'3'#252'b'#225#189#204#127'n'#1#165#197#221'Y'#253#234#235
+       +#220's'#231'T'#234#247'og'#232'7O'#231#210#139#199'1'#168#239#0#246#190#223
+       +'F}'#227'Z'#10#242#186'!'#133#5#169#176#198#16'EQZZO'#253'K'#209'.'#179#203
+       +#244'Q'#254#161'*|'#127#252#227#235#20#22#22'PUu%]'#186'tf'#231#206#6#230#207
+       +#175#233#240#197#207#154#245' '#21#21#151'3{'#246#3#4#129#166#190#254'}'#230
+       +#206'}'#138#235#175#191'&'#227#243#198#27#127#230#151#191'\'#192#248#241#149
+       +#153#242#241#153'g'#22'RYY'#241#127#14#220#234#213'oP\\'#196#132#9#215'f'#250
+       +'\'#180#232#5#198#140#249#254#167#6#197#228#201'?d'#216#176'3'#185#226#138'K'
+       +')))&'#153'LPWW'#207#162'E/'#176'b'#197#170#143'}w'#195#134#141'L'#157'z'#23
+       ,#183#221'v'#19#185#185'9'#29'> '#0'Q^>'#192'Y'#235#200#202#138'1'#227'G'#211
+       +#233'q'#220#0#26#247#238#166#231#209#221'hk'#138'3'#242#220#179#25'6'#252'[\'
+       +#127#253'dr'#252','#198'UL'#225'o'#155'W'#227#194'6j'#22'/'#192#247#242#153
+       +'Q}'#15#147'&MdP'#223#19#249#243#155#235'H'#152'}'#252'e'#211'N'#30#186#127
+       +'6u'#245'k'#249#222#152'39'#233#248'K'#153'<'#233#226#212#160#8#218#193#24'E'
+       +'Q'#166'$m'#207#20'R'#202#15#165#197#127#23#235#215#175#15'UUWQUu'#227#191
+       +#236#28#165#148#18'?'#240#136#140'!'#150#227#163#181'OnN'#1#181'o'#190#197
+       +#232#243'/"'#200#201#229#193#153#247'a'#194'8'#179'f='#192#154'7'#158'&L'#236
+       +'%'#150#19'c'#235#251'u'#236#216#177#131'!g|'#145#157#239#237#162#160#168#144
+       +#214#228';x~>'#23#140#250#6#27#223'^'#137'#I'#191#147#134#176'k'#223'~"'#235
+       +#144#252'CVo''x'#7'^'#214#218#15'e'#138#207#179']w]%'#221#187#31#131#239'{'
+       +#244#237#219#135#171#175#30#203#139'/'#174#252#151#158#179't'#206#129#131#172
+       +#236',:w)'#164#173#173#25'_{'#148#15#234#197'i'#255'1'#152#166#189#173#252'j'
+       +'Q'#13#137#200'1'#182'r,'#239#190#189#131#238'='#6#19#134'q'#238#156'~'#23
+       +#218#147'|'#253#180'3'#232#218#179#136'I7'#141'C'#137'R'#18#201#22'v'#239#223
+       +#197'C'#179#159#164#185#173#149'^'#221#186#176'v'#205#31#241#181'FJ'#157'*'
+       +#127#17'Xk@8<'#207#203#128'B)'#213'Ae'#252#188#219#186'u'#235#153'8q'#2#243
+       +#230#205#161#170#234'*V'#172'X'#197#175'~'#181#248'_'#251#148'4'#245'u:'#226
+       +#241'6'#138#10'J'#137'L'#140'{'#167'W'#243#159#223#26#198'=?'#250'o'#246#220
+       +#188#131#31#205#188#135')''|'#137#237';'#247'q'#222#183#174'b'#239#238#181
+       +#228#228#231#176#189'a'''#221#187#29#195#15#167#252#15#205'M['#153'z'#207#173
+       +'lm'#216'K'#175#174#165'L'#190#254'NV'#173'\E'#204#247'9'#186#180#11#241#150
+       +#189'4'#183#181#242#133#147#203#168#251'k'#3'&'#220#135#16#18#153'.'#165#218
+       +'3'#135's)'#144#252#187#216#202#149#171'X'#185'r'#213#231'j'#206#210#225'R'
+       +#167#162'N'#242#238#219'u'#248'J'#243#202#239'~'#195'M'#147'''3'#160#247'`'
+       +#158'xl!M'#141']y'#160'z'#22'G'#29'U'#200'-S'#175#224#244'o'#127#141#239#142
+       +#28#197#208#179'N'#199#9'K]'#221#26#178#243'#'#148#181#204#184#249#14#226#205
+       +'-'#220'0'#249'*'#8#246'r'#209#197#23#178#173'>'#193#127#205#184#137'e'#203
+       +#150#241#211#255#157'K'#239#190'_'#196#243#21'N'#136#140'F'#161'tZ'#188'J'#19
+       +#208'#v'#248'L'#148#149#245'w^,'#0#161#201#138'Yvl'#223'Mii'#9#241#182#180
+       +#186#169#4#194'8'#178#178#178'1VP'#179#224'y'#180#151'd|'#213#12'6'#215#189
+       +#198's'#207'/'#197#154#8#173#20'W_u''uu'#191'e'#243';'#155'y'#182'f!e'#229#3
+       +#217'R'#223#200#180';&1s'#230#143')('#208#140#175#186#155#181'k'#151#225'iE'
+       +#210'Xl2'#9'B'#224'y'#30#198#152#3#201#206#145#232#28'.P'#28#127'|'#185#139
+       +#162#16'?'#240#137'B'#176#206#160'TJ2M'#196'C'#140#16#196'<'#15'kS_'#176#239
+       +'e#'#176' ,R)'#28#130#150#230#22'|'#157#141'PI'#164#244#144'R'#128#181#24'48'
+       +#135#178#142'}-'#205#4'Y'#30'Zx'#160'"'#172#243#144#194'aM'#132#179'6'#3#10
+       +'k-A'#16#16#134#225#145#232#28'.N'#1#224'y>'#137'x'#2')'#21#198#26#252' '#139
+       +'0'#25#162#181'B8G'#24#133#8'gQ'#158'G<'#217#140#148'2%O'#135')'#153':'#22#11
+       +#176#24#16'>Qd'#16#210'b'#173'C'#9#131's'#130#132'I'#144#155#23' '#164#151
+       +#250'O'#194'i'#148#18#233#159'u@(I2'#153#204'd'#136'D"q$S'#28'NP'#180#31'F)'
+       +#165#145'B"'#181#202'h'#7#214#218#212#153#136#148'('#169'q'#214#161#181#135
+       +'s'#142'04h'#173'q'#206'bl'#4'"'#245#163#175's'#160'QXg'#16'8'#132#176#248'~'
+       +#22#214#26'L'#20'OW'#24#154'0'#153'L'#159#185'80'#14#149#6#193#17'>q'#248#237
+       +#239#175'QSh'#218#19#217'`'#0#0#0#0'IEND'#174'B`'#130
+     ]);
+     LazarusResources.Add('rebel_rx','PNG',[
+       #137'PNG'#13#10#26#10#0#0#0#13'IHDR'#0#0#0#133#0#0#0#26#8#6#0#0#0#153#234#159
+       +#170#0#0#0#6'bKGD'#0#255#0#255#0#255#160#189#167#147#0#0#0#9'pHYs'#0#0#11#19
+       +#0#0#11#19#1#0#154#156#24#0#0#0#7'tIME'#7#221#12#19#19#8#10#211'D'#206#30#0#0
+       +#0#29'iTXtComment'#0#0#0#0#0'Created with GIMPd.e'#7#0#0#14#166'IDATh'#222
+       +#237#155'{xU'#213#153#198#127#235#178#247'>'#231'$!!'#9#9'Q'#1'E'#16#21#161
+       +#12#130#220#170#128#23#20#239'u'#180#183#193'z'#169#218'Z'#197'j'#20#180#151
+       +#153#182':'#222#218#142#227#163'c'#167#182#142#173'T|'#166'OG'#165'*h'#12#8
+       +'hUPD'#20#193#11#183#196#4'0!'#4'Bng'#159#189#215'Z'#243#199'99B'#181#213'6T'
+       +':'#207#228#253'''g'#159#189#206#183#207':'#235#221#223#247'~'#239#218#17'G'
+       +#31'5'#194'I'#165'0'#198'`'#173'%'#29#198'X'#23#129'sH'#169#16#0#2#148'RX'
+       +#227#0#129#195#225#176'8g'#145'B'#130'sx'#190#143#137'-'#206#197'x'#190'G'#28
+       +#25#132#204#158#147#202#195#216#24#27'Y'#148'vXk'#145'Z!'#1#237#249#8#20'B'#8
+       +#132#16#24'k'#144'J!'#179'W'#238#195#1#128#22'Rb'#173#197'9'#135#16#130#182
+       +#246#29'tw'#197'x'#210'CHp'#198#225#7#30'*'#16'H!pN'#18#166'C'#156#137#16'B'
+       +#18#197'1Z'''#240'}I'#28'['#194#208'!E'#26#165'5B('#148#210' '#1#28#160#233
+       +'j'#239'"'#8'|"c'#136'm'#134#162'T'#17'C'#134#28'B'#24#134'Dq&K'#8')'#193#186
+       +#190#213'9P'#164'PJ'#145#137'"'#132#16'8'#231#232#234#140'y'#186'v>'#190'."H'
+       +#4#20#21#22'1`'#192#0#206'='#231'+'#132#157#157'47'#183'r'#253#141#151'r'#242
+       +#137'g'#225'y'#30'%'#253#139'(-)'#231#236'3'#190'J]'#227'z'#150#191#240','#18
+       +#133's'#134#150#150'V'#30#153#247#24#203#159#251#3#29#233'4'#219#155#26'y'
+       +#252#169'_S^^Iaq?'#146#5'I|'#145#224#228'i3A8|'#223#199'8G&'#142#240#165#238
+       +'['#157#3'E'#10#231'@'#10#129#214#154'8'#142#241#181#207#176'!'#199'0'#176'r'
+       +#16'Zk'#172#131#150#157'-<'#243#244#179#140#24'6'#146#179#206'='#129#175'}i'
+       +#14#3'*'#11#1#137's'#22#173#2#20#154#164#159'b`'#217#17#8#4'BJ'#138#11#219
+       +#153's'#227#209'l'#223#246']jk'#159'f'#245#170#151#9#18#133#148#148#148#129
+       +#21' '#13'J'#7'H/@'#11'Kd'#13#210#9#148#231#131#137#251'V'#231'@'#145'"'#142
+       +#163#252'A'#20'E'#28'z'#216'`f'#206'<'#23#129#196':CGg;K'#159#171#165#162#162
+       +#130't'#168#153'8y4'#177'I3|'#248'd'#6#150#4'd"K'#202#243'1'#174#155#254#186
+       +#128'i'#147#142'C*'#159'0'#140'(.+a'#209#211#139'8|'#232#8#30#239#154#143#231
+       +#165'XR'#251'"'#183#222#246#3#18'~'#2#156#3#229#131#201#224#148#198'D1'#190
+       +#14#136#227#24#213''')'#14'l'#249'p.'''#254#164'$6'#25#132#144#24#19#225'p'
+       +#196#177#193#243'='#28#18#231'b'#164#8'@'#196'twv'#227'JS'#20'h'#135#216#181
+       +#147#182#150'N'#218'U'#134'C'#15'9'#24#2#129'Jh'#140#217#3'RQ'#212#175#8')%R'
+       +#11#202'J'#170'H'#167'#|'#207'C)El'#211#24'g1Q'#6#173#20#22#219#235'IUW'#207
+       +#206#191#142'cC{{;'#27'6ld'#197#138'W'#137#227#207'6'#3'UW'#207#230#174#187
+       +#238#221#239'c'#255#166#164'0'#198' '#165#196#24#131'R'#10''''#200#234#11#178
+       +'Dq'#128#148':'#219'u'#184#136#216'DX'#235#240'|I'#128#193'm'#171#227#170'k.'
+       +#227'd'#227#240#147#133',;'#232'P'#238#184#245'n|'#1#253#202#11#137'c'#139'T'
+       +#26#176#152'8'#194'X'#135#179#22#135'%'#29'F'#249'k'#9'@'#8'0'#214'd'#143'D'
+       +#239'RE'#207#143'+'#165#164#164#164#152'i'#211#142'g'#234#212#207#179'd'#201
+       +#178#190'T'#240'I'#164'@'#144#239'<D'#142#16#198#218'|'#139#168#165#200#173
+       +#143'C:'#133'%'#6#7#206'Y'#234#223#170#231#141#218#223#225'_p'#1'^'#208#129
+       +#17'pj'''#28#191'h'#9'g]2'#27'L'#1'R'#128'D`'#140'C'#162#233#234#238'D+'#13
+       +'V'#160#164#198#226#208'R`'#162'8'#219#242#230#198#239'/Xkim'#221#197'3'#207
+       +','#230#194#11#191#252#153#147#226'/'#185#243#255#30#178'D'#182'%'#21' r'#139
+       +'`'#5'`'#29'=%%'#12'C'#194'L'#136#20'*'#235'M'#184#24'k'#178#233#189#192'Kp'
+       +#201'U'#195#240#191#255#19#130#194#16'#4X'#144')('#188#254#10'F'#28#253'yZ'
+       +#186#222'C'#0#129#239#163#181#206#181#155#10#235','#8#137#137'#'#180#231#17
+       +#166#211#248#190#143#181#22#173#20'Rj'#140#137#246#251'd='#207#219#231'x'#232
+       +#208'C'#153'4i'#2'ee'#165'tuu'#241#242#203#175#176'n'#221#219#31#25'3q'#226#4
+       +#202#203#203#232#236#236'd'#197#138'}'#199'|R'#140#234#234#217#220'w'#223'/'
+       +#184#228#146#11#249#213#175'~C'#24#134#251#196#15#130#128'K/'#157#197#131#15
+       +'>'#204'UW]'#145'''Fu'#245'l'#22'.'#172'a'#220#184#177#148#149#149#18#134'!'
+       +#245#245#239#179'l'#217#243#164#211#31#198#24'5j$'#227#199#143#163#168'('#197
+       +#158'='#29#172'Z'#181#154'SN9'#177'W'#4#211'ZyD=-)'#228#188#136'l'#233#208'Z'
+       +#163#148#135#197' '#144'xZ"'#164#203#229#249#136#9#199'_'#192#250#167'ng,'#22
+       +'m-'#6#135#243#5#209#7#155'('#25'}'#22';7'#199'X'#7'Q'#28#229#200'$'#241#131
+       +#4#14#135'1Q'#214#143'p'#217'V4'#142'cT'#206'D'#203'db<O'#237#23'"'#236']>'
+       +#234#234#222#207#191'_U5'#144'SO='#133'%K'#150#177'eK'#29#165#165#253'9'#227
+       +#140#211#232#236#236#162#174#174#30#128#195#14#27#194'I''Mg'#241#226#231'hh'
+       +#216'JAA'#138#137#19''''#228#23#253#211#196#0#8#195#144#141#27'71z'#244'1'
+       +#188#250#234'k'#251'|'#191#209#163#143'a'#195#134#205#31'!'#11#192#196#137
+       +#227'X'#178'd9'#31'|'#208#132#239#251'L'#157':'#133#19'O'#156#202#162'E'#207
+       +#230#191#223#248#241#227#168#169#169#165#169#169#153#202#202#10'f'#206'<'#165
+       ,#247#191'Y'#143#150#0#16'"'#155'!'#156#203'f'#11'!'#4#158'VH$&'#178'8'#225
+       +#176'V'#144'H'#4#8')X'#252#204'b'#214'U'#30#10#210#225#144#8#161#16'1'#168
+       +#162'b'#182'mO'#163'D'#128#210#138#198#198#237'H!'#176'&'#198#154#12#194#9'<'
+       +'/'#1#130'\'#6#202'^OJ'#153'e'#170#215'{'#143#162#186'z6'#213#213#179#185#246
+       +#218#171#184#248#226'Y'#148#151#151'Q['#187'4'#127'~'#242#228#9#212#214'>'
+       +#199'{'#239'm '#138'"'#154#154#154'Y'#184#176#134#201#147#143#203#143'9'#238
+       +#184'q,]'#250'<['#182#212#19#199'1mm{'#168#169#169#253#139'b'#244'`'#245#234
+       +'5'#140#25'3'#10#177#151'V'#18'B0f'#204'hV'#175'^'#243#177'sX'#180#232'Y'#26
+       +#27#183#18#199'1]]],['#246#2#131#7#15#206#159#31'7'#238'X'#150'.]'#198#214
+       +#173#219#136#227#152#173'['#183#177'd'#201#242#253'Q>D^SH)'#177#206'f'#19#129
+       +#179#8#169#17#216#236#130#9'Gw&CA*EKk+'#187#186':X'#242#252#27'\'#254#208'/y'
+       +#224#31'g0'#11#131'g'#193':G'#195#205#143'R7'#247#6#202#134#246#195#25'A'#213
+       +#192'2'#132#4#165'='#146#201#4#198'8b'#147#6'''q.'#235'\:'#231#136#227'8+z'
+       +#173'A'#231#8#210#219'Z'#174#181'f'#200#144'A'#204#152'q2'#195#134#13'e'#221
+       +#186#245#0'TT'#148's'#246#217#167#127#228's'#198#152#252#235#138#138#10#26#26
+       +#26#255#228'5>M'#140#30#180#182#238#162#181'u7G'#28'1'#156'w'#223'}'#15#128
+       +#17'#'#134#231#222#223#245#177#241'w'#236'h'#217#231#184#187';M*'#149#204#31
+       +#151#151#151#177'u'#235#246'}'#198'l'#219#182'm?'#8#205#156#24'SJ'#129'59Q)H'
+       +'y>'#17'1q"I'#20':'#132#144'(!'#240#180'Oyq'#25'BH'#132#159'b'#214#197'W'#243
+       +#181#217'?`e'#255#1#140'I'#21#240#155'w'#154#152'7{6AY'#128#192#195#243#20'A'
+       +'2'#192#10'AA'#170#144#221#187'C'#148'g'#179#26'Wd'#201#216'S:'#172#181#24'c'
+       +'p'#194#145#243#198'{'#141'8'#142#217#180'i'#11#207'>'#187#152#227#143#159
+       +#146''''#133#214#30#247#220#243#159#127#182'E'#221#219#195#249#248#218#251
+       +#201'1'#246#198#235#175#191#193#132#9#227#242#164#24';'#246's'#172'X'#241#234
+       +#223'a'#247'An'#179#203'Y'#164#16#248#190#166#181'm7c'#198'Of'#204#216'QxA'
+       +#17'G'#143#28#141#214#138#225'G'#12#226#250'o'#223'F'#186#251'{'#28'z'#248#16
+       +'2'#214#129#132#7#230#205#167'e'#199#30#156#141#24'0'#176#12#215'O'#211#157
+       +#142#217'\'#215'@i'#233'@J'#251#7#28'9|8'#135#31'6'#2#157#8#168','#239#143'1'
+       +'1'#233'0'#131'R'#18'cl>'#173'f3'#151#221#239#19#221#180'i'#11'S'#166'L'#162
+       +#162#162#156#230#230#22#154#154'vPYY'#193#214#173#127#250#206#218#177'c'''
+       +#131#6#29#204#198#141#155'?'#246#252#167#137#177'76o'#222#194#180'i'#199'SU5'
+       +#16#16'$'#18'I6o'#174#251#171#231#212#210#178#147#131#15#174'b'#203#150#15
+       +#245#203'A'#7'U'#237#15'G3'#198#243'<'#180#242#8#2#143']'#187#218#248#237#130
+       +'G'#144#166#31'Bi'#4'1_'#252#226'7xq'#197#163'D'#198'PZ^'#12#174#8#147#177'd'
+       +#162#12#129#239#17')'#143#130#138#18#148#148#24#169'q'#206'a'#136'P:'#193#224
+       +#193'>'#214'9:'#186#218')'#175','#193#211#154'0'#19#162#148#202#10'L'#19'e;'
+       +#147#156'W"'#132#200'wC'#251#27#235#215#191#195#176'a'#135#211#220#220#194
+       +#203'/'#175'd'#234#212'),_'#254'"MM'#205'y'#225'x'#236#177'cX'#176#224')'#0
+       +'V'#172'X'#201#204#153#167#18#199#134#198#198#15#133'f'#143#174#248'41'#254
+       +#24'k'#214#188#201#177#199#254'C>s'#244#6#171'V'#189#198#244#233'S'#9#195'Z'
+       +#154#155'wPQ1'#128#233#211#167#246#158#20'A'#144#181#149'}'#165'i'#235'hg'
+       +#193#147#143#226#249#165'<'#252#208'|.'#191#234'"'#210#29'!K'#151'?Aaa'#18'k'
+       +#5#129#31#208#213#217#141#159#148'xB'#16';K'#224#251#216#208'"'#140#197'Z'
+       +#135#149#22#229')@'#18#9#195#220#239'|'#155#242#178'#'#153's'#237#183'06'#219
+       +#233#244'd''aD^'#220#246#8'N-5'#214#238#255'l'#241#246#219#239'r'#222'yg'#243
+       +#210'K+ihhd'#249#242#23#153'4'#233'8'#6#14#172'D'#8#201#246#237#219'Y'#185'r'
+       +'U~|c'#227'6'#150'.]'#206#148')'#19')++'#165#163#163#139#149'+W'#230#207#127
+       +#154#24#127#140#181'k'#215'1i'#210'x'#0'jj'#22#247'j>['#182#212'SX'#248#26
+       +#167#159'>'#131#130#130'lK'#186'z'#245#26'N8aJ'#175#226#138'Q'#163'F:'#231#28
+       +#190#175#249#253'SO'#178#167'+'#228#205'W'#222#227#201#229#15#241'/s'#127'J'
+       +#203#214'v'#174#188'r'#22#253#14'NrC'#245#213#28'5b'#28'2N'#240'_'#191#252#31
+       +#254'{'#193'O'#248#221#19#143'QY6'#136#215'^Z'#197#157#183#252#144#134'='#31
+       +'p'#210#169'''p'#209#172'+8f'#248#145#236#222#214'MC'#203#26#138#139#198'q'
+       +#217'Eg'#130#150#152'('#235#162#218#189'L'#178#30#18'h'#253#183'!'#196#255#23
+       +'TUU2c'#198#201'<'#244#208#252#191'>SXk'#176#214#1#30#235#215#191#197#224#195
+       +#142#228#144#17#149#220'1'#253#30#186#219#211'|'#227#138#243#153'q'#238#233
+       +'\w'#221'\'#10#252'$W\'#254'}'#182#212#189#134#139#186'Y'#190#228'e|'#175#31
+       +#183#255#248'N'#230#204#185#158#183'7'#236#224#205#181'o'#17#154'6'#222'}'
+       +#167#153#175#255#211#247#168'oX'#195'W.>'#145#177#163#134#227#164#200#155'c'
+       +#249#189#150'8'#206'g'#8#231#28'='#182'{OW'#210#135'?'#143#211'N;'#133'W^YE['
+       +#219#30#202#203#203'9'#233#164#19'y'#235#173#245#189'+'#31'RJ'#180''''#137
+       +#141'!Q'#224#163#181'OaA1'#235#214'n'#224#166'97'#18#20#20#242#31'w'#253';'
+       +#215'\}'#13'w'#255#236#1'V'#191#254'['#10'S'#229#20#22#21#179'u[='#169'D'#5
+       +#147#167#141#167#249#253#157#20#151#150#208#149#217'D"9'#148'/'#157#255'9'
+       ,#170#14'*#'#25#164'8b'#236'dv'#182#236'!'#182#14'_'#10'l'#174#5#238#17#150'{'
+       +#255#237#201#18'B'#244'm'#147'~'#26#212#215'7p'#230#153'3)..'#162#173#173#131
+       +#181'k'#223#234#181'V'#145#206'9p'#144'L%'#25'PQBww'#7#190#246#24'y'#204'P&L'
+       +#25'M'#251#238'.~'#255#228#227#132#177#227#178'o]'#198#230#141'M'#12#26'<'
+       +#154'(Js'#203'm'#183#162'='#201#244#9#211#24'8'#164#148'97]'#129#18#149#132
+       +#153'NZ'#247#236#228#254#159#207#167#163#187#139#161#135'T'#176'f'#245'+'#248
+       +'Z#'#165#206#153'e'#2'k'#13#8#135#231'y'#249'2'#162#148#250#204'w2'#255'/'
+       +#227#237#183#223'a'#222#188'G'#184#247#222#251#153'7o~'#175#9'A'#214#213#22
+       +'X'#235'H'#167#187')-'#174#164#180#127#25#191#184#247#231#172'['#251'.w'#254
+       +#248#167#212',{'#130''''#158'YHa2'#201#142#230'6'#198#143#251#2#239#173'_A'
+       +#148#201#240#193#142'f'#6#29'r0'#183#222'|?'#255'<'#247'G'#156#243#133#243
+       +#217#153#238#164#127#191'B'#230'^w'#11'7\'#247']'#18#190#207'A'#149#21#164';'
+       +'w'#211#209#221#197'aG'#15'F'#233'T'#206#19#145'('#145'%A'#207'#'#129#214#218
+       +#143#236'Q'#244#225#179#133't'#184#236#174#168#147'l'#222'X'#143#175'4'#127
+       +'xq)7'#205#157#203#145#135#143#230#225#135#22#208#222'2'#144'{'#255#237'n'
+       +#170#170'J'#248#238#15#191#206#9'gL'#229#156#243#206#231#164#147'O'#192#9'K}'
+       +#253'jR'#253'b'#148#181#220#254#157#155'IwtR='#247#155#16#236#230#171#179#190
+       +#204#246#134#144#127#189#253'&jjjx'#240#190'_s'#248#240#241'x'#190#194#9#145
+       +#247'('#148#206#153'W9'#130#244#225#192'A'#28'u'#212#8#231'%'#2#16#154'd'#194
+       +#210#244'A+'#149#149#229#164#187's'#238#166#18#8#227'H&S'#24'+x'#252#177#133
+       +'h/'#195'5'#179'o'#167#174'~'#5'O,|'#6'kb'#180'R\'#249#205'['#168#175#127#129
+       +#186'Mu<'#250#248#2#142#26'y4'#141#13'-'#252#232#230'9'#220'u'#215#207'(.'
+       +#214'\3'#251#14#214#172#169#193#211#138#140#177#216'L'#6#132#192#243#188'}'
+       +#236'a)e'#223#234#28'(R'#140#26'5'#210#197'q'#132#31#248#196#17'XgP*'#219#26
+       +#134#233#8'#'#4#9#207#195#218#236#29#236'{)'#4#22#132'E*'#133'C'#208#217#209
+       +#137#175'S'#8#149'AJ'#15')'#5'X'#139'A'#131's('#235'h'#235#236' Hzh'#225#129
+       +#138#177#206'C'#10#135'51.W2z'#254#205' '#8#2#162'('#234'['#157#3'is{'#158'O'
+       +#152#14#145'Ra'#172#193#15#146'D'#153#8#173#21#194'9'#162'8B8'#139#242'<'#210
+       +#153#14#164#148'Y{:'#202#218#212#137'D'#128#197#128#240#137'c'#131#144'Y'#19
+       +'K'#9#131's'#130#208#132#20#22#5#8#233'e'#159#147'p'#26#165'D'#238'a'#29#16
+       +'J'#146#201'd'#242#25'"'#12#195#190'Lq I'#209#179#25#165#148'F'#10#137#212'*'
+       +#239#29'Xk'#179'{"R'#162#164#198'Y'#135#214#30#206'9'#162#200#160#181#198'9'
+       +#139#177'1'#136#236#131#190#206#129'Fa'#157'A'#224#16#194#226#251'I'#172'5'
+       +#152'8'#157#235'04Q&'#147's5'#29#24#135#202#145#160'OO'#28'x'#252'/~K '#227
+       +#183'!'#240#26#0#0#0#0'IEND'#174'B`'#130
+     ]);
+     LazarusResources.Add('rebel_tx','PNG',[
+       #137'PNG'#13#10#26#10#0#0#0#13'IHDR'#0#0#0#133#0#0#0#26#8#6#0#0#0#153#234#159
+       +#170#0#0#0#6'bKGD'#0#255#0#255#0#255#160#189#167#147#0#0#0#9'pHYs'#0#0#11#19
+       +#0#0#11#19#1#0#154#156#24#0#0#0#7'tIME'#7#221#12#19#19#7'7'#12#180#158#192#0
+       +#0#0#29'iTXtComment'#0#0#0#0#0'Created with GIMPd.e'#7#0#0#13#253'IDATh'#222
+       +#237#154'{'#148'U'#213'}'#199'?'#251'u'#206'}'#206#12'00'#168' ( '#2'j'#172
+       +#214#154#210#165#181#137#137#15#234'c%j*'#203#170'UcL'#19'u'#25#3#26'c'#141
+       +#137'U'#162#214'G'#155'65'#13'M'#19#19'\'#186#140'b'#212#248'B'#227'#'#26'mb'
+       +#168#198'D'#141#138'B'#16#5#28#134#153#185#207's'#206'~'#244#143'{g'#4'A'#192
+       +#136#161#143#249#173'u'#255#184#251#158#243';w'#239#223#247#252'~'#223#223'w'
+       +'o1s'#198#244' '#149#194'9'#135#247#158'fb'#241'!'#131#16#144'R!'#0#4'('#165
+       +#240'.'#0#130'@ '#224#9#193'#'#133#132#16'0Q'#132#179#158#16',&2'#216#204'!d'
+       +#235'7'#169#12#206'[|'#230'Q:'#224#189'Gj'#133#4#180#137#16'('#132#16#8'!p'
+       +#222'!'#149'B'#182#158'<b;'#192#180#144#18#239'=!'#4#132#16#12'T'#222#162'Q'
+       +#183#24'i'#16#18#130#11'D'#177'A'#197#2')'#4'!H'#146'fBp'#25'BH2k'#209':G'#20
+       +'I'#172#245'$I@'#138'&Jk'#132'P('#165'A'#2#4'@S'#175#212#137#227#136#204'9'
+       +#172'O)'#23#202'L'#154'4'#129'$I'#200'l'#218#2#132#148#224#195'Htv'#20'('#148
+       +'R'#164'Y'#134#16#130#16#2#245#154#229#222'%'#139#136't'#153'8'#23'S.'#149#25
+       +';v,'#199#30's"I'#173#198#218#181'}'#156#127#193'i'#28#250#145#163'0'#198#208
+       +'5'#170#204#232#174'n'#142#158'3'#151#229#175'?'#207#163'?}'#0#137'"'#4'Goo'
+       +#31'7'#221'x;'#143#254#228'q'#170#205'&o'#174'y'#157#197'w'#127#151#238#238
+       +#30'J'#157#29#228#139'y"'#145#227#208'C'#142#0#17#136#162#8#23#2#169#205#136
+       +#164#30#137#206#142#2'E'#8' '#133'@k'#141#181#150'HGL'#157#180#23#227'{&'#162
+       +#181#198#7#232']'#215#203'}'#247'>'#192#244#169#179'8'#234#216#131'9'#249'S'
+       +#243#24#219'S'#2'$!x'#180#138'Qh'#242'Q'#129#241'c'#246'@ '#16'R'#210'Y'#170
+       +'0'#239#130#153#188#249#198'E,Yr/K'#159'~'#146'8W'#162#171'k'#12'x'#1#210#161
+       +'t'#140'41Zx2'#239#144'A'#160'L'#4#206#142'DgG'#129#194#218'l'#248'K'#150'eL'
+       +#222'mW'#142'8'#226'X'#4#18#31#28#213'Z'#133#135#127#178#132'q'#227#198#209
+       +'L4'#31#158#189#15#214'5'#153'6m6'#227#187'b'#210#204'S0'#17'.4'#24#165#139
+       +#28#242#167#127#130'T'#17'I'#146#209'9'#166#139'{'#238#189#135')'#187'Ogq}'
+       +#17#198#20'xh'#201#19'\~'#197'W'#200'E9'#8#1'T'#4'.%('#141#203','#145#142#177
+       +#214#162'F('#197#142'-'#31'!'#180#201#159#148'X'#151'"'#132#196#185#140'@'
+       +#192'Z'#135#137#12#1'I'#8#22')b'#16#150'F'#173'A'#24']'#160#168#3'b'#253':'#6
+       +'zkTT'#202#228#9#187'@,P9'#141's'#131' '#21#229#142'2RJ'#164#22#140#233#218
+       +#137'f3#2'#6#165#20#214'7q'#193#227#178#20#173#20#30'?'#18#149#29#13#10#231
+       +#28'RJ'#156's('#165#8#130#22#191#160#5#148#0'H'#169'[]G'#200#176'.'#195#251
+       +#128#137'$1'#142#240#198'r>w'#206#25#28#234#2'Q'#190#196'#;O'#230#235#151'_O'
+       +'$'#160#163#187#132#181#30#169'4'#224'q6'#195#249'@'#240#158#128#167#153'd'
+       +#195#207#18#128#16#224#188'k}'#19#130#133'k{'#183':'#129'3'#198'u'#255#175'\'
+       +#248#133'k{'#127#239#255#254'~'#238#221'&P '#24#238'<D'#27#16#206#251#225#22
+       +'Q'#203#214'8'#4'dPx,'#4#8#193#179#226#215'+xv'#201#173'D'#199#31#143#137#171
+       +'8'#1#135#213#224#160'{'#30#226#168#191'9'#27'\'#17')@"p. '#209#212#27'5'#180
+       +#210#224#5'Jj<'#1'-'#5'.'#179#173#150#183'}'#253#230#2#254'A/'#198#255'4'#128
+       +#236#168#249#202'! '#8'!'#240'B'#224'}@)'#133'R'#138','#203'H'#210#4')TK'#155
+       +#8#22#239'Z'#233#189'hr'#156#245#185#253#137'.'#190#154#184#148#16'"'#13'J#'
+       +#11#154#210#249'g2}'#230#1#8#233#16'@'#28'Eh'#173#219#237#166#194#7#15#162
+       +#157#157#164'"KR'#180#214' @+'#133'1'#230#255'|'#138'~?'#193#254#160#129#162
+       +#181'2dC-i'#27'%C'#28'Ck'#141'R'#6#143'C 1Z"dh'#231#249#140#3#15':'#158#231
+       +#239'^'#192'~x'#180#247'8'#2'!'#18'd'#171#151#209#181#207'Q'#172'{'#213#226#3
+       +'d6k'#131'I'#18#197'9'#2#1#231#178#150#30#17'Z'#173#168#181#22#213#22#209#210
+       +#212'b'#140#218#166'7'#236#223#202'%'#14#173'7'#216#217'Z'#140#16'|'#166#189
+       +'`'#157#206'1'#167'Vgv'#146'PE'#240#139'\'#204#29#165'"'#174#149#246#134#239
+       +'='#172#209'`'#167#204#210#20#130'_'#199'17'#151#139#212#165#4#160#219'ZN'
+       +#168#214#153#154#166#228'C'#224#13#173#185#183'X'#224#233'\'#188#145#143#143
+       +#213#27#236'b-'#30'X'#22'E'#220'R.2'#218'y'#230#212#235'LL32!'#248'M'#28'qS'
+       +#185'4'#236'{('#11#12#149#200#13'K'#229#150#198#223#153'A'#182'e'#30#0#7#213
+       +#27#204#169#213#233#12#129'>%'#185'?'#159#231#228'jm'#179#0#211'C\'#194'{'
+       +#143#16#138#224#29#192'p'#128#140'VH$.'#243#4#17#240'^'#144#203#197#8')x'#240
+       +#190#7#153#222'3'#153#253'V'#175'"8'#217'*3'#214#163'Fw'#242#198#155'M'#148
+       +#136'QZ'#241#250#235'o"'#133#192';'#139'w)"'#8#140#201'a]'#218#206'@'#173#236
+       +'4'#196'm'#180#209'm'#177'k'#235'vT'#189#206#15#202'%^5'#134'L'#188#221#178
+       +'\'#212#215#207#143'JE~X*R'#10#129#227'*5'#142#174#214'X\.'#13'_3'#167'V'#231
+       +#166#142#18#175'iM.'#4'N'#168#214#153'['#169#178#176#179#3#128#207#14'Tx*'#23
+       +#243#31#29'eR'#1#19#173#229#136'zc'#24#20#0#127'Y'#171'sS'#185#196#171#166
+       +#229#227#147#213#26#243#251#250#25#144#146#155#203'%'#150'u'#190'=>'#183'Rca'
+       ,'gy'#147#183'~se'#226#221#198'7g['#155#199#222'I'#202#156'Z'#157#239'tv'#176
+       +'\+&['#199#233#3#131'[*'#31'b'#152'S()'#17#162#165'\'#186#224#17'R#'#240#173
+       +#128#137'@#M)'#22#10#244#246#245#177#190'^'#229#161#199#158#229#224'k'#190
+       +#202#194#166'$'#201'<'#161#233'qi`'#229#215'nc'#249#139'O'#145'HIp'#130#157
+       +#198#143'AHP'#218#144#207#231'p.`]'#179#197'M'#218#202'e'#8#1'k'#237#176#212
+       +#189#173#246#189'r'#153#223'F'#209'F'#128#0#184'`'#236#24'~'#150#207#145'JI'
+       +#159'R|'#191#163#204#1'I'#186'q'#166#233'l'#221#155'J'#201#160'R'#220'\.2k'
+       +#131'kz'#188#231#23#185#28#13')pB'#176#220#24#254#181#189#208'o'#251#232#224
+       +#197#248'm'#31#183#150'K'#148#128#133']'#29#188#240#142#241'YI'#242#193'p'
+       +#146#173#204#227#240'Z'#157'E'#29'e^'#138#12#169#148#188#20#25#22'u'#148#182
+       +'@4'#1#239'['#129#199#187'6'#169#20#20'LD'#134#197#230#242'dI@'#8#137#18#2
+       +#163'#'#186';'#199' '#132'DD'#5'N:'#245#243#156'|'#246'W'#248#207'Qc'#217#183
+       +'P'#228#251'/'#174#225#198#179#207'&'#30#19'#0'#24#163#136#243'1^'#8#138#133
+       +#18#253#253#9#202#248#22#199#21'-0'#14#149#14#239'='#206'9'#130#8#180#181#241
+       +#173#218'kfS'#229#179#224'='#199'Tk'#236#157#164'tyO'#212#6#204';'#155#221
+       +#149'z'#227'{'#171'R'#178#225'{'#252'P.'#230#146'u},'#205#229'x'#197'('#158
+       +#143'"'#6#213#198'e'#237'wZm'#226#3'`'#165'R['#244#189'=mk'#243#152'`-'#175
+       +#188'c'#157'^6'#209#150'A'#161'T'#139#252'I!'#136'"M'#223'@?'#251#30'0'#155
+       +'}'#247#219#27#19#151#153'9k'#31#180'VL'#219'c"'#231#159'{'#5#205#198#151#153
+       +'<e'#18#169#15' a'#225#141#139#232'}k'#144#224'3'#198#142#31'C'#232#208'4'
+       +#154#150'W'#151#175'd'#244#232#241#140#30#21#179#231#180'iL'#217'm::'#23#211
+       +#211'='#10#231','#205'$E)'#137's'#173'n'#7#218#237'p'#216'v'#173#194#137'MU'
+       +#174#211#7'*'#244')'#197#245#163':Y'#167#20'N'#8'"'#31#248'f'#239#186#141'/'
+       +#20'[V'#200#22#151'K'#252'<'#151'cV'#154#242#161'$'#229#196'J'#141#187#138#5
+       +#30','#22#182#238'C'#252#1#213#183#237#252',m'#173#197#24#131'V'#134'86'#172
+       +'_?'#192'-w'#220#132't'#29#8#165#17'XN8'#225'3<'#241#212'md'#206'1'#186#187
+       +#19'B'#25#151'z'#210',%'#142#12#153'2'#20#199'u'#161#164#196'IM'#8#1'G'#134
+       +#210'9v'#221'5'#194#135'@'#181'^'#161#187#167#11#163'5I'#154#160#148'j'#17'L'
+       +#151#181':'#147'6'#159#16'B '#222#231#14#233'tk'#249'bg'#153#230#6'Dk'#207'4'
+       +#253#189'|'#173'2'#154'U'#237#183'l'#140's\'#210#215#191'1('#182#131#185'V'
+       +#253#220'$'#184#239'6'#254'^'#237'u'#173#153#154'Y'#158#139#223#206#14'S'#179
+       +#236#221'9E'#28#199#173#242'!$'#3#213#10'w'#220'u'#27#163#138#147#184'k'#241
+       +'='#244#244#140#162#163#216#193#195#143#222'Id'#242'x/'#136#163#24'gAi'#137
+       +#137#4'6xtd'#144'B '#156#199#219#128#11#30'e'#20'RH'#188#8#204#191#232'\'#174
+       +#185'n!"H'#156'ou:J)'#164#146#8'Z'#156'f'#232'#'#165'$2'#241#251'L'#167#138
+       +#195#235#13#10#222#147#247#158#253#155#9#167'T'#170#239#217#207#185#253#3#204
+       +'HR"'#31#136#188'g'#175'$a'#173#148#219#253'E_''%3'#211#180#5#128'm'#24#127
+       +#175'v_'#177#192#137#131#21#166#166#25#145#15'LM3N'#28#172#188'{'#166#240'CB'
+       +#149#12'<'#244#224#131#12#214#19#150'>'#245'+'#150#173'^J'#189'2'#151#222'U5'
+       +#10'QDil'#158'/~'#225#243#204#152#254#199'H'#155#227#223#191#253'Cn'#190#227
+       +'jn'#189#243'vz'#198'L'#228#151'?{'#154'+/'#187#148#149#131#171#249#232'a'#7
+       +'s'#202'Ig'#178#215#180'='#233#127#163#193#202#222'g'#232',O@'#10#15'R'#225
+       +#157#195'Z'#219#150#214'[g)'#134'dv'#217#222#202#127'?'#246#237#142'2s'#7#171
+       +',X'#183#30#227'='#171#141#230#214'R'#129'3*'#181#247#228#231#161'|'#158'9'
+       +#181':S'#178#140#134#16#188#28'G'#220#208#213#177#221'Aqk'#169#192'I'#131'U'
+       +#186'C@n'#208'z'#190#219#248'{'#181#231#226#136'Q'#197#2#159#30#24#164#163
+       +#221#146'>X'#200's|u'#243#235'!f'#205#218'3x'#31#200#231's,'#184#234#10'v'
+       +#221'mOz'#251#251#152#180#243#4#26#149'&'#159'8'#250#8'>~'#236#145#156'w'#222
+       +'|'#138'Q'#158'3?}1'#175'-'#255'%!k'#176#248#238#219#137'L'#7#11#174#185#146
+       +'y'#243#206'g'#175'i'#127#196#175#158'{'#150#196#13#240#219#23#215#242#173
+       +#127#186#129#21'+'#159#225#196'S?'#194'~{'#159#194#252'y'''#181#30#138'`'#8
+       +#140#214#218#225#150't(SH)'#9'a'#228'<'#197#7'i'#187#167#25#167#14'V'#184#164
+       +'{'#244#166#229'CJI'#20#27#172's'#228#138#17'ZG'#148#138#157#252#230#185#151
+       +'9'#225#248#185#196#197#18#255'|'#237'u'#184#172#201#245#215#127#131#165#255
+       +'u'#11'Y'#210'O'#174#152'c'#213#27'+X'#179'f'#13#179#15'9'#128#181#191'[G'
+       +#231#232'.'#234#233'2L'#212#193#167#142#251#24'/'#188#242#8#129#148'='#246
+       +#155#205#186#129'A'#172'o!~'#168#5#30'"'#150#27'~'#188#247#239';S'#140#216
+       +#166'v'#218'@'#165'%'#240#133#192#228','#227#175'+U'#30#207#231'6'#207')B'#8
+       +#16' _'#200'3v\'#23#141'F'#149'H'#27'f'#237#181';'#7#254#217'>T'#250#235#252
+       +#232#174#197'$6p'#198#223#158#193#171#175#172'a'#226#174#251#144'eM.'#187#226
+       +'r'#180#145#252#197#129#135'0~'#210'h'#230']x&J'#244#144#164'5'#250#6#215#241
+       +#173#27#22'Qm'#212#217'}'#194'8'#158'Y'#250's"'#173#145'R'#183#218'_'#4#222
+       +';'#16#1'c'#204'0('#148'RX;r'#150'b{'#219#11#177#225#204#254'A'#174'['#219
+       +#203'i'#3#21#158#200#197'<P'#200'o'#158'S'#136#246'~G'#179#217'`tg'#15#214
+       ,#229#184#250#138'k8'#252#200#143's'#229'U'#255#192#250'/'#173#225#170'k'#175
+       +#228#226'}?'#204#234#181#3'|'#242#200#179#232#239'{'#134'bG'#145#213'o'#173
+       +'e'#226#132']'#248#187#139#255#145'je'#21#151'^'#249'eV'#189#213#207#238#227
+       +'{'#152#127#222'e<'#246#200'c'#228#162#136#157'{'#198#209#172#245'Sm'#212#249
+       +#208#254'3X'#241#210'['#184'l'#0'!$'#18#134'E'#171'!'#17#235#255#195#222#199
+       +#31#218#158#204#229'x2'#151#219#182#13#177'@h'#237#138#6#201#171#175#172' R'
+       +#154#199#159'x'#152#11#231#207'g'#207')'#251#240#131#239#221'A'#165'w<'#223
+       +#184#230'zv'#218#169#139#139'.='#157#131#231#252'9'#199'|'#226'8>z'#232#193#4
+       +#225'Y'#177'b)'#133#14#139#242#158#5'_'#250#26#205'j'#141'/'#204'?'#11#226'~'
+       +#230#158#244'W'#188#185'2'#225#239#23'\'#200#253#247#223#207'w'#254#229#187
+       +'L'#153'v'#0'&R'#4'!'#134'5'#10#165#219#226'U'#155#128#142#216#142'31c'#198
+       +#244'`r1'#8'M>'#231'Y'#179#186#143#158#158'n'#154#141#182#186#169#4#194#5#242
+       +#249#2#206#11#22#223#254'c'#180'I9'#231#236#5',_'#241#20'w'#254#248'>'#188
+       +#179'h'#165#248#236'Y'#151#177'b'#197'OY'#190'l9'#183'-'#190#131#25#179'f'
+       +#242#250#202'^'#190#250#181'y\{'#237'7'#233#236#212#156's'#246#215'y'#230#153
+       +#251'1Z'#145':'#143'OS'#16#2'c'#12#206#185#13#201#206'Htv'#20'('#246#222'{V'
+       +#176'6#'#138'#l'#6'>8'#148#2#173'5I3'#195#9'A'#206#24#188'o'#189#193#145') '
+       +#240' <R)'#2#130'Z'#181'F'#164#11#8#149'"'#165'AJ'#1#222#227#208#16#2#202#7#6
+       +'jU'#226#188'A'#11#3#202#226#131'A'#138#128'w'#150#224#253'0('#188#247#196'q'
+       +'L'#182#5'qe'#196'>X'#211#0#198'D$'#205#4')'#21#206';'#162'8O'#150'fh'#173#16
+       +'!'#144#217#12#17'<'#202#24#154'i'#21')eK'#158#206'Z2u.'#23#227'q "'#172'u'#8
+       +#233'['#231'2'#132'#'#4'A'#226#18'J'#229#24'!'#13#206'e'#16'4J'#137#246'a'#29
+       +#16'J'#146#182#21'G)%I'#146#140'd'#138#29#9#138#161#205'('#165'4RH'#164'V'
+       +#195#218#129#247#190#181'''"%Jj'#130#15'hm'#8'!'#144'e'#14#173'5!x'#156#183
+       +' Z'#7'}C'#0#141#194#7#135'  '#132''''#138#242'x'#239'p'#182#217#238'04Y'#154
+       +#182#247'\'#2#184#128'j'#131'`'#132'O'#236'x'#251'o'#189'M'#212#211#175#196
+       +#233'b'#0#0#0#0'IEND'#174'B`'#130
+     ]);
 end;
 
 function TForm1.utcTime: TSystemTime;

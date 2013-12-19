@@ -1803,10 +1803,10 @@ object Form1: TForm1
     Top = 0
     Width = 802
     TabStop = False
-    ActivePage = TabSheet1
+    ActivePage = TabSheet4
     ParentBiDiMode = False
     ParentShowHint = False
-    TabIndex = 0
+    TabIndex = 5
     TabOrder = 7
     Visible = False
     object TabSheet1: TTabSheet
@@ -2950,10 +2950,10 @@ object Form1: TForm1
       ClientWidth = 794
       object GroupBox10: TGroupBox
         Left = 4
-        Height = 90
+        Height = 110
         Top = 1
         Width = 320
-        ClientHeight = 72
+        ClientHeight = 92
         ClientWidth = 316
         TabOrder = 0
         object rbNoCWID: TRadioButton
@@ -2990,6 +2990,8 @@ object Form1: TForm1
           Height = 24
           Top = 24
           Width = 89
+          CharCase = ecLowerCase
+          MaxLength = 14
           OnChange = rigControlSet
           TabStop = False
           TabOrder = 3
@@ -3002,13 +3004,24 @@ object Form1: TForm1
           Caption = 'CW ID Callsign'
           ParentColor = False
         end
+        object cbSmartCWID: TCheckBox
+          Left = 222
+          Height = 20
+          Top = 54
+          Width = 73
+          Caption = 'Be smart'
+          Checked = True
+          ParentShowHint = False
+          State = cbChecked
+          TabOrder = 4
+        end
       end
       object GroupBox11: TGroupBox
         Left = 4
-        Height = 105
-        Top = 95
+        Height = 89
+        Top = 111
         Width = 320
-        ClientHeight = 87
+        ClientHeight = 71
         ClientWidth = 316
         TabOrder = 1
         object Label40: TLabel
