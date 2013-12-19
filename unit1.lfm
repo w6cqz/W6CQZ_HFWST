@@ -525,9 +525,9 @@ object Form1: TForm1
     AnchorSideTop.Side = asrBottom
     Left = 536
     Height = 155
-    Top = 547
+    Top = 552
     Width = 256
-    BorderSpacing.Top = 5
+    BorderSpacing.Top = 10
     Caption = 'Decoder Statistics'
     ClientHeight = 137
     ClientWidth = 252
@@ -741,10 +741,10 @@ object Form1: TForm1
     AnchorSideTop.Side = asrBottom
     Left = 800
     Height = 155
-    Top = 547
+    Top = 552
     Width = 65
     AutoFill = True
-    BorderSpacing.Top = 5
+    BorderSpacing.Top = 10
     Caption = 'Primary'
     ChildSizing.LeftRightSpacing = 6
     ChildSizing.TopBottomSpacing = 6
@@ -841,7 +841,7 @@ object Form1: TForm1
       AnchorSideTop.Side = asrBottom
       Left = 6
       Height = 25
-      Top = 132
+      Top = 130
       Width = 91
       Anchors = [akTop, akLeft, akBottom]
       BorderSpacing.Top = 5
@@ -862,7 +862,7 @@ object Form1: TForm1
       AnchorSideBottom.Side = asrBottom
       Left = 353
       Height = 55
-      Top = 132
+      Top = 130
       Width = 56
       Anchors = [akTop, akLeft, akBottom]
       Caption = 'QRZ'
@@ -881,7 +881,7 @@ object Form1: TForm1
       AnchorSideTop.Side = asrBottom
       Left = 6
       Height = 25
-      Top = 162
+      Top = 160
       Width = 91
       Anchors = [akTop, akLeft, akBottom]
       BorderSpacing.Top = 5
@@ -901,7 +901,7 @@ object Form1: TForm1
       AnchorSideTop.Side = asrBottom
       Left = 104
       Height = 25
-      Top = 132
+      Top = 130
       Width = 112
       Anchors = [akTop, akLeft, akBottom]
       BorderSpacing.Top = 5
@@ -921,7 +921,7 @@ object Form1: TForm1
       AnchorSideTop.Side = asrBottom
       Left = 104
       Height = 25
-      Top = 162
+      Top = 160
       Width = 162
       Anchors = [akTop, akLeft, akBottom]
       BorderSpacing.Top = 5
@@ -941,7 +941,7 @@ object Form1: TForm1
       AnchorSideTop.Side = asrBottom
       Left = 224
       Height = 25
-      Top = 132
+      Top = 130
       Width = 42
       Anchors = [akTop, akLeft, akBottom]
       BorderSpacing.Top = 5
@@ -962,7 +962,7 @@ object Form1: TForm1
       AnchorSideBottom.Side = asrBottom
       Left = 280
       Height = 55
-      Top = 132
+      Top = 130
       Width = 55
       Anchors = [akTop, akLeft, akBottom]
       Caption = '73'
@@ -981,7 +981,7 @@ object Form1: TForm1
       AnchorSideBottom.Control = edTXReport
       Left = 234
       Height = 17
-      Top = 192
+      Top = 190
       Width = 89
       BorderSpacing.Bottom = 2
       Caption = 'TX to Callsign'
@@ -996,7 +996,7 @@ object Form1: TForm1
       AnchorSideBottom.Control = edTXReport
       Left = 361
       Height = 17
-      Top = 192
+      Top = 190
       Width = 43
       BorderSpacing.Bottom = 2
       Caption = 'Report'
@@ -1011,7 +1011,7 @@ object Form1: TForm1
       AnchorSideTop.Side = asrBottom
       Left = 361
       Height = 25
-      Top = 211
+      Top = 209
       Width = 48
       Anchors = [akTop, akLeft, akBottom]
       BorderSpacing.Top = 2
@@ -1029,7 +1029,7 @@ object Form1: TForm1
       AnchorSideTop.Side = asrBottom
       Left = 234
       Height = 25
-      Top = 211
+      Top = 209
       Width = 120
       Anchors = [akTop, akLeft, akBottom]
       BorderSpacing.Top = 2
@@ -1051,7 +1051,7 @@ object Form1: TForm1
       AnchorSideBottom.Control = bnEnableTX
       AnchorSideBottom.Side = asrBottom
       Left = 171
-      Height = 27
+      Height = 25
       Top = 30
       Width = 59
       Anchors = [akTop, akLeft, akBottom]
@@ -1075,7 +1075,7 @@ object Form1: TForm1
       AnchorSideBottom.Control = bnEnableTX
       AnchorSideBottom.Side = asrBottom
       Left = 240
-      Height = 27
+      Height = 25
       Top = 30
       Width = 52
       Anchors = [akTop, akLeft, akBottom]
@@ -1095,7 +1095,7 @@ object Form1: TForm1
       AnchorSideTop.Side = asrBottom
       Left = 9
       Height = 20
-      Top = 241
+      Top = 239
       Width = 138
       BorderSpacing.Top = 5
       BorderSpacing.Bottom = 5
@@ -1114,7 +1114,7 @@ object Form1: TForm1
       AnchorSideTop.Side = asrBottom
       Left = 176
       Height = 20
-      Top = 241
+      Top = 239
       Width = 125
       BorderSpacing.Top = 5
       BorderSpacing.Bottom = 5
@@ -1133,7 +1133,7 @@ object Form1: TForm1
       AnchorSideTop.Side = asrBottom
       Left = 5
       Height = 17
-      Top = 267
+      Top = 265
       Width = 113
       BorderSpacing.Top = 6
       BorderSpacing.Bottom = 2
@@ -1149,7 +1149,7 @@ object Form1: TForm1
       AnchorSideTop.Side = asrBottom
       Left = 176
       Height = 17
-      Top = 267
+      Top = 265
       Width = 103
       BorderSpacing.Top = 6
       BorderSpacing.Bottom = 2
@@ -1166,7 +1166,7 @@ object Form1: TForm1
       AnchorSideBottom.Side = asrBottom
       Left = 6
       Height = 20
-      Top = 290
+      Top = 288
       Width = 88
       Max = 4
       Min = 1
@@ -1186,7 +1186,7 @@ object Form1: TForm1
       AnchorSideBottom.Side = asrBottom
       Left = 176
       Height = 20
-      Top = 290
+      Top = 288
       Width = 88
       Max = 4
       Min = 1
@@ -1207,7 +1207,7 @@ object Form1: TForm1
       AnchorSideBottom.Control = edTXReport
       Left = 5
       Height = 17
-      Top = 192
+      Top = 190
       Width = 40
       BorderSpacing.Top = 5
       BorderSpacing.Bottom = 2
@@ -1224,7 +1224,7 @@ object Form1: TForm1
       AnchorSideBottom.Control = edTXReport
       Left = 101
       Height = 17
-      Top = 192
+      Top = 190
       Width = 39
       BorderSpacing.Bottom = 2
       Caption = 'TX DF'
@@ -1242,7 +1242,7 @@ object Form1: TForm1
       AnchorSideBottom.Side = asrCenter
       Left = 15
       Height = 17
-      Top = 69
+      Top = 67
       Width = 46
       Caption = 'Macros'
       Font.Height = -13
@@ -1256,7 +1256,7 @@ object Form1: TForm1
       AnchorSideTop.Side = asrBottom
       Left = 68
       Height = 30
-      Top = 62
+      Top = 60
       Width = 244
       BorderSpacing.Top = 5
       CharCase = ecUppercase
@@ -1276,7 +1276,7 @@ object Form1: TForm1
       AnchorSideBottom.Side = asrCenter
       Left = 5
       Height = 17
-      Top = 103
+      Top = 101
       Width = 56
       Anchors = [akLeft, akBottom]
       Caption = 'Message'
@@ -1291,7 +1291,7 @@ object Form1: TForm1
       AnchorSideTop.Side = asrBottom
       Left = 69
       Height = 30
-      Top = 97
+      Top = 95
       Width = 340
       BorderSpacing.Top = 5
       CharCase = ecUppercase
@@ -1308,7 +1308,7 @@ object Form1: TForm1
       AnchorSideBottom.Side = asrBottom
       Left = 322
       Height = 25
-      Top = 241
+      Top = 239
       Width = 87
       Anchors = [akTop, akLeft, akBottom]
       BorderSpacing.Bottom = 5
@@ -1329,7 +1329,7 @@ object Form1: TForm1
       AnchorSideBottom.Side = asrBottom
       Left = 319
       Height = 30
-      Top = 62
+      Top = 60
       Width = 90
       Anchors = [akTop, akLeft, akBottom]
       Caption = 'Send Macro'
@@ -1382,7 +1382,7 @@ object Form1: TForm1
       AnchorSideTop.Side = asrBottom
       Left = 6
       Height = 25
-      Top = 211
+      Top = 209
       Width = 78
       Anchors = [akTop, akLeft, akBottom]
       Constraints.MaxHeight = 27
@@ -1401,7 +1401,7 @@ object Form1: TForm1
       AnchorSideTop.Side = asrBottom
       Left = 101
       Height = 25
-      Top = 211
+      Top = 209
       Width = 78
       Anchors = [akTop, akLeft, akBottom]
       Constraints.MaxHeight = 27
@@ -1420,7 +1420,7 @@ object Form1: TForm1
       AnchorSideTop.Control = Label16
       AnchorSideTop.Side = asrBottom
       Left = 5
-      Height = 27
+      Height = 25
       Top = 30
       Width = 156
       Anchors = [akTop, akLeft, akBottom]
@@ -1439,7 +1439,7 @@ object Form1: TForm1
       AnchorSideTop.Control = Label79
       Left = 64
       Height = 17
-      Top = 192
+      Top = 190
       Width = 20
       Caption = '0'
       Font.Height = -13
@@ -1453,7 +1453,7 @@ object Form1: TForm1
       AnchorSideTop.Control = Label79
       Left = 159
       Height = 17
-      Top = 192
+      Top = 190
       Width = 20
       Caption = '0'
       Font.Height = -13
@@ -1717,10 +1717,10 @@ object Form1: TForm1
     AnchorSideTop.Side = asrBottom
     Left = 872
     Height = 155
-    Top = 547
+    Top = 552
     Width = 65
     AutoFill = True
-    BorderSpacing.Top = 5
+    BorderSpacing.Top = 10
     Caption = 'Secondary'
     ChildSizing.LeftRightSpacing = 6
     ChildSizing.TopBottomSpacing = 6
@@ -3273,6 +3273,47 @@ object Form1: TForm1
       20776974682047494D50642E65070000001E4944415468DEEDC1010100000080
       90FEAFEE080A0000000000000000A06A244E00019E5798AE0000000049454E44
       AE426082
+    }
+  end
+  object Image3: TImage
+    Left = 395
+    Height = 26
+    Top = 230
+    Width = 133
+    Picture.Data = {
+      1754506F727461626C654E6574776F726B47726170686963F203000089504E47
+      0D0A1A0A0000000D49484452000000850000001A080600000099EA9FAA000000
+      06624B474400FF00FF00FFA0BDA793000000097048597300000B1300000B1301
+      009A9C180000000774494D4507DD0C1301010614924E620000001D6954587443
+      6F6D6D656E7400000000004372656174656420776974682047494D50642E6507
+      000003564944415468DEED994B48555114863F9332547A981639B3073D88A207
+      456498883305A3A881109A35286E334B1A342F8A6856064583A2C01E160D1AF5
+      1A0461A142AF4198D913496F85EF321BF45FD81CB6E73E3CDABDBA7F385CCE3A
+      FF5DEBEEBDFFBDD63AFB828383838383838383838343548CE88A6673F0C1B480
+      17C0C17FAE46BB22D808DC063A8041A01DB8046C8963FE97E8FB23C0D164D895
+      C99829524514DB81E11884E337D665C027E00F70C82D406A88C20F2FC4B907AC
+      01660279C02EE0610C3E57025F24ACEA645F8019401DD002F4E96A010E03D33D
+      DC52E02EF05DBC274089C56701D008F400DF80B340661C3D45C496095C007EC8
+      CF7120CDC35D0CDC31629DF3893596B91A106741023E57039DC0904494D4EACF
+      001EF9A4C4FB1E61D83843C07A83330FF860E1DD4840140D163F2183970B7C8E
+      23D658E6EA9538C71437569F6B25D601A02C1552629D3861A5B43C5D7BB53B47
+      9431226800D6494C8B809BE25C353827646B078A806C601BF03E01513C075601
+      B3817AD99A0CDE49D9DE19B18A143B1151F8F50ABB3DF6B7C035A0D292514D9F
+      6165B19254A993ADE254599ED5E859B3CFF7F3C4E9306CAF652BF7702B1210C5
+      26C3962F5B8F617B239B7707968F8328008A8D5265729A2DD923F26C00F8AA9E
+      222544D12F4EAECF82F7E93E1DA8D504F47A2665D0527BE778FCCD4D40141986
+      2DCDC28D3756500D70BA16F9A0B2D4887A199BCF7295D84EF516934A14A763DC
+      51418A22DA98FE97284CACB0644BAFCF9DC06FA04BE53725CAC71ECBB36A4FF9
+      E832B839DA2D39963841968F68631AAD7C944DA028F22DD9D2E6B352AFA3614F
+      594CDA46B35B8B9DABAB4A3FDE6C34BB755F61349AD72D71826C34A38DE994EE
+      DB80AD40963EDBC641144F8103C0728D3F1BD86CBCBDBD8CC1E73E1D5CFD040A
+      93F5942E0378ECC379A0730C802B96E7B72C830FF29534DAE2CDD781903756A3
+      3E7F05280ABFB91C0676C4E8336434CCC5C9288A8830EA544AFAD543B402470C
+      41A052715965240C5CD46EB10DBE807FFF11F4887F3EC1C3AB58166FA90ED47A
+      15ABDEA8F39D018A6203704673D3A7E6F1A3B265619C3E6B8D7EAD14870941C8
+      C8740E53108DEA2366010B81FDC6C15BC84DCFD4C468E5F199A7FC4D1AA4BB35
+      8F8A26BD3165A93F6AE7DF9F6835C6198B8383838383C354C75F4721F630DF34
+      7B2D0000000049454E44AE426082
     }
   end
   object Timer1: TTimer

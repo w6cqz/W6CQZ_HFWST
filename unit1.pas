@@ -61,8 +61,7 @@ uses
   ExtCtrls, Math, StrUtils, CTypes, Windows, lconvencoding, TAGraph, TASeries,
   ComCtrls, EditBtn, DbCtrls, Types, portaudio, adc, dac, spectrum, waterfall1,
   spot, BufDataset, sqlite3conn, sqldb, valobject, rebel, d65, LResources, Spin,
-  blcksock, gettext;
-
+  blcksock, gettext, dateutils;
 Const
   PVERSION = '0.94'; // Label20 is program name/version as in; HFWST by W6CQZ v0.94 - Phoenix
   PRELEASE = 'Phoenix';
@@ -140,6 +139,7 @@ type
     groupTXDF: TGroupBox;
     groupRXMode: TRadioGroup;
     Image2: TImage;
+    Image3: TImage;
     Label108: TLabel;
     Label109: TLabel;
     Label11: TLabel;
@@ -469,6 +469,9 @@ type
     function  txControl : Boolean;
     function  utcTime: TSystemTime;
     procedure addResources;
+    procedure rebelCheck;
+    procedure guiCheck;
+    procedure rbCheck;
 
     procedure genTX(const msg : String; const txdf : Integer);
     function  rebelTuning(const f : Double) : CTypes.cuint;
@@ -657,6 +660,11 @@ var
   noTXAudio        : Boolean = false; // Disables soundcard TX output if Rebel is active
   rebLock          : String = ''; // Lock file name for Rebel in use
   afskTXOn         : Boolean = false;
+  threadDialQRG    : String = '';
+  threadRigResult  : Boolean = false;
+  threadRigQSY     : Boolean = false;
+  threadFSKPending : Boolean = false;
+
 
 implementation
 
@@ -2063,40 +2071,8 @@ Begin
      query.Active := False;
 end;
 
-procedure TForm1.OncePerTick;
-Var
-   i,fi,dti      : Integer;
-   fs,fsc,proto  : String;
-   s1,s2,foo     : String;
-   nc1t,pfxt,ngt : String;
-   sfxt,nc2t,sh  : String;
-   c1,c2,c3      : Array[0..125] of String;
-   ff,dta        : Double;
-   valid,sm,ft   : Boolean;
-   adjtime       : Boolean;
+procedure TForm1.rebelCheck;
 Begin
-     // Disable timer while here.  It should be disabled already, but this is
-     // a double check for that.  :)
-     timer1.Enabled:=False;
-
-     // Runs on each timer tick
-     thisUTC     := utcTime;
-     thisSecond  := thisUTC.Second;
-     thisADCTick := adc.adcTick;
-
-
-     // This is a high priortiy item.
-     if not txOn Then
-     Begin
-          txEnabled := false;
-          if clRebel.txStat and (not clRebel.busy) then clRebel.pttOff;
-     end;
-
-     if spinRXDF.Value < -1100 Then spinRXDF.Value := -1000;
-     if spinRXDF.Value > 1100 Then spinRXDF.Value := 1000;
-     if spinTXDF.Value < -1100 Then spinTXDF.Value := -1000;
-     if spinTXDF.Value > 1100 Then spinTXDF.Value := 1000;
-
      // Checking for change to Rebel band since startup
      if haveRebel Then
      Begin
@@ -2131,45 +2107,50 @@ Begin
           end;
      end;
 
+     // Threaded Rebel FSK uploader.
+     if canTX and txValid and txDirty and haveRebel and (not threadFSKPending) Then
+     Begin
+          if (not clRebel.txStat) and (not clRebel.busy) Then
+          Begin
+               // Threaded rebel FSK uploader setup.
+               threadFSKPending := True;
+               rigCommand := 'rebFSK';
+               runRig := True;
+          end;
+     end;
+
+     // Be sure a Rebel isn't caught in TX On
+     if haveRebel and clRebel.txStat and (not txEnabled) and (not sendingCWID) Then
+     Begin
+          // TX should be off
+          if not clRebel.busy then clRebel.pttOff; // This gets handled more aggressively elsewhere in case it is busy.
+          if (not clRebel.txStat) And (not d65.glinprog) and (not sendingCWID) and (not doCW) Then Image1.Picture.LoadFromLazarusResource('receive');
+     end;
+     if (thisSecond=48) and haveRebel and clRebel.txStat and (not clRebel.busy) Then
+     Begin
+          clRebel.pttOff;
+          txEnabled := False;
+          transmitting := '';
+     end;
+end;
+
+Procedure TForm1.guiCheck;
+var
+   fs,fsc  : String;
+   s1,s2   : String;
+   fi,dti  : Integer;
+   ff,dta  : Double;
+   adjtime : Boolean;
+Begin
+     if spinRXDF.Value < -1100 Then spinRXDF.Value := -1000;
+     if spinRXDF.Value > 1100 Then spinRXDF.Value := 1000;
+     if spinTXDF.Value < -1100 Then spinTXDF.Value := -1000;
+     if spinTXDF.Value > 1100 Then spinTXDF.Value := 1000;
      if cbNoKV.Checked Then d65.glUseKV := False else d65.glUseKV := True;
      if cbNoOptFFT.Checked Then d65.glUseWisdom := False else d65.glUseWisdom := True;
-
-     // Check to see if message needs regen due to TxDF change since last
-     if length(edTXMsg.Text)>0 Then
-     Begin
-          if mgendf <> IntToStr(spinTXDF.Value) then
-          Begin
-               inc(qsycount);
-               i := qsycount;
-          end;
-          if qsycount > 6 Then
-          Begin
-               // Mark message needing regeneration
-               genTX(edTXMsg.Text, spinTXDF.Value);
-               qsycount := 0;
-          end;
-     end
-     else
-     begin
-          qsycount := 0;
-     end;
-
+     if threadFSKPending Then Image3.Visible := True else Image3.Visible := False;
      if cbSlowWF.Checked Then Waterfall1.delayed := True else Waterfall1.delayed := False;
-     // This is mainly for me.  :)
-     If cbWFTX.Checked Then
-     Begin
-          Waterfall.Repaint;
-     end
-     else
-     begin
-          If not clRebel.txStat then Waterfall.Repaint;
-     end;
-
      If txOn then bnEnableTX.Caption := 'Halt TX' else bnEnableTX.Caption := 'Enable TX';
-
-     // New fast single decode at working DF.  I need to insure this has ran for the fast decode
-     // **** before **** triggering the multiple decode.  If I don't then it won't display the
-     // fast decode as it will be glinprog = true doing the multi.
      if not d65.glinprog and d65.gld65HaveDecodes Then DisplayDecodes3;
      if cbUseColor.Checked Then lbDecodes.Style := lbOwnerDrawFixed else lbDecodes.Style := lbStandard;
      fs  := '';
@@ -2180,7 +2161,6 @@ Begin
      mval.forceDecimalAmer := False;
      mval.forceDecimalEuro := False;
      if mval.evalQRG(fs,'STRICT',ff,fi,fsc) Then qrgValid := True else qrgValid := False;
-
      Label121.Caption := 'Decoder Resolution:  ' + IntToStr(d65.glbinspace) + ' Hz';
      if d65.glRunCount < 1 Then
      Begin
@@ -2230,24 +2210,9 @@ Begin
           dtrejects := 0;
           avgdt := 0.0;
      end;
-
-     if qrgValid and (length(edRBCall.Text)>2) Then
-     Begin
-          rbOn.Enabled := True;
-          rbOn.Font.Color := clBlack;
-          if not rbOn.Checked then rbOn.Font.Color := clMaroon;
-     end
-     else
-     begin
-          rbOn.Checked := False;
-          rbOn.Enabled := False;
-          rbOn.Font.Color := clRed;
-     end;
-
      // Converts Integer Hertz value to KHz taking into account local decimal character.
      // This is *better* than converting to float and dividing.  :) This reads from the
      // internal edDialQRG field and sets the user visible elements.
-
      if length(edDialQRG.Text)> 3 Then
      Begin
           s1 := edDialQRG.Text;
@@ -2273,21 +2238,15 @@ Begin
      begin
           Label27.Caption := edDialQRG.Text;
      end;
-
      spectrum.specColorMap := spColorMap.ItemIndex;
-
      spectrum.specSpeed2 := tbWFSpeed.Position;
      spectrum.specColorMap := spColorMap.ItemIndex;
-
      if rbUseLeftAudio.Checked Then adc.adcChan  := 1;
      if rbUseRightaudio.Checked Then adc.adcChan := 2;
      if cbUseMono.Checked Then adc.adcMono := True else adc.adcMono := False;
-
      // Compute actual full callsign to use from prefix+callsign+suffix
-
      // If Prefix and suffix defined (invalid) the prefix wins.
      If (Length(edPrefix.Text)>0) And (Length(edSuffix.Text)>0) Then edSuffix.Text := '';
-
      If (Length(edPrefix.Text)>0) And (Length(edSuffix.Text)=0) And ((Length(edCall.Text)>2) And (Length(edCall.Text)<7)) And ((Length(getLocalGrid)=4) Or (Length(getLocalGrid)=6)) Then
      Begin
           thisTXcall := TrimLeft(TrimRight(UpCase(edPrefix.Text))) + '/' + TrimLeft(Trimright(UpCase(edCall.Text)));
@@ -2295,7 +2254,6 @@ Begin
           if Length(thisTXGrid)>4 Then thisTXGrid := thisTXGrid[1..4];
           Label8.Caption := thisTXCall + ' (' + edGrid.Text + ')';
      end;
-
      If (Length(edPrefix.Text)=0) And (Length(edSuffix.Text)>0) And ((Length(edCall.Text)>2) And (Length(edCall.Text)<7)) And ((Length(getLocalGrid)=4) Or (Length(getLocalGrid)=6)) Then
      Begin
           thisTXcall := TrimLeft(Trimright(UpCase(edCall.Text))) + '/' + TrimLeft(TrimRight(UpCase(edSuffix.Text)));
@@ -2303,7 +2261,6 @@ Begin
           if Length(thisTXGrid)>4 Then thisTXGrid := thisTXGrid[1..4];
           Label8.Caption := thisTXCall + ' (' + edGrid.Text + ')';
      end;
-
      If (Length(edPrefix.Text)=0) And (Length(edSuffix.Text)=0) And ((Length(edCall.Text)>2) And (Length(edCall.Text)<7)) And ((Length(getLocalGrid)=4) Or (Length(getLocalGrid)=6)) Then
      Begin
           thisTXcall := TrimLeft(Trimright(UpCase(edCall.Text)));
@@ -2311,36 +2268,19 @@ Begin
           if Length(thisTXGrid)>4 Then thisTXGrid := thisTXGrid[1..4];
           Label8.Caption := thisTXCall + ' (' + edGrid.Text + ')';
      end;
-
-     // canTX is based upon having valid callsign and grid in config & valid message ready to send
-     valid := True;
-     // Check for prefix and suffix set (prefix wins)
-     if (length(edPrefix.Text)>0) and (length(edSuffix.Text)>0) Then edSuffix.Text := '';
-     // Validate prefix (if present)
-     if length(edPrefix.Text)>0 Then if not isV1Call(edPrefix.Text + '/' + edCall.Text) Then valid := False;
-     // Validate suffix (if present)
-     if length(edSuffix.Text)>0 Then if not isV1Call(edCall.Text + '/' + edSuffix.Text) Then valid := False;
-     // Validate callsign
-     if not mval.evalCSign(edCall.Text) Then valid := False;
-     // Validate grid
-     if not mval.evalGrid(edGrid.Text) Then valid := False;
-     if (not isSText(edTXMsg.Text)) or (not isFText(edTXMsg.Text)) Then valid := False;
-     canTX := valid;
-
      // Changing this so it doesn't disable the control while TX is in progress.
-     If canTX or clRebel.TXStat Then bnEnableTX.Enabled := True else bnEnableTX.Enabled := False;
-
+     If canTX or clRebel.TXStat or afskTXOn Then bnEnableTX.Enabled := True else bnEnableTX.Enabled := False;
      // Update TX control based upon current context
      If txOn Then bnEnableTX.Caption := 'Halt TX' else bnEnableTX.Caption := 'Enable TX';
-
-     if not canTX and not clRebel.txStat Then
+     // Update the TX indicator
+     if not canTX and (not clRebel.txStat and not afskTXOn) Then
      Begin
           Label16.Caption := 'TX DISABLED';
           Label16.Font.Color := clBlack;
      end
      else
      begin
-          If clRebel.txStat Then
+          If clRebel.txStat or afskTXOn Then
           Begin
                if doCW Then Label16.Caption := 'TX: ' + transmitting + ' + CWID' else Label16.Caption := 'TX: ' + transmitting;
                Label16.Hint:='';
@@ -2365,258 +2305,117 @@ Begin
                Label16.Font.Color := clBlack;
           end;
      end;
-
-     if canTX and txValid and txDirty Then
+     // Be sure decimal selection stays right
+     if useDeciAmerican.Checked then
+     begin
+          dChar := '.';
+          kChar := ',';
+     end;
+     if useDeciEuro.Checked then
+     begin
+          dChar := ',';
+          kChar := '.';
+     end;
+     if useDeciAuto.Checked then
+     begin
+          dChar := deciString[1];
+          kChar := kiloString[1];
+     end;
+     // Indicate status with picture
+     if d65.glinprog Then Image1.Picture.LoadFromLazarusResource('decode');
+     if (not clRebel.txStat) And (not afskTXOn) And (not d65.glinprog) and (not sendingCWID) and (not doCW) Then Image1.Picture.LoadFromLazarusResource('receive');
+     // Keep station callsign in sync with any changes
+     If (Length(TrimLeft(TrimRight(edPrefix.Text))) < 1) And (Length(TrimLeft(TrimRight(edSuffix.Text))) <1) Then
      Begin
-          if haveRebel Then
-          Begin
-               // A valid message is awaiting upload to Rebel
-               // Load it into the class data buffer
-               if (not clRebel.txStat) and (not clRebel.busy) Then
-               Begin
-                    for i := 0 to 127 do clRebel.setData(i,StrToInt(qrgset[i]));
-                    if clRebel.ltx then txDirty := False else txDirty := True;
-                    //
-                    // clRebel.debug holds the symbols sent
-                    // clRebel.dumptx holds the symbols read back
-                    // qrgset[0..125] holds the calculated
-                    // All 3 need to match.
-                    for i := 0 to 125 do
-                    begin
-                         c1[i] := '0';
-                         c2[i] := '0';
-                         c3[i] := qrgset[i];
-                    end;
-                    // Break debug set into array first.
-                    if wordcount(clRebel.debug,[',']) > 126 Then
-                    Begin
-                         for i := 3 to wordcount(clRebel.debug,[','])-2 do c1[i-3] := ExtractWord(i,clRebel.debug,[',']);
-                    end;
-                    if wordcount(clRebel.dumptx,[',']) > 126 Then
-                    Begin
-                         for i := 3 to wordcount(clRebel.debug,[','])-2 do c2[i-3] := ExtractWord(i,clRebel.debug,[',']);
-                    end;
-                    valid := true;
-                    for i := 0 to 125 do
-                    begin
-                         if (c1[i]=c2[i]) and (c2[i]=c3[i]) Then
-                         Begin
-                              // all good
-                         end
-                         else
-                         begin
-                              valid := false;
-                         end;
-                    end;
-                    if not valid then
-                    Begin
-                         lbDecodes.Items.Insert(0,'WARNING: Rebel refused message');
-                         // Changing this to delete the TX buffer message so it doesn't go
-                         // into an infinite loop should the Rebel be in distress for some
-                         // reason.
-                         edTXMsg.Text := '';
-                         thisTXMsg := '';
-                    end;
-               end;
+          myscall := TrimLeft(TrimRight(UpCase(edCall.Text)));
+          mycall  := myscall;
+     end
+     else
+     begin
+          // Since prefix outranks suffix this will insure prefix wins if both set.
+          If (Length(TrimLeft(TrimRight(edSuffix.Text))) > 0) Then myscall := TrimLeft(TrimRight(UpCase(edCall.Text)))+'/'+TrimLeft(TrimRight(UpCase(edSuffix.Text)));
+          If (Length(TrimLeft(TrimRight(edPrefix.Text))) > 0) Then myscall := TrimLeft(TrimRight(UpCase(edPrefix.Text)))+'/'+TrimLeft(TrimRight(UpCase(edCall.Text)));
+          mycall := TrimLeft(TrimRight(UpCase(edCall.Text)));
+     end;
+     // Update macro control based on context
+     If Length(comboMacroList.Text) = 0 Then
+     Begin
+          bnSaveMacro.Visible := False;
+          buttonXferMacro.Visible := False;
+     end
+     else
+     begin
+          buttonXferMacro.Visible := True;
+          buttonXferMacro.Enabled := True;
+          if comboMacroList.ItemIndex = -1 Then
+          begin
+               bnSaveMacro.Visible := True;
+               bnSaveMacro.Enabled := True;
           end
           else
           begin
-               // AFSK TX
-               valid := True;
-               txDirty := False;
+               bnSaveMacro.Enabled := False;
+               bnSaveMacro.Visible := False;
           end;
      end;
-
-     If not clRebel.txStat And not clRebel.busy And txControl And haveRebel and txEnabled and valid Then
+     // Sync TXDF to RXDF if necessary and set controls based on context
+     if cbTXEqRXDF.Checked And (spinTXDF.Value <> spinRXDF.Value) Then
      Begin
-          // FSK TX on time
-          // We checked that Rebel is not already transmitting
-          // We checked that Rebel is not currently busy
-          // We validated message content and sender data
-          // We see TX has been requested.
-          // Now - we need to turn it on - First with the simple on time case
-          If (thisSecond = 1) And (lastSecond=0) Then
-          Begin
-               // Check for repeat TX and case of exceeding watchdog counter for runaway TX
-               if lastTXMsg = thisTXmsg Then
-               Begin
-                    inc(sameTXCount);
-                    i := -1;
-                    if tryStrToInt(edTXWD.Text,i) Then
-                    Begin
-                         if i > 0 Then
-                         Begin
-                              if sameTXCount > i-1 Then
-                              Begin
-                                   txOn := False;
-                                   lastTXMsg := '';
-                                   sameTXCount := 0;
-                                   lbDecodes.Items.Insert(0,'Notice: Same TX Message ' + edTXWD.Text + ' times.  TX is OFF');
-                              end;
-                         end;
-                    end;
-               end
-               else
-               begin
-                    lastTXMsg := thisTXmsg;
-                    sameTXCount := 0;
-               end;
-               // PTT on
-               clRebel.pttOn;
-               // Check to see if it went to TX
-               if not clRebel.txStat Then
-               Begin
-                    // If for some reason it didn't enter TX clear the TX request
-                    // It will be reset if necessary and attempt again.
-                    txEnabled := false;
-               end
-               else
-               begin
-                    // Indicate TX triggered during this minute
-                    didTX := True;
-                    // Indicate it is in TX
-                    Image1.Picture.LoadFromLazarusResource('transmitv2');
-                    transmitting := thisTXmsg;
-                    // Refresh the message mainly to keep CWID in play
-                    sm    := false;
-                    ft    := false;
-                    nc1t  := '';
-                    pfxt  := '';
-                    sfxt  := '';
-                    nc2t  := '';
-                    ngt   := '';
-                    sh    := '';
-                    proto := '';
-                    if messageParser(TrimLeft(TrimRight(UpCase(thisTXMsg))), nc1t, pfxt, sfxt, nc2t, ngt, sh, proto) then sm := true else ft := true;
-                    if sm and (ngt = '73') then tx73 := True else tx73 := False;
-                    if ft then txFree := True else txFree := false;
-                    doCW := False;
-                    if rbCWIDFree.Checked and txFree Then
-                    Begin
-                         doCW := True;
-                    end
-                    else if rbCWID73.Checked and (txFree or tx73) Then
-                    begin
-                         doCW := True;
-                    end
-                    else
-                    begin
-                         doCW := False;
-                    end;
-               end;
-          end
-          else
-          begin
-               // Late TX start - first see if it could even happen this late.
-               // Not sure I could get here if thisSecond <= 1, but lets be sure.
-               if not clRebel.txStat And not clRebel.busy And haveRebel and txEnabled Then
-               Begin
-                    // FSK TX late start
-                    if thisSecond > 1 Then
-                    Begin
-                         i := lateTXOffset;
-                         if i > -1 Then
-                         Begin
-                              // Can do.  Send Rebel late TX start command with offset
-                              // to proper symbol to begin TX at.
-                              // Check for repeat TX and case of exceeding watchdog counter for runaway TX
-                              if lastTXMsg = thisTXmsg Then
-                              Begin
-                                   inc(sameTXCount);
-                                   i := -1;
-                                   if tryStrToInt(edTXWD.Text,i) Then
-                                   Begin
-                                        if i > 0 Then
-                                        Begin
-                                             if sameTXCount > i-1 Then
-                                             Begin
-                                                  txOn := False;
-                                                  lastTXMsg := '';
-                                                  sameTXCount := 0;
-                                                  lbDecodes.Items.Insert(0,'Notice: Same TX Message ' + edTXWD.Text + ' times.  TX is OFF');
-                                             end;
-                                        end;
-                                   end;
-                              end
-                              else
-                              begin
-                                   lastTXMsg := thisTXmsg;
-                                   sameTXCount := 0;
-                              end;
-                              //ListBox2.Items.Insert(0,'TX On at offset = ' + IntToStr(i));
-                              clRebel.lateOffset := i;
-                              // PTT on
-                              clRebel.latePTTOn;
-                              if not clRebel.txStat Then
-                              Begin
-                                   // If for some reason it didn't enter TX clear the TX request
-                                   // It will be reset if necessary and attempt again.
-                                   txEnabled := false;
-                              end
-                              else
-                              begin
-                                   // Indicate TX triggered during this minute
-                                   didTX := True;
-                                   // Indicate it is in TX
-                                   Image1.Picture.LoadFromLazarusResource('transmitv2');
-                                   transmitting := thisTXmsg;
-                                   // Double checking to clear Late TX offset value
-                                   clRebel.lateOffset := 0;
-                                   // Refresh the message mainly to keep CWID in play
-                                   sm    := false;
-                                   ft    := false;
-                                   nc1t  := '';
-                                   pfxt  := '';
-                                   sfxt  := '';
-                                   nc2t  := '';
-                                   ngt   := '';
-                                   sh    := '';
-                                   proto := '';
-                                   if messageParser(TrimLeft(TrimRight(UpCase(thisTXMsg))), nc1t, pfxt, sfxt, nc2t, ngt, sh, proto) then sm := true else ft := true;
-                                   if sm and (ngt = '73') then tx73 := True else tx73 := False;
-                                   if ft then txFree := True else txFree := false;
-                                   doCW := False;
-                                   if rbCWIDFree.Checked and txFree Then
-                                   Begin
-                                        doCW := True;
-                                   end
-                                   else if rbCWID73.Checked and (txFree or tx73) Then
-                                   begin
-                                        doCW := True;
-                                   end
-                                   else
-                                   begin
-                                        doCW := False;
-                                   end;
-                              end;
-                         end
-                         else
-                         begin
-                              // Was too late
-                              lbDecodes.Items.Insert(0,'Notice: Too late for TX to start');
-                         end;
-                    end;
-               end;
-          end;
+          spinTXDF.Value := spinRXDF.Value;
      end;
-
-     if clRebel.txStat and (not txEnabled) and (not sendingCWID) Then
+     if cbTXeqRXDF.Checked Then
      Begin
-          // TX should be off
-          if not clRebel.busy then clRebel.pttOff; // This gets handled more aggressively elsewhere in case it is busy.
-          if (not clRebel.txStat) And (not d65.glinprog) and (not sendingCWID) and (not doCW) Then Image1.Picture.LoadFromLazarusResource('receive');
+          spinTXDF.Visible := False;
+          bnZeroTXDF.Visible := False;
+          Label19.Visible := False;
+          Label79.Caption := 'TRX DF';
+     end
+     else
+     begin
+          if spinTXDF.Value = 0 Then bnZeroTXDF.Visible := False else bnZeroTXDF.Visible := True;
+          spinTXDF.Visible := True;
+          Label19.Visible := True;
+          Label79.Caption := 'RX DF';
      end;
-
-     if (thisSecond=48) and clRebel.txStat and (not clRebel.busy) Then
+     if spinRXDF.Value = 0 Then bnZeroRXDF.Visible := False else bnZeroRXDF.Visible := True;
+     if (not threadRigQSY) and threadRigResult and (length(threadDialQRG) > 0) Then
      Begin
-          clRebel.pttOff;
-          txEnabled := False;
-          transmitting := '';
+          // Update QRG
+          edDialQRG.Text := threadDialQRG;
+          threadRigResult := false;
+          threadDialQRG := '';
+     end
+     else if threadRigResult and threadRigQSY Then
+     Begin
+          ListBox2.Items.Insert(0,'QSY Completed to ' + threadDialQRG);
+          threadRigQSY := false;
+          threadRigResult := false;
+          threadDialQRG := '';
      end;
+     // Watch for transit from TX to RX in AFSK mode
+     if afskTXOn then afskTXOn := dac.dacTXOn;
+end;
 
+procedure TForm1.rbCheck;
+Var
+   foo : String;
+   i   : Integer;
+Begin
+     if qrgValid and (length(edRBCall.Text)>2) Then
+     Begin
+          rbOn.Enabled := True;
+          rbOn.Font.Color := clBlack;
+          if not rbOn.Checked then rbOn.Font.Color := clMaroon;
+     end
+     else
+     begin
+          rbOn.Checked := False;
+          rbOn.Enabled := False;
+          rbOn.Font.Color := clRed;
+     end;
+     // Update RB Control
      if rbOn.Checked then rbOn.Caption := 'RB Enabled' else rbOn.Caption := 'RB Enable';
      if length(edRBCall.Text) < 3 Then rbOn.Caption := 'Disabled';
-
      if rbOn.Checked and (not rb.rbOn) Then
      Begin
           rb.myCall := TrimLeft(TrimRight(UpCase(edRBCall.Text)));
@@ -2651,37 +2450,78 @@ Begin
                rbping    := False;
           end;
      end;
+end;
 
-     if useDeciAmerican.Checked then
-     begin
-          dChar := '.';
-          kChar := ',';
-     end;
-     if useDeciEuro.Checked then
-     begin
-          dChar := ',';
-          kChar := '.';
-     end;
-     if useDeciAuto.Checked then
-     begin
-          dChar := deciString[1];
-          kChar := kiloString[1];
-     end;
-     if d65.glinprog Then Image1.Picture.LoadFromLazarusResource('decode');
-     if (not clRebel.txStat) And (not d65.glinprog) and (not sendingCWID) and (not doCW) Then Image1.Picture.LoadFromLazarusResource('receive');
+procedure TForm1.OncePerTick;
+Var
+   i       : Integer;
+   valid   : Boolean;
+   ent,exi : TDateTime;
+   tspan   : Double;
+Begin
+     // Tracking time spent here and the result is using more time than I'm
+     // comfortable with.  Around 70 ms!
+     tspan := 0.0;
+     ent := Now;
 
-     If (Length(TrimLeft(TrimRight(edPrefix.Text))) < 1) And (Length(TrimLeft(TrimRight(edSuffix.Text))) <1) Then
+     // Runs on each timer tick
+     thisUTC     := utcTime;
+     thisSecond  := thisUTC.Second;
+     thisADCTick := adc.adcTick;
+
+     // This is a high priortiy item.
+     if not txOn Then
      Begin
-          myscall := TrimLeft(TrimRight(UpCase(edCall.Text)));
-          mycall  := myscall;
+          txEnabled := false;
+          if clRebel.txStat and (not clRebel.busy) then clRebel.pttOff;
+          If afskTXOn then dac.dacTXOn := False;
+     end;
+
+     if haveRebel Then rebelCheck;
+     guiCheck;
+     rbCheck;
+
+     // Check to see if message needs regen due to TxDF change since last
+     if length(edTXMsg.Text)>0 Then
+     Begin
+          if mgendf <> IntToStr(spinTXDF.Value) then
+          Begin
+               inc(qsycount);
+               i := qsycount;
+          end;
+          if qsycount > 6 Then
+          Begin
+               // Mark message needing regeneration
+               genTX(edTXMsg.Text, spinTXDF.Value);
+               qsycount := 0;
+          end;
      end
      else
      begin
-          // Since prefix outranks suffix this will insure prefix wins if both set.
-          If (Length(TrimLeft(TrimRight(edSuffix.Text))) > 0) Then myscall := TrimLeft(TrimRight(UpCase(edCall.Text)))+'/'+TrimLeft(TrimRight(UpCase(edSuffix.Text)));
-          If (Length(TrimLeft(TrimRight(edPrefix.Text))) > 0) Then myscall := TrimLeft(TrimRight(UpCase(edPrefix.Text)))+'/'+TrimLeft(TrimRight(UpCase(edCall.Text)));
-          mycall := TrimLeft(TrimRight(UpCase(edCall.Text)));
+          qsycount := 0;
      end;
+     // canTX is based upon having valid callsign and grid in config & valid message ready to send
+     valid := True;
+     // Check for prefix and suffix set (prefix wins)
+     if (length(edPrefix.Text)>0) and (length(edSuffix.Text)>0) Then edSuffix.Text := '';
+     // Validate prefix (if present)
+     if length(edPrefix.Text)>0 Then if not isV1Call(edPrefix.Text + '/' + edCall.Text) Then valid := False;
+     // Validate suffix (if present)
+     if length(edSuffix.Text)>0 Then if not isV1Call(edCall.Text + '/' + edSuffix.Text) Then valid := False;
+     // Validate callsign
+     if not mval.evalCSign(edCall.Text) Then valid := False;
+     // Validate grid
+     if not mval.evalGrid(edGrid.Text) Then valid := False;
+     if (not isSText(edTXMsg.Text)) or (not isFText(edTXMsg.Text)) Then valid := False;
+     canTX := valid;
+     // Check to see if a message is pending for AFSK
+     if (not haveRebel) and canTX and txValid and txDirty Then
+     Begin
+          txDirty := False;
+     end;
+
+     if threadFSKPending Then canTX := False else canTX := canTX;
+
      // Brute force remove kvasd.dat if it gets left over
      If not d65.glinprog Then
      Begin
@@ -2695,7 +2535,7 @@ Begin
                end;
           end;
      end;
-
+     // Trigger decoder if necessary
      if doSlowDecode and doFastDone Then
      Begin
           // Attempt a decode with V3 Decoder
@@ -2727,58 +2567,25 @@ Begin
           runDecode    := True;
      end;
 
-     If Length(comboMacroList.Text) = 0 Then
-     Begin
-          bnSaveMacro.Visible := False;
-          buttonXferMacro.Visible := False;
-     end
-     else
-     begin
-          buttonXferMacro.Visible := True;
-          buttonXferMacro.Enabled := True;
-          if comboMacroList.ItemIndex = -1 Then
-          begin
-               bnSaveMacro.Visible := True;
-               bnSaveMacro.Enabled := True;
-          end
-          else
-          begin
-               bnSaveMacro.Enabled := False;
-               bnSaveMacro.Visible := False;
-          end;
-     end;
-
-     if cbTXEqRXDF.Checked And (spinTXDF.Value <> spinRXDF.Value) Then
-     Begin
-          spinTXDF.Value := spinRXDF.Value;
-     end;
-     if cbTXeqRXDF.Checked Then
-     Begin
-          spinTXDF.Visible := False;
-          bnZeroTXDF.Visible := False;
-          Label19.Visible := False;
-          Label79.Caption := 'TRX DF';
-     end
-     else
-     begin
-          if spinTXDF.Value = 0 Then bnZeroTXDF.Visible := False else bnZeroTXDF.Visible := True;
-          spinTXDF.Visible := True;
-          Label19.Visible := True;
-          Label79.Caption := 'RX DF';
-     end;
-
-     if spinRXDF.Value = 0 Then bnZeroRXDF.Visible := False else bnZeroRXDF.Visible := True;
-
-     if afskTXOn then afskTXOn := dac.dacTXOn;
-
+     exi := Now;
+     tspan := MilliSecondSpan(ent,exi);
+     if tspan > 95.0 Then Memo2.Append('Once per tick time:  ' + FormatFloat('00',tspan) + ' ms');
 end;
 
 procedure TForm1.OncePerSecond;
 Var
-  i   : Integer;
-  foo   : String;
+  nc1t,pfxt,ngt : String;
+  sfxt,nc2t,sh  : String;
+  foo,proto     : String;
+  sm,ft         : Boolean;
+  i,adj         : Integer;
+  lUTC          : TSystemTime;
+  ent,exi       : TDateTime;
+  tspan         : Double;
 Begin
      // Items that run on each new second or selected new seconds
+     tspan := 0.0;
+     ent := Now;
 
      // Check to see if we should invoke TX during the only valid time window
      // this should occur thisSecond >=0 and thisSecond <=15
@@ -2804,6 +2611,221 @@ Begin
           else
           begin
                txEnabled := false;
+          end;
+     end;
+
+     // AFSK TX Handler
+     if canTX and (not haveRebel) and (not afskTXOn) and txControl and txEnabled and ((thisSecond >= 0) and (thisSecond <= 20)) Then
+     Begin
+          // Regenerate the message for each AFSK TX - keeps it simple and for sure up to date.
+          thisTXmsg := UpCase(TrimLeft(TrimRight(edTXMsg.Text)));
+          if (isFText(thisTXmsg) or isSText(thisTXmsg)) Then
+          Begin
+               genTX(thisTXmsg, spinTXDF.Value);
+               edTXMsg.Text := thisTXmsg; // this double checks for valid message.
+          end
+          else
+          begin
+               thisTXmsg := '';
+               edTXMsg.Text := thisTXmsg; // this double checks for valid message.
+               txOn := False;
+          end;
+          // If message generated and is valid we keep at it
+          if txOn Then
+          Begin
+               // There's a bit of latency in starting the audio stream - compensating for that and allowing for proper
+               // data position start at any time up to 20 seconds late.
+               lUTC := utcTime;
+               //adj := 800 + lUTC.Millisecond + (1000 * lUTC.Second);
+               adj := 850 + lUTC.Millisecond + (1000 * lUTC.Second);
+               //adj := 900 + lUTC.Millisecond + (1000 * lUTC.Second);
+               // Now to get the offset in samples. I do;
+               i := Round((adj/1000.0) / (1.0/11025.0));
+               adj := i;
+               if adj < 0 then adj := 0;
+               // Check for repeat TX and case of exceeding watchdog counter for runaway TX
+               if lastTXMsg = thisTXmsg Then
+               Begin
+                    inc(sameTXCount);
+                    i := -1;
+                    if tryStrToInt(edTXWD.Text,i) Then
+                    Begin
+                         if i > 0 Then
+                         Begin
+                              if sameTXCount > i-1 Then
+                              Begin
+                                   txOn := False;
+                                   lastTXMsg := '';
+                                   sameTXCount := 0;
+                                   lbDecodes.Items.Insert(0,'Notice: Same TX Message ' + edTXWD.Text + ' times.  TX is OFF');
+                              end;
+                         end;
+                    end;
+               end
+               else
+               begin
+                    lastTXMsg := thisTXmsg;
+                    sameTXCount := 0;
+               end;
+               if txOn Then
+               Begin
+                    // PTT on
+                    dacSOD := adj;
+                    dac.dacFirst := True;
+                    ListBox2.Items.Insert(0,'TX Trigger at S=' + IntToStr(lUTC.Second) + '  mS=' + IntToStr(lUTC.Millisecond) + '  SOD=' + IntToStr(dac.dacSOD));
+                    i := portaudio.Pa_OpenStream(PPaStream(paOutStream),PPaStreamParameters(Nil),PPaStreamParameters(ppaOutParams),CTypes.cdouble(11025.0),CTypes.culong(4096),TPaStreamFlags(0),PPaStreamCallback(@dac.dacCallback),Pointer(Self));
+                    if i <> 0 Then
+                    Begin
+                         // Was unable to start TX stream.
+                         ListBox2.Items.Insert(0,'Unable to open PA TX Stream.' + sLineBreak + StrPas(portaudio.Pa_GetErrorText(i)));
+                         dac.dacTXOn := False;
+                         afskTXOn := False;
+                         didTX := False;
+                         transmitting := '';
+                         doCW  := False; // Doesn't really apply to AFSK but setting to be safe
+                         Image1.Picture.LoadFromLazarusResource('receive');
+                    end;
+                    i := portaudio.Pa_StartStream(paOutStream);
+                    if i <> 0 Then
+                    Begin
+                         // Was unable to start TX stream.
+                         ListBox2.Items.Insert(0,'Unable to open PA TX Stream.' + sLineBreak + StrPas(portaudio.Pa_GetErrorText(i)));
+                         dac.dacTXOn := False;
+                         afskTXOn := False;
+                         didTX := False;
+                         transmitting := '';
+                         doCW  := False; // Doesn't really apply to AFSK but setting to be safe
+                         Image1.Picture.LoadFromLazarusResource('receive');
+                    end
+                    else
+                    begin
+                         { TODO : Hook in serial or CAT PTT here for AFSK TX }
+                         dac.dacTXOn := True;
+                         afskTXOn := True;
+                         didTX := True;
+                         doCW  := False; // Doesn't really apply to AFSK but setting to be safe
+                         transmitting := thisTXmsg;
+                         Image1.Picture.LoadFromLazarusResource('transmitv2');
+                    end;
+               end
+               else
+               begin
+                    // Watchdog count exceeded so TX was aborted
+                    dac.dacTXOn := False;
+                    afskTXOn := False;
+                    didTX := False;
+                    transmitting := '';
+                    doCW  := False; // Doesn't really apply to AFSK but setting to be safe
+                    Image1.Picture.LoadFromLazarusResource('receive');
+               end;
+          end
+          else
+          begin
+               // Invalid TX message
+               ListBox2.Items.Insert(0,'Invalid TX Message.');
+               dac.dacTXOn := False;
+               afskTXOn := False;
+               didTX := False;
+               doCW  := False; // Doesn't really apply to AFSK but setting to be safe
+               Image1.Picture.LoadFromLazarusResource('receive');
+          end;
+     end;
+
+     // FSK TX Handler
+     If canTX and haveRebel and (not clRebel.txStat) And (not clRebel.busy) And txControl And txEnabled and ((thisSecond >= 1) and (thisSecond <= 20)) Then
+     Begin
+          // FSK TX on time or late
+          // We checked that Rebel is not already transmitting
+          // We checked that Rebel is not currently busy
+          // We validated message content and sender data
+          // We see TX has been requested.
+          // Now - we need to turn it on - First with the simple on time case
+
+          // Check for repeat TX and case of exceeding watchdog counter for runaway TX
+          if lastTXMsg = thisTXmsg Then
+          Begin
+               inc(sameTXCount);
+               i := -1;
+               if tryStrToInt(edTXWD.Text,i) Then
+               Begin
+                    if i > 0 Then
+                    Begin
+                         if sameTXCount > i-1 Then
+                         Begin
+                              txOn := False;
+                              lastTXMsg := '';
+                              sameTXCount := 0;
+                              lbDecodes.Items.Insert(0,'Notice: Same TX Message ' + edTXWD.Text + ' times.  TX is OFF');
+                         end;
+                    end;
+               end;
+          end
+          else
+          begin
+               lastTXMsg := thisTXmsg;
+               sameTXCount := 0;
+          end;
+          if txOn Then
+          Begin
+               // PTT on
+               // Check to see if this is a late start.
+               i := lateTXOffset;
+               if i > -1 Then
+               Begin
+                    // PTT on
+                    clRebel.lateOffset := i;
+                    if i < 1 then clRebel.pttOn else clRebel.latePTTOn;
+                    lUTC := utcTime;
+                    ListBox2.Items.Insert(0,'TX Trigger at S=' + IntToStr(lUTC.Second) + '  mS=' + IntToStr(lUTC.Millisecond) + '  SOD=' + IntToStr(i));
+               end
+               else
+               begin
+                    ListBox2.Items.Insert(0,'Too late to begin TX');
+                    txOn := False;
+                    didTX := False;
+               end;
+
+               // Check to see if it went to TX
+               if not clRebel.txStat and txOn Then
+               Begin
+                    // If for some reason it didn't enter TX clear the TX request
+                    // It will be reset if necessary and attempt again.
+                    txEnabled := false;
+               end
+               else if clRebel.txStat Then
+               begin
+                    // Indicate TX triggered during this minute
+                    didTX := True;
+                    // Indicate it is in TX
+                    Image1.Picture.LoadFromLazarusResource('transmitv2');
+                    transmitting := thisTXmsg;
+                    // Refresh the message mainly to keep CWID in play
+                    sm    := false;
+                    ft    := false;
+                    nc1t  := '';
+                    pfxt  := '';
+                    sfxt  := '';
+                    nc2t  := '';
+                    ngt   := '';
+                    sh    := '';
+                    proto := '';
+                    if messageParser(TrimLeft(TrimRight(UpCase(thisTXMsg))), nc1t, pfxt, sfxt, nc2t, ngt, sh, proto) then sm := true else ft := true;
+                    if sm and (ngt = '73') then tx73 := True else tx73 := False;
+                    if ft then txFree := True else txFree := false;
+                    doCW := False;
+                    if rbCWIDFree.Checked and txFree Then
+                    Begin
+                         doCW := True;
+                    end
+                    else if rbCWID73.Checked and (txFree or tx73) Then
+                    begin
+                         doCW := True;
+                    end
+                    else
+                    begin
+                         doCW := False;
+                    end;
+               end;
           end;
      end;
 
@@ -2875,7 +2897,7 @@ Begin
           end;
      end;
 
-     if (thisSecond=49) and (lastSecond=48) and didTX and doCW and not sendingCWID Then
+     if haveRebel and (thisSecond=49) and (lastSecond=48) and didTX and doCW and not sendingCWID Then
      Begin
           // Send CWID with threaded rig control so it doesn't block us
           Image1.Picture.LoadFromLazarusResource('transmitv2');
@@ -3097,39 +3119,13 @@ Begin
      if rigRebel.Checked and haveRebel and setQRG and (not clRebel.busy) and (not clRebel.txStat) Then
      Begin
           clRebel.qrg := qsyQRG;
-          if clRebel.setQRG Then
-          Begin
-               ListBox2.Items.Insert(0,'QSY to ' + IntToStr(qsyQRG) + ' complete');
-               // CLEAR the TX message on a QSY to force a renegeration
-               edTXMsg.Text := '';
-               spinRXDF.Value := 0;
-               spinTXDF.Value := 0;
-               edDialQRG.Text := IntToStr(qsyQRG);
-               readQRG := False;
-               setQRG := False;
-               if clRebel.poll Then
-               Begin
-                    edDialQRG.Text:= IntToStr(Round(clRebel.qrg));
-               end;
-          End
-          else
-          Begin
-               ListBox2.Items.Insert(0,'QSY to ' + IntToStr(qsyQRG) + ' fails');
-               edDialQRG.Text := '0';
-               editQRG.Text := '0';
-               readQRG := False;
-               setQRG := False;
-          end;
+          rigCommand := 'rebQSY';
+          runRig := True;
      end
-
-     else if rigRebel.Checked and haveRebel and readQRG and (not clRebel.busy) and (not clRebel.txStat) Then
+     else if rigRebel.Checked and haveRebel and readQRG Then
      Begin
-          if clRebel.poll Then
-          Begin
-               edDialQRG.Text:= IntToStr(Round(clRebel.qrg));
-          end;
-          readQRG := False;
-          setQRG := False;
+          rigCommand := 'rebPoll';
+          runRig := True;
      end;
 
      // Update Rebel debug information
@@ -3239,12 +3235,15 @@ Begin
      end;
 
      if haveRebel then gbRebel.Visible := True else gbRebel.Visible := False;
+
+     exi := Now;
+     tspan := MilliSecondSpan(ent,exi);
+     if tspan > 95.0 Then Memo2.Append('Once per second time:  ' + FormatFloat('00',tspan) + ' ms');
 end;
 
 procedure TForm1.OncePerMinute;
 Var
-  i,offset : Integer;
-  lUTC     : TSystemTime;
+  i : Integer;
 Begin
      for i := 0 to 1023 do psAcc[i] := 0.0;
      pstick := 1;
@@ -3268,64 +3267,6 @@ Begin
      if rbTXOdd.Checked and Odd(thisUTC.Minute) and (not txEnabled) Then
      Begin
           txEnabled := true;
-     end;
-
-     //if (not haveRebel) and (not afskTXOn) and txControl and txEnabled Then
-     // BIG FAT DEBUG
-     if (not haveRebel) and (not afskTXOn) Then
-     Begin
-          // Looking like about 300 ms latency on stream start
-          // Should fire up AFSK TX
-          // AFSK TX on time
-          lUTC := utcTime;
-          // Lets experiment with sliding the SOD window a touch to see what kind of timing
-          // imporovement I can get. I have 1000 ms of silence at start.  My "built in" latency
-          // is 300 to 400 ms so I'll split and call it 350.
-          // TX should start it 1000 ms.  If I'm 350 late to start that I need to move forward
-          // the starting point 350, but I may not be on second = 0 ms = 0 so I need to account
-          // for the current mS and compensate it as well.
-
-          // Offset SHOULD be 1000 ms - time started ms then less latency.  So if I have latency
-          // of 400 ms and tx started at 100 ms the offset would be 500 ms.  If tx started at second
-          // = 0 ms = 0 and latency = 0 then offset would be 0. So - as I increase lateness I start
-          // LATER
-          //         (1000 - latency) - late tx start
-          //offset := 400 + lUTC.Millisecond; // with 400 - lUTC showing + .1 DT on decode with a start at ~200 ms .2 at ~100 ms .3 at ~50ms
-//          offset := 300 + lUTC.Millisecond; //
-//          offset := 400 + lUTC.Millisecond; //
-//          offset := 500 + lUTC.Millisecond; // with 500 holding a steady -.1 to +.1 range over the various delays.  Reasonable.
-//          offset := 600 + lUTC.Millisecond; //
-//          offset := 700 + lUTC.Millisecond; //
-          offset := 800 + lUTC.Millisecond; //
-//          offset := 825 + lUTC.Millisecond; //
-//          offset := 850 + lUTC.Millisecond; //
-//          offset := 875 + lUTC.Millisecond; //
-//          offset := 900 + lUTC.Millisecond; //  This seems right for using the fixed 4096 sample block transfers.
-          // Now to get the offset in samples. I do;
-          i := Round((offset/1000.0) / (1.0/11025.0));
-          if i < 0 then i := 0 else if i > 11024 then i := 11024;
-          //dac.dacSOD := 0;
-          dacSOD := i;
-          dac.dacFirst := True;
-          dac.dacTXOn := True;
-          ListBox2.Items.Insert(0,'TX Trigger at S=' + IntToStr(lUTC.Second) + '  mS=' + IntToStr(lUTC.Millisecond) + '  SOD=' + IntToStr(dac.dacSOD));
-          //i := portaudio.Pa_OpenStream(PPaStream(paOutStream),PPaStreamParameters(Nil),PPaStreamParameters(ppaOutParams),CTypes.cdouble(11025.0),CTypes.culong(0),TPaStreamFlags(0),PPaStreamCallback(@dac.dacCallback),Pointer(Self));
-          i := portaudio.Pa_OpenStream(PPaStream(paOutStream),PPaStreamParameters(Nil),PPaStreamParameters(ppaOutParams),CTypes.cdouble(11025.0),CTypes.culong(4096),TPaStreamFlags(0),PPaStreamCallback(@dac.dacCallback),Pointer(Self));
-          if i <> 0 Then
-          Begin
-               // Was unable to start TX stream.
-               ShowMessage('Unable to open PA TX Stream.' + sLineBreak + StrPas(portaudio.Pa_GetErrorText(i)));
-               Halt;
-          end;
-          i := portaudio.Pa_StartStream(paOutStream);
-          if i <> 0 Then
-          Begin
-               // Was unable to start TX stream.
-               ShowMessage('Unable to open PA TX Stream.' + sLineBreak + StrPas(portaudio.Pa_GetErrorText(i)));
-               Halt;
-          end;
-          afskTXOn := True;
-          didTX := True;
      end;
 
      // Prune decoder output display
@@ -3402,6 +3343,9 @@ Begin
           // db = (sLevel*0.4)-20
           adc.haveAU := False;
      end;
+
+     if spectrum.specNewSpec65 and not spectrum.spectrumComputing65 Then waterfall.repaint;
+
 end;
 
 procedure TForm1.specHeader;
@@ -5209,8 +5153,7 @@ begin
      if (i > 1100) or (i < -1100) Then
      Begin
           if i > 1100 Then i := 1000;
-          if i < -1100 Then i := -1000;
-          spinTXDF.Value := i;
+          if i < -1100 Then i := -1000;         spinTXDF.Value := i;
           edTXMsg.Text := '';
           thisTXMsg := '';
      end
@@ -5601,7 +5544,6 @@ Var
    //itone9dds     : Array[0..84] Of CTypes.cuint;
    //afsk          : CTypes.cint16;
    sm,ft,doit,cw : Boolean;
-   rebs          : Boolean;
    baseTX,f,f0   : CTypes.cdouble;
    phi,dphi      : CTypes.cdouble;
 begin
@@ -5756,10 +5698,6 @@ begin
           end;
      end;
 
-     // Debugging code
-     rebs := haveRebel;
-     haveRebel := False;
-
      if doit and haveRebel Then
      Begin
           // Generate FSK values
@@ -5793,11 +5731,11 @@ begin
           end;
           txDirty := True;  // Flag to force an update to the FSK TX
           txValid := True;
-          mgendf := IntToStr(txdf-clRebel.txOffset);
+          mgendf := IntToStr(txdf);
           { TODO : Done - LOOK at this - not sure why I do this.  Still not sure why - it doesn't seem to ever get called so I'm going to leave it as I may have thought of something before I'm missing now.}
-          if spinTXDF.Value <> txdf-clRebel.txOffset Then
+          if spinTXDF.Value <> txdf Then
           Begin
-               spinTXDF.Value := txdf-clRebel.txOffset;
+               spinTXDF.Value := txdf;
           end;
           // Display message to send in debug output
           cw := False;
@@ -5817,86 +5755,85 @@ begin
      end
      else
      begin
-          // Generate AFSK values
-          // tsyms holds the 63 TX symbols - will need to look at TXDF and current dial
-          // RX QRG to compute the true RF TX QRG list.  TXDF 0 = 1270.5 Hz so if dial
-          // is 14076.0 and TXDF = 0 then first tone (sync) will be at 14,077,270.5 Hz
-          // Then call rebelTuning(double f in hz) to get back an UINT32 tuning word
-          // for the AD9834.
-          //isyms         : Array[0..62] Of CTypes.cint;
-          //ssyms         : Array[0..62] Of String;
-          // So.... tone 0 (sync) = Dial QRG + 1270.5 + TXDF
-          baseTX   := 1270.5;
-          baseTX   := baseTX + txdf;  // This is the floating point value in Hz of the AFSK sync carrier (base frequency - data goes up from this)
-          // For this we clear the whole 128 and it's 128 because of way I pass FSK values to Rebel - it only uses 126 :)
-          for i := 0 to 127 do afskTones[i] := 0.0;
-          j := 0;
-          // Two passes - stuff sync then stuff data.
-          // Once I debug and am sure can try rolling it into one pass.
-          // Stuff the values - sync where SYNC65[i]=1 data where SYNC65[i]=0;
-          // NOTE for this it's 125 on qrgset - DONT'T bork this and do 127 :)
-          for i := 0 to 125 do if SYNC65[i]=1 Then afskTones[i] := baseTX;
-          for i := 0 to 125 do
-          begin
-               if SYNC65[i]=0 Then
-               Begin
-                    afskTones[i] := baseTX + (2.6917 * (tsyms[j]+2));
-                    inc(j); // Not to self - yes it generates nice 2 tone FSK if you leave this line out.
-               end;
-          end;
-
-          // Now have 126 AFSK values.  Generate a sample set for them.
-          phi  := 0.0;
-          dphi := 0.0;
-          k := 0;
-          for k := 0 to 11025 do d65txbuffer[i] := 0; // Testing something
-          for i := 0 to 125 do
-          begin
-               f0 := afskTones[i];  // Starting frequency in Hz
-               f := f0;
-               dphi := (pi()*2)* (1/11025.0) * f;
-               for j := 0 to 4095 do
+          if not afskTXOn Then
+          Begin
+               // Generate AFSK values
+               // tsyms holds the 63 TX symbols - will need to look at TXDF and current dial
+               // RX QRG to compute the true RF TX QRG list.  TXDF 0 = 1270.5 Hz so if dial
+               // is 14076.0 and TXDF = 0 then first tone (sync) will be at 14,077,270.5 Hz
+               // Then call rebelTuning(double f in hz) to get back an UINT32 tuning word
+               // for the AD9834.
+               //isyms         : Array[0..62] Of CTypes.cint;
+               //ssyms         : Array[0..62] Of String;
+               // So.... tone 0 (sync) = Dial QRG + 1270.5 + TXDF
+               baseTX   := 1270.5;
+               baseTX   := baseTX + txdf;  // This is the floating point value in Hz of the AFSK sync carrier (base frequency - data goes up from this)
+               // For this we clear the whole 128 and it's 128 because of way I pass FSK values to Rebel - it only uses 126 :)
+               for i := 0 to 127 do afskTones[i] := 0.0;
+               j := 0;
+               // Two passes - stuff sync then stuff data.
+               // Once I debug and am sure can try rolling it into one pass.
+               // Stuff the values - sync where SYNC65[i]=1 data where SYNC65[i]=0;
+               // NOTE for this it's 125 on qrgset - DONT'T bork this and do 127 :)
+               for i := 0 to 125 do if SYNC65[i]=1 Then afskTones[i] := baseTX;
+               for i := 0 to 125 do
                begin
-                    phi  := phi+dphi;
-                    d65txBuffer[k] := Round(512.0 * sin(phi)); // 32767 WILL be replaced by a variable to control peak level
-                    inc(k);
+                    if SYNC65[i]=0 Then
+                    Begin
+                         afskTones[i] := baseTX + (2.6917 * (tsyms[j]+2));
+                         inc(j); // Not to self - yes it generates nice 2 tone FSK if you leave this line out.
+                    end;
                end;
-          end;
-          for k := k to length(d65txBuffer)-1 do d65txBuffer[k] := 0;
-          // Remainder of buffer is silence.
-          // Cut off (dacEOD) = first even dividable point after 516096 (actually 516096 is good but need some lead out)
-          dac.dacSOD := 0;  // Where to start TX samples
-          dac.dacEOD := 518144; // This cuts it off on a multiple of 2048 samples
 
-          txDirty := True;  // Flag to force an update to the TX
-          txValid := True;
-          mgendf := IntToStr(txdf-clRebel.txOffset);
+               // Now have 126 AFSK values.  Generate a sample set for them.
+               phi  := 0.0;
+               dphi := 0.0;
+               k := 0;
+               for k := 0 to 11025 do d65txbuffer[i] := 0; // Testing something
+               for i := 0 to 125 do
+               begin
+                    f0 := afskTones[i];  // Starting frequency in Hz
+                    f := f0;
+                    dphi := (pi()*2)* (1/11025.0) * f;
+                    for j := 0 to 4095 do
+                    begin
+                         phi  := phi+dphi;
+                         d65txBuffer[k] := Round(512.0 * sin(phi)); // 32767 WILL be replaced by a variable to control peak level
+                         inc(k);
+                    end;
+               end;
+               for k := k to length(d65txBuffer)-1 do d65txBuffer[k] := 0;
+               // Remainder of buffer is silence.
+               // Cut off (dacEOD) = first even dividable point after 516096 (actually 516096 is good but need some lead out)
+               dac.dacSOD := 0;  // Where to start TX samples
+               dac.dacEOD := 518144; // This cuts it off on a multiple of 2048 samples
 
-          { TODO : Done - LOOK at this - not sure why I do this.  Still not sure why - it doesn't seem to ever get called so I'm going to leave it as I may have thought of something before I'm missing now.}
-          if spinTXDF.Value <> txdf-clRebel.txOffset Then
-          Begin
-               spinTXDF.Value := txdf-clRebel.txOffset;
-          end;
+               txDirty := True;  // Flag to force an update to the TX
+               txValid := True;
+               mgendf := IntToStr(txdf-clRebel.txOffset);
 
-          // Display message to send in debug output
-          cw := False;
-          if rbCWIDFree.Checked and ft Then
-          Begin
-               cw := True;
-          end
-          else if rbCWID73.Checked and (ft or sm) Then
-          begin
-               cw := True;
+               // Display message to send in debug output
+               cw := False;
+               if rbCWIDFree.Checked and ft Then
+               Begin
+                    cw := True;
+               end
+               else if rbCWID73.Checked and (ft or sm) Then
+               begin
+                    cw := True;
+               end
+               else
+               begin
+                    cw := False;
+               end;
+               if cw Then Memo2.Append('Msg: ' + TrimLeft(TrimRight(thisTXMsg)) + ' @ ' + FormatFloat('########.0',baseTX) + ' Hz (Sync) + CWID') else Memo2.Append('Msg: ' + TrimLeft(TrimRight(thisTXMsg)) + ' @ ' + FormatFloat('########.0',baseTX) + ' Hz (Sync)');
           end
           else
           begin
-               cw := False;
+               // Can't update a message while in TX
+               listBox2.Items.Insert(0,'New message pending while TX in progress.');
           end;
-          if cw Then Memo2.Append('Msg: ' + TrimLeft(TrimRight(thisTXMsg)) + ' @ ' + FormatFloat('########.0',baseTX) + ' Hz (Sync) + CWID') else Memo2.Append('Msg: ' + TrimLeft(TrimRight(thisTXMsg)) + ' @ ' + FormatFloat('########.0',baseTX) + ' Hz (Sync)');
      end;
-
-     // Debugging code
-     haveRebel := rebs;
 end;
 
 function TForm1.genSigRep(var s : String) : Boolean;
@@ -7169,11 +7106,15 @@ end;
 procedure rigComThread.Execute;
 Var
    k : CTypes.cuint;
+   v : Boolean = false;
+   i : Integer;
+   c1,c2,c3  : Array[0..125] of String;
 Begin
      while not Terminated and not Suspended do
      begin
           if runRig Then
           Begin
+               threadRigResult := False;
                //rigP1,rigP2    : String = ''; // Parameters passed to rig control thread
                //rigP3,rigP4    : String = ''; // Parameters passed to rig control thread
                //rigP5,rigP6    : String = ''; // Parameters passed to rig control thread
@@ -7190,6 +7131,109 @@ Begin
                     clRebel.docwid(rigP2,k);
                     rigCommand := '';
                     sendingCWID := False;
+               end
+               else if rigCommand = 'rebPoll' Then
+               Begin
+                    If (not clRebel.busy) and (not clRebel.txStat) Then
+                    Begin
+                         if clRebel.poll then
+                         begin
+                              threadDialQRG := IntToStr(Round(clRebel.qrg));
+                              threadRigResult := True;
+                              readQRG := False;
+                              setQRG := False;
+                         end
+                         else
+                         begin
+                              // poll failed
+                              threadDialQRG := '';
+                              threadRigResult := False;
+                              readQRG := True;
+                              setQRG := False;
+                         end;
+                    end;
+               end
+               else if rigCommand = 'rebQSY' Then
+               Begin
+                    if clRebel.setQRG Then
+                    Begin
+                         if clRebel.poll Then
+                         Begin
+                              threadDialQRG := IntToStr(Round(clRebel.qrg));
+                              threadRigResult := True;
+                              threadRigQSY    := True;
+                              readQRG := false;
+                              setQRG := false;
+                         end
+                         else
+                         begin
+                              setQRG := true;
+                              threadRigResult := false;
+                              threadRigQSY    := false;
+                         end;
+                    End
+                    else
+                    Begin
+                         readQRG := False;
+                         setQRG := true;
+                         threadRigResult := false;
+                         threadRigQSY    := false;
+                    end;
+
+               end
+               else if rigCommand = 'rebFSK' Then
+               Begin
+                    threadFSKPending := True;
+                    v := false;
+                    // FSK uploader
+                    // A valid message is awaiting upload to Rebel
+                    // Load it into the class data buffer
+                    if (not clRebel.txStat) and (not clRebel.busy) Then
+                    Begin
+                         for i := 0 to 127 do clRebel.setData(i,StrToInt(qrgset[i]));
+                         if not clRebel.ltx then v := False else v := True;
+                         //
+                         // clRebel.debug holds the symbols sent
+                         // clRebel.dumptx holds the symbols read back
+                         // qrgset[0..125] holds the calculated
+                         // All 3 need to match.
+                         for i := 0 to 125 do
+                         begin
+                              c1[i] := '0';
+                              c2[i] := '0';
+                              c3[i] := qrgset[i];
+                         end;
+                         // Break debug set into array first.
+                         if wordcount(clRebel.debug,[',']) > 126 Then
+                         Begin
+                              for i := 3 to wordcount(clRebel.debug,[','])-2 do c1[i-3] := ExtractWord(i,clRebel.debug,[',']);
+                         end;
+                         if wordcount(clRebel.dumptx,[',']) > 126 Then
+                         Begin
+                              for i := 3 to wordcount(clRebel.debug,[','])-2 do c2[i-3] := ExtractWord(i,clRebel.debug,[',']);
+                         end;
+                         //v := true;
+                         for i := 0 to 125 do
+                         begin
+                              if (c1[i]=c2[i]) and (c2[i]=c3[i]) Then
+                              Begin
+                                   // all good
+                              end
+                              else
+                              begin
+                                   v := false;
+                              end;
+                         end;
+                         if not v then
+                         Begin
+                              txDirty := True;
+                         end
+                         else
+                         begin
+                              txDirty := False;
+                         end;
+                    end;
+                    threadFSKPending := False;
                end;
                runRig := False;
           end;
@@ -12570,12 +12614,14 @@ function TForm1.lateTXOffset : Integer;
 Var
    msoff : Integer;
    msidx : Double;
+   lUTC  : TSystemTime;
 Begin
      result := 0;
      // I need to look at current second and millisecond getting as close to current
      // symbol that would be transmitting had I started on time.
-     msoff := ((ThisUTC.Second * 1000) + ThisUTC.Millisecond)-1000;  // Remember we start at second = 1 thus -1000
-     if msoff > 15000 then
+     lUTC := utcTime;
+     msoff := ((lUTC.Second * 1000) + lUTC.Millisecond)-1000;  // Remember we start at second = 1 thus -1000
+     if (msoff > 20500) or (msoff < 0) then
      begin
           result := -1;
      end

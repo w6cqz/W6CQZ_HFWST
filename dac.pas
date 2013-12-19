@@ -39,7 +39,10 @@ Begin
           dacFirst := False;
      end;
      inc(dacTick);
-     if dacRunning Then inc(dacECount);
+     if dacRunning Then
+     Begin
+          inc(dacECount);
+     end;
      dacRunning := True;
      optr := output;
      if dacTXOn Then
