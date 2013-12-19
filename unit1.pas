@@ -450,6 +450,8 @@ type
     function  isFText(c : String) : Boolean;
     function  getLocalGrid : String;
     function  messageParser(const ex : String; var nc1t : String; var pfx : String; var sfx : String; var nc2t : String; var ng : String; var sh : String; var proto : String) : Boolean;
+    function  canTX : Boolean;
+    procedure warnCheck;
 
     procedure v1DecomposeDecode(const exchange    : String;
                                 const connectedTo : String;
@@ -472,6 +474,7 @@ type
     procedure rebelCheck;
     procedure guiCheck;
     procedure rbCheck;
+    procedure txWatch;
 
     procedure genTX(const msg : String; const txdf : Integer);
     function  rebelTuning(const f : Double) : CTypes.cuint;
@@ -589,7 +592,6 @@ var
   savedTDAC      : String;
   savedIDAC      : Integer;
   txperiod       : Integer; // 1 = Odd 0 = Even
-  canTX          : Boolean; // Only true if callsign and grid is ok
   txDirty        : Boolean; // TX Message content has not been queued since generation if true
   txValid        : Boolean; // TX Message is generated and valid or not
   couldTX        : Boolean; // If one could TX this period (it matches even/odd selection)
@@ -1827,8 +1829,6 @@ Begin
                if i>0 then
                begin
                     clRebel.port := 'COM'+TrimLeft(TrimRight(edPort.Text));
-                    //ShowMessage('Connecting to Rebel on ' + clRebel.port + ' at ' + IntToStr(clRebel.baud) + ' baud' + sLineBreak + 'Please insure Rebel is connected and loaded with proper firmware.');
-                    lbDecodes.Items.Insert(0,'Notice:  Connecting to Rebel');
                     if clRebel.connect Then
                     Begin
                          // We're connected need to see if there's a Rebel on the other side
@@ -1837,14 +1837,12 @@ Begin
                               // Sure enough seem to have one
                               if not clRebel.busy Then clRebel.poll; // Read the Rebel's config
                               r := True;
-                              lbDecodes.Clear;
                               ListBox2.Items.Insert(0,'Connected to Rebel');
                          end
                          else
                          begin
                               r := False;
                               rigNone.Checked := True;
-                              lbDecodes.Items.Insert(0,'Notice:  Rebel no response.');
                               //ShowMessage('Rebel did not respond at command port' + sLineBreak + 'Please check configuration.');
                          end;
                     end
@@ -1852,14 +1850,12 @@ Begin
                     begin
                          r := False;
                          rigNone.Checked := True;
-                         lbDecodes.Items.Insert(0,'Notice:  Rebel COM port busy.');
                     end;
                end
                else
                begin
                     r := False;
                     rigNone.Checked := True;
-                    lbDecodes.Items.Insert(0,'Notice:  Rebel bad COM port value.');
                end;
           end;
      end
@@ -1867,7 +1863,6 @@ Begin
      begin
           r := False;
           rigNone.Checked := True;
-          lbDecodes.Items.Insert(0,'Notice:  Rebel bad COM port value.');
      end;
 
      if r Then
@@ -2142,6 +2137,32 @@ var
    ff,dta  : Double;
    adjtime : Boolean;
 Begin
+     if threadFSKPending Then
+     Begin
+          // Disable stacking messages to FSK generator while it's busy uploading
+          // to Rebel in thread.
+          buttonXferMacro.Enabled := False;
+          bCQ.Enabled := False;
+          bReport.Enabled := False;
+          bRRR.Enabled := False;
+          bACQ.Enabled := False;
+          bRReport.Enabled := False;
+          b73.Enabled := False;
+          bQRZ.Enabled := False;
+          // Also disable double clicking decoder outputs.
+     end
+     else
+     begin
+          buttonXferMacro.Enabled := True;
+          bCQ.Enabled := True;
+          bReport.Enabled := True;
+          bRRR.Enabled := True;
+          bACQ.Enabled := True;
+          bRReport.Enabled := True;
+          b73.Enabled := True;
+          bQRZ.Enabled := True;
+          // Also enable double clicking decoder outputs.
+     end;
      if spinRXDF.Value < -1100 Then spinRXDF.Value := -1000;
      if spinRXDF.Value > 1100 Then spinRXDF.Value := 1000;
      if spinTXDF.Value < -1100 Then spinTXDF.Value := -1000;
@@ -2452,15 +2473,110 @@ Begin
      end;
 end;
 
+function TForm1.canTX : Boolean;
+Var
+   valid,g : Boolean;
+   i       : Integer;
+Begin
+     // canTX is based upon having valid callsign and grid in config & valid message ready to send
+     valid := True;
+     // Validate prefix (if present)
+     if length(edPrefix.Text)>0 Then
+     Begin
+          // V2 support check
+          //if not mval.evalPrefix(edPrefix.Text) Then
+          //Begin
+               //ShowMessage('Invalid prefix.' + sLineBreak + 'Must be no more than 4 characters' + sLineBreak + 'of letters A to Z and/or numerals 0 to 9' + sLineBreak +'TX is disabled.');
+               //canTX := False;
+          //end;
+          g := False;
+          for i := 0 to Length(V1PREFIX)-1 do
+          begin
+               if V1PREFIX[i] = edPrefix.Text Then
+               begin
+                    g := True;
+                    break;
+               end;
+          end;
+          if not g then valid := g;
+     end;
+     // Validate suffix (if present)
+     if length(edSuffix.Text)>0 Then
+     Begin
+          // V2 Suffix check
+          //if not mval.evalSuffix(edSuffix.Text) Then
+          //Begin
+               //ShowMessage('Invalid suffix.' + sLineBreak + 'Must be no more than 3 characters' + sLineBreak + 'of letters A to Z and/or numerals 0 to 9' + sLineBreak +'TX is disabled.');
+               //canTX := False;
+          //end;
+          g := False;
+          for i := 0 to Length(V1SUFFIX)-1 do
+          begin
+               if V1SUFFIX[i] = edSuffix.Text Then
+               begin
+                    g := True;
+                    break;
+               end;
+          end;
+          if not g then valid := g;
+     end;
+     // Check for prefix and suffix set (prefix wins)
+     if (length(edPrefix.Text)>0) and (length(edSuffix.Text)>0) Then edSuffix.Text := '';
+     // Validate prefix (if present)
+     if length(edPrefix.Text)>0 Then if not isV1Call(edPrefix.Text + '/' + edCall.Text) Then valid := False;
+     // Validate suffix (if present)
+     if length(edSuffix.Text)>0 Then if not isV1Call(edCall.Text + '/' + edSuffix.Text) Then valid := False;
+     // Validate callsign
+     if not mval.evalCSign(edCall.Text) Then valid := False;
+     // Validate grid
+     if not mval.evalGrid(edGrid.Text) Then valid := False;
+     if (not isSText(edTXMsg.Text)) or (not isFText(edTXMsg.Text)) Then valid := False;
+     if threadFSKPending Then valid := false;
+     result := valid;
+end;
+
+procedure TForm1.txWatch;
+var
+   i : Integer;
+Begin
+     // Check for repeat TX and case of exceeding watchdog counter for runaway TX
+     if txOn and (lastTXMsg = thisTXmsg) Then
+     Begin
+          inc(sameTXCount);
+          i := -1;
+          if tryStrToInt(edTXWD.Text,i) Then
+          Begin
+               if i > 0 Then
+               Begin
+                    if sameTXCount > i Then
+                    Begin
+                         txOn := False;
+                         lastTXMsg := '';
+                         sameTXCount := 0;
+                         lbDecodes.Items.Insert(0,'Notice: Same TX Message ' + edTXWD.Text + ' times.  TX is OFF');
+                    end;
+               end
+               else
+               begin
+                    txOn := txOn;
+                    lastTXMsg := lastTXMsg;
+                    sameTXCount := 0;
+               end;
+          end;
+     end
+     else
+     begin
+          lastTXMsg := thisTXmsg;
+          sameTXCount := 0;
+     end;
+end;
+
 procedure TForm1.OncePerTick;
 Var
    i       : Integer;
-   valid   : Boolean;
    ent,exi : TDateTime;
    tspan   : Double;
 Begin
-     // Tracking time spent here and the result is using more time than I'm
-     // comfortable with.  Around 70 ms!
      tspan := 0.0;
      ent := Now;
 
@@ -2500,27 +2616,12 @@ Begin
      begin
           qsycount := 0;
      end;
-     // canTX is based upon having valid callsign and grid in config & valid message ready to send
-     valid := True;
-     // Check for prefix and suffix set (prefix wins)
-     if (length(edPrefix.Text)>0) and (length(edSuffix.Text)>0) Then edSuffix.Text := '';
-     // Validate prefix (if present)
-     if length(edPrefix.Text)>0 Then if not isV1Call(edPrefix.Text + '/' + edCall.Text) Then valid := False;
-     // Validate suffix (if present)
-     if length(edSuffix.Text)>0 Then if not isV1Call(edCall.Text + '/' + edSuffix.Text) Then valid := False;
-     // Validate callsign
-     if not mval.evalCSign(edCall.Text) Then valid := False;
-     // Validate grid
-     if not mval.evalGrid(edGrid.Text) Then valid := False;
-     if (not isSText(edTXMsg.Text)) or (not isFText(edTXMsg.Text)) Then valid := False;
-     canTX := valid;
+
      // Check to see if a message is pending for AFSK
      if (not haveRebel) and canTX and txValid and txDirty Then
      Begin
           txDirty := False;
      end;
-
-     if threadFSKPending Then canTX := False else canTX := canTX;
 
      // Brute force remove kvasd.dat if it gets left over
      If not d65.glinprog Then
@@ -2592,7 +2693,7 @@ Begin
      if (thisSecond < 16) and not clRebel.txStat and not txEnabled Then
      Begin
           // Honoring Rebel being in TX already so it doesn't cancel TX if you clear the message buffer
-          if txValid and not txDirty then canTX := True;
+          //if txValid and not txDirty then canTX := True;
           if not canTX and not clRebel.txStat then txOn := False;
 
           // Enable TX if necessary
@@ -2643,30 +2744,6 @@ Begin
                i := Round((adj/1000.0) / (1.0/11025.0));
                adj := i;
                if adj < 0 then adj := 0;
-               // Check for repeat TX and case of exceeding watchdog counter for runaway TX
-               if lastTXMsg = thisTXmsg Then
-               Begin
-                    inc(sameTXCount);
-                    i := -1;
-                    if tryStrToInt(edTXWD.Text,i) Then
-                    Begin
-                         if i > 0 Then
-                         Begin
-                              if sameTXCount > i-1 Then
-                              Begin
-                                   txOn := False;
-                                   lastTXMsg := '';
-                                   sameTXCount := 0;
-                                   lbDecodes.Items.Insert(0,'Notice: Same TX Message ' + edTXWD.Text + ' times.  TX is OFF');
-                              end;
-                         end;
-                    end;
-               end
-               else
-               begin
-                    lastTXMsg := thisTXmsg;
-                    sameTXCount := 0;
-               end;
                if txOn Then
                Begin
                     // PTT on
@@ -2741,30 +2818,6 @@ Begin
           // We see TX has been requested.
           // Now - we need to turn it on - First with the simple on time case
 
-          // Check for repeat TX and case of exceeding watchdog counter for runaway TX
-          if lastTXMsg = thisTXmsg Then
-          Begin
-               inc(sameTXCount);
-               i := -1;
-               if tryStrToInt(edTXWD.Text,i) Then
-               Begin
-                    if i > 0 Then
-                    Begin
-                         if sameTXCount > i-1 Then
-                         Begin
-                              txOn := False;
-                              lastTXMsg := '';
-                              sameTXCount := 0;
-                              lbDecodes.Items.Insert(0,'Notice: Same TX Message ' + edTXWD.Text + ' times.  TX is OFF');
-                         end;
-                    end;
-               end;
-          end
-          else
-          begin
-               lastTXMsg := thisTXmsg;
-               sameTXCount := 0;
-          end;
           if txOn Then
           Begin
                // PTT on
@@ -3239,6 +3292,8 @@ Begin
      exi := Now;
      tspan := MilliSecondSpan(ent,exi);
      if tspan > 95.0 Then Memo2.Append('Once per second time:  ' + FormatFloat('00',tspan) + ' ms');
+     // Checks for TX count of same message
+     if (thisSecond=55) and (lastSecond=54) Then txWatch;
 end;
 
 procedure TForm1.OncePerMinute;
@@ -3288,6 +3343,8 @@ Begin
 end;
 
 procedure TForm1.adcdacTick;
+var
+   lUTC  : TSystemTime;
 Begin
      // Events triggered from ADC/DAC callback counter change
      // Compute spectrum and audio levels. Be careful here each tick
@@ -3343,8 +3400,13 @@ Begin
           // db = (sLevel*0.4)-20
           adc.haveAU := False;
      end;
-
-     if spectrum.specNewSpec65 and not spectrum.spectrumComputing65 Then waterfall.repaint;
+     // Avoid time consuming spectrum computation from second = 59 to new minute second = 2 so it
+     // doesn't delay things on the high resolution tick loop.
+     lUTC := utcTime;
+     if (lUTC.Second > 1) and (lUTC.Second < 59) Then
+     Begin
+          if spectrum.specNewSpec65 and not spectrum.spectrumComputing65 Then waterfall.repaint;
+     end;
 
 end;
 
@@ -4771,7 +4833,6 @@ end;
 function TForm1.txControl : Boolean;
 Var
   t1,t2 : Boolean;
-  foo   : String;
 Begin
      // Call this to see if you can TX at top of new minute.  Idea is to put ALL the logic for
      // being sure you can TX in O N E spot.
@@ -4795,38 +4856,12 @@ Begin
                // Correct minute to TX - check message
                if isStext(edTXMsg.Text) or isFText(edTXMsg.Text) Then t1 := true else t1 := false;
           end;
-          if t1 Then
-          Begin
-               // Message is valid.  Check callsign and grid
-               t1 := true;
-               if not isCallsign(edCall.Text) then
-               Begin
-                    t1 := False;
-               end;
-               If Length(edPrefix.Text)> 1 Then
-               Begin
-                    if not isV1Call(edPrefix.Text + '/' + edCall.Text) then
-                    Begin
-                         t1 := False;
-                    end;
-               end;
-               If Length(edSuffix.Text)> 1 Then
-               Begin
-                    if not isV1Call(edCall.Text + '/' + edSuffix.Text) then
-                    Begin
-                         t1 := False;
-                    end;
-               end;
-               if length(edGrid.Text)> 4 Then foo := edGrid.Text[1..4] else foo := edGrid.Text;
-               if not isGrid(foo) then
-               Begin
-                    t1 := False;
-               end;
-          end;
+          // Checks for proper callsign and grid data using canTX
+          if t1 and canTX then t1 := true else t1 := False;
+          if txDirty then t1 := False; // Message has not been uploaded to Rebel or set valid for AFSK
+          if not txValid then t1 := False; // txValid is set true by mgen when a valid message is in place
+          if rigRebel.Checked and (not haveRebel) Then t1 := False; // Can't use Rebel TX if Rebel isn't here
      end;
-     if txDirty then t1 := False; // Message has not been uploaded to Rebel
-     if not txValid then t1 := False; // txValid is set true by mgen when a valid message is in place
-     if rigRebel.Checked and (not haveRebel) Then t1 := False; // Can't use Rebel TX if Rebel isn't here
      result := t1;
 end;
 
@@ -4844,7 +4879,7 @@ Var
   sdb, sdf  : String;
   ansCQ     : Boolean = false;
 begin
-     i := lbDecodes.ItemIndex;
+     if threadFSKPending Then i := -1 else i := lbDecodes.ItemIndex; // Disable message stacking while FSK uploader is busy
      if i > -1 Then
      Begin
           // Get the decode to parse
@@ -6167,7 +6202,7 @@ Var
   sdb, sdf  : String;
   ansCQ     : Boolean = false;
 begin
-     i := lbFastDecode.ItemIndex;
+     if threadFSKPending Then i := -1 else i := lbDecodes.ItemIndex; // Disable message stacking while FSK uploader is busy
      if i > -1 Then
      Begin
           // Get the decode to parse
@@ -6888,10 +6923,73 @@ begin
      cfgShowing           := True;
 end;
 
-procedure TForm1.Button4Click(Sender: TObject);
+procedure TForm1.warnCheck;
 var
-   i : Integer;
-   g : Boolean;
+   g : boolean;
+   i : integer;
+Begin
+     // Validate prefix (if present)
+     if length(edPrefix.Text)>0 Then
+     Begin
+          // V2 support check
+          //if not mval.evalPrefix(edPrefix.Text) Then
+          //Begin
+               //ShowMessage('Invalid prefix.' + sLineBreak + 'Must be no more than 4 characters' + sLineBreak + 'of letters A to Z and/or numerals 0 to 9' + sLineBreak +'TX is disabled.');
+               //canTX := False;
+          //end;
+          g := False;
+          for i := 0 to Length(V1PREFIX)-1 do
+          begin
+               if V1PREFIX[i] = edPrefix.Text Then
+               begin
+                    g := True;
+                    break;
+               end;
+          end;
+          if not g then
+          begin
+               ShowMessage('Invalid prefix.' + sLineBreak + 'Not in JT65V1 prefix table' + 'Please remove invalid prefix to enable TX');
+          end;
+     end;
+
+     // Validate callsign
+     if not mval.evalCSign(edCall.Text) Then
+     Begin
+          ShowMessage('Invalid callsign.' + sLineBreak + 'Must be no more than 6 characters' + sLineBreak + 'of letters A to Z and/or numerals 0 to 9' + sLineBreak +'TX is disabled.' + sLineBreak + 'See manual for valid forms of callsigns in JT65 protocol.');
+     end;
+
+     // Validate suffix (if present)
+     if length(edSuffix.Text)>0 Then
+     Begin
+          // V2 Suffix check
+          //if not mval.evalSuffix(edSuffix.Text) Then
+          //Begin
+               //ShowMessage('Invalid suffix.' + sLineBreak + 'Must be no more than 3 characters' + sLineBreak + 'of letters A to Z and/or numerals 0 to 9' + sLineBreak +'TX is disabled.');
+               //canTX := False;
+          //end;
+          g := False;
+          for i := 0 to Length(V1SUFFIX)-1 do
+          begin
+               if V1SUFFIX[i] = edSuffix.Text Then
+               begin
+                    g := True;
+                    break;
+               end;
+          end;
+          if not g then
+          begin
+               ShowMessage('Invalid suffix.' + sLineBreak + 'Not in JT65V1 suffix table' + 'Please remove invalid suffix to enable TX');
+          end;
+     end;
+
+     // Validate grid
+     if not mval.evalGrid(edGrid.Text) Then
+     Begin
+          showmessage('The entered grid square is not valid' + sLineBreak + 'TX is disabled.');
+     end;
+end;
+
+procedure TForm1.Button4Click(Sender: TObject);
 begin
      edCall.Text := UpCase(TrimLeft(TrimRight(edCall.Text)));
      edPrefix.Text := UpCase(TrimLeft(TrimRight(edPrefix.Text)));
@@ -6919,70 +7017,7 @@ begin
           edGrid.Text := '';
      end;
 
-     // Validate prefix (if present)
-     canTX := True;
-     if length(edPrefix.Text)>0 Then
-     Begin
-          // V2 support check
-          //if not mval.evalPrefix(edPrefix.Text) Then
-          //Begin
-               //ShowMessage('Invalid prefix.' + sLineBreak + 'Must be no more than 4 characters' + sLineBreak + 'of letters A to Z and/or numerals 0 to 9' + sLineBreak +'TX is disabled.');
-               //canTX := False;
-          //end;
-          g := False;
-          for i := 0 to Length(V1PREFIX)-1 do
-          begin
-               if V1PREFIX[i] = edPrefix.Text Then
-               begin
-                    g := True;
-                    break;
-               end;
-          end;
-          if not g then
-          begin
-               ShowMessage('Invalid prefix.' + sLineBreak + 'Not in JT65V1 prefix table' + 'Please remove invalid prefix to enable TX');
-               canTX := False;
-          end;
-     end;
-
-     // Validate callsign
-     if not mval.evalCSign(edCall.Text) Then
-     Begin
-          ShowMessage('Invalid callsign.' + sLineBreak + 'Must be no more than 6 characters' + sLineBreak + 'of letters A to Z and/or numerals 0 to 9' + sLineBreak +'TX is disabled.' + sLineBreak + 'See manual for valid forms of callsigns in JT65 protocol.');
-          canTX := False;
-     end;
-
-     // Validate suffix (if present)
-     if length(edSuffix.Text)>0 Then
-     Begin
-          // V2 Suffix check
-          //if not mval.evalSuffix(edSuffix.Text) Then
-          //Begin
-               //ShowMessage('Invalid suffix.' + sLineBreak + 'Must be no more than 3 characters' + sLineBreak + 'of letters A to Z and/or numerals 0 to 9' + sLineBreak +'TX is disabled.');
-               //canTX := False;
-          //end;
-          g := False;
-          for i := 0 to Length(V1SUFFIX)-1 do
-          begin
-               if V1SUFFIX[i] = edSuffix.Text Then
-               begin
-                    g := True;
-                    break;
-               end;
-          end;
-          if not g then
-          begin
-               ShowMessage('Invalid suffix.' + sLineBreak + 'Not in JT65V1 suffix table' + 'Please remove invalid suffix to enable TX');
-               canTX := False;
-          end;
-     end;
-
-     // Validate grid
-     if not mval.evalGrid(edGrid.Text) Then
-     Begin
-          canTX := False;
-          showmessage('The entered grid square is not valid' + sLineBreak + 'TX is disabled.');
-     end;
+     warnCheck;
 
      updateDB;
      Waterfall.Visible    := True;

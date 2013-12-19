@@ -40,7 +40,7 @@ implementation
      i,j       : Integer;
   begin
        if spectrum.specNewSpec65 and not delayed Then counter := 30;
-       if counter > 29 Then
+       if counter > 7 Then
        Begin
             if not spectrum.spectrumComputing65 Then
             Begin
