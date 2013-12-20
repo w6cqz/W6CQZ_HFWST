@@ -6,6 +6,7 @@
 { TODO : Enhance macro editor }
 { TODO : Add back save receptions to CSV option }
 { TODO : Add worked call tracking taking into consideration call, band and grid. }
+{ TODO : Have Rebel picture show TX during CW ID }
 
 {
 (Far) Less urgent
@@ -59,7 +60,7 @@ uses
   spot, BufDataset, sqlite3conn, sqldb, valobject, rebel, d65, LResources, Spin,
   blcksock, gettext, dateutils;
 Const
-  PVERSION = '0.94'; // Label20 is program name/version as in; HFWST by W6CQZ v0.94 - Phoenix
+  PVERSION = '0.95'; // Label20 is program name/version as in; HFWST by W6CQZ v0.94 - Phoenix
   PRELEASE = 'Phoenix';
 
   JT_DLL = 'JT65v392.dll';
@@ -665,6 +666,8 @@ var
   threadFSKPending : Boolean = false;
   rebImage         : Integer = 0;  // Keeps track of eye candy for Rebel
   trxImage         : Integer = 0;
+  hangtime         : Double = 0.0; // Using this to track time in a thread
+  threadEnter      : TDateTime;
 
 
 implementation
@@ -2143,7 +2146,6 @@ Begin
           if (not clRebel.txStat) and (not clRebel.busy) Then
           Begin
                // Threaded rebel FSK uploader setup.
-               threadFSKPending := True;
                rigCommand := 'rebFSK';
                runRig := True;
           end;
@@ -2660,6 +2662,17 @@ Var
 Begin
      tspan := 0.0;
      ent := Now;
+
+
+     if threadFSKPending Then hangtime := hangtime + MilliSecondSpan(threadEnter,now);
+     if hangtime > 1000.0 Then
+     Begin
+          showmessage('Error - FSK uploader is stuck > 800 ms');
+     end
+     else
+     begin
+          hangtime := 0.0;
+     end;
 
      // Runs on each timer tick
      thisUTC     := utcTime;
@@ -7313,6 +7326,8 @@ Begin
      begin
           if runRig Then
           Begin
+               hangtime:= 0.0; // Using this to track time in a thread
+               threadEnter := now;
                threadRigResult := False;
                //rigP1,rigP2    : String = ''; // Parameters passed to rig control thread
                //rigP3,rigP4    : String = ''; // Parameters passed to rig control thread

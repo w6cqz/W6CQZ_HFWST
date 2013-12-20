@@ -849,8 +849,6 @@ Begin
 end;
 
 function TRebel.doCWID(pCWID : String; pQRG : CTypes.cuint) : Boolean;
-Var
-     foo : String;
 Begin
      // FFS!  The CW library on Rebel mandates CWID string be L O W E R case.
      prBusy := True;
@@ -870,21 +868,18 @@ Begin
                end
                else
                Begin
-                    foo := prResponse;
                     Result := False;
                     prError := 'CW ID fails';
                end;
           end
           else
           begin
-               foo := prResponse;
                result := False;
                prError := 'Command timeout CW ID';
           end;
      end
      else
      begin
-          foo := prResponse;
           result := False;
           prError := 'Bad CWID String';
      end;
