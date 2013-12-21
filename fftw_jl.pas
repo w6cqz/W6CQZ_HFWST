@@ -1,4 +1,3 @@
-// (c) 2013 CQZ Electronics
 unit fftw_jl;
 
 {$mode objfpc}{$H+}

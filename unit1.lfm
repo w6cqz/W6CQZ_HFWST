@@ -16,6 +16,27 @@ object Form1: TForm1
   OnClose = FormClose
   OnCreate = FormCreate
   LCLVersion = '1.0.12.0'
+  object ListBox2: TListBox
+    AnchorSideRight.Control = Owner
+    AnchorSideRight.Side = asrBottom
+    AnchorSideBottom.Control = Owner
+    AnchorSideBottom.Side = asrBottom
+    Left = 960
+    Height = 331
+    Top = 0
+    Width = 0
+    Anchors = [akTop, akLeft, akRight]
+    BorderSpacing.Top = 5
+    BorderSpacing.Right = 10
+    BorderSpacing.Bottom = 5
+    Font.Height = -11
+    Font.Name = 'Arial'
+    ItemHeight = 0
+    OnDblClick = ListBox2DblClick
+    ParentFont = False
+    TabOrder = 1
+    TabStop = False
+  end
   object groupLogQSO: TGroupBox
     AnchorSideTop.Control = Owner
     Left = 152
@@ -298,27 +319,6 @@ object Form1: TForm1
     TabOrder = 10
     TabStop = False
   end
-  object ListBox2: TListBox
-    AnchorSideRight.Control = Owner
-    AnchorSideRight.Side = asrBottom
-    AnchorSideBottom.Control = Owner
-    AnchorSideBottom.Side = asrBottom
-    Left = 960
-    Height = 331
-    Top = 5
-    Width = 0
-    Anchors = [akTop, akLeft, akRight]
-    BorderSpacing.Top = 5
-    BorderSpacing.Right = 10
-    BorderSpacing.Bottom = 5
-    Font.Height = -11
-    Font.Name = 'Arial'
-    ItemHeight = 0
-    OnDblClick = ListBox2DblClick
-    ParentFont = False
-    TabOrder = 1
-    TabStop = False
-  end
   object Label20: TLabel
     AnchorSideRight.Control = Image1
     AnchorSideRight.Side = asrBottom
@@ -334,15 +334,6 @@ object Form1: TForm1
     Font.Style = [fsBold]
     ParentColor = False
     ParentFont = False
-  end
-  object Label1: TLabel
-    Left = 1624
-    Height = 17
-    Top = 72
-    Width = 39
-    Caption = 'Label1'
-    ParentColor = False
-    Visible = False
   end
   object Label3: TLabel
     Left = 8
@@ -713,28 +704,6 @@ object Form1: TForm1
       ParentColor = False
       ParentFont = False
     end
-  end
-  object Label121: TLabel
-    Left = 1624
-    Height = 17
-    Top = 30
-    Width = 167
-    Caption = 'Decoder Resolution:  200 Hz'
-    Font.Height = -13
-    Font.Name = 'Arial'
-    ParentColor = False
-    ParentFont = False
-  end
-  object Label122: TLabel
-    Left = 1624
-    Height = 17
-    Top = 8
-    Width = 159
-    Caption = 'RB QRG Not Synchronized'
-    Font.Height = -13
-    Font.Name = 'Arial'
-    ParentColor = False
-    ParentFont = False
   end
   object groupTXMode: TRadioGroup
     AnchorSideTop.Control = Panel1
@@ -1472,8 +1441,8 @@ object Form1: TForm1
     AnchorSideBottom.Control = Owner
     AnchorSideBottom.Side = asrBottom
     Left = 960
-    Height = 199
-    Top = 346
+    Height = 204
+    Top = 341
     Width = 0
     Anchors = [akTop, akLeft, akRight, akBottom]
     BorderSpacing.Top = 10

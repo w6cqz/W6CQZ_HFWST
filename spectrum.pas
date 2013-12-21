@@ -1,4 +1,4 @@
-// (c) 2013 CQZ Electronics
+// Copyright (c) 2008,2009,2010,2011,2012,2013,2014 J C Large - W6CQZ
 unit spectrum;
 {$mode objfpc}{$H+}
 

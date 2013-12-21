@@ -1,5 +1,10 @@
+// Copyright (c) 2008,2009,2010,2011,2012,2013,2014 J C Large - W6CQZ
 { TODO : Begin to graft sound output code in }
-{ TODO : Try placing connect to Rebel into thread so it doesn't block on startup }
+{ TODO : Serial PTT }
+{ TODO : "Classic" rig control }
+{ TODO : Workout how I'm going to handle disallowing TX at low audio DF for AFSK }
+{ TODO : Change error messages in logging from showmessage to something non-blocking }
+{ TODO : Try placing connect to Rebel into thread so it doesn't block on startup - can do, but it will be complicated }
 { TODO : Think about having RX move to keep passband centered for Rebel }
 { TODO : Fix text being white on white in some choices of decoder output coloring }
 { TODO : Add qrg edit/define }
@@ -7,11 +12,11 @@
 { TODO : Add back save receptions to CSV option }
 { TODO : Add worked call tracking taking into consideration call, band and grid. }
 { TODO : Have Rebel picture show TX during CW ID }
+{ TODO : Have changing Rebel T/RX offsets not reset message and working DF offsets - just be sure all things depending upon the offsets get updated proper }
 
 {
 (Far) Less urgent
 
-Have changing Rebel T/RX offsets not reset message and working DF offsets - just be sure all things depending upon the offsets get updated proper
 
 Slave RX320D control for my setup
 
@@ -23,30 +28,11 @@ JT9 support
 }
 
 {
-
 Moving RX to keep signal of interest in passband center... probably a good thing for the
 Rebel.  More complex to make happen than it seems at first glance as it impacts a lot of
 other things based on assumption RX doesn't move (often) but TX does.
-
---------------------
-
-Working out the whole TX/RX DF thing.
-
-The idea is that when picking a station your TX is matched (net) to the station you wish
-to work.  UNLESS you WANT to operate split.
-
-This applies to answering calls.
-
-When calling CQ your TX offset ***SHOULD*** be locked to your CQ frequency.
-
-So matching TX to RX position should be automatic when answering a CQ (this is usually
-done by double clicking a CQ line in decoder output) - **UNLESS** you don't want it to.  :)
-
-I've tried to rework this before but always get stuck.  So I'm making it a long term goal
-to figure out a better way.
-
 }
-// (c) 2013 CQZ Electronics
+
 unit Unit1;
 
 {$mode delphi}{$H+}
@@ -241,8 +227,6 @@ type
     version: TEdit;
     comboQRGList: TComboBox;
     GroupBox16: TGroupBox;
-    Label121: TLabel;
-    Label122: TLabel;
     Label24: TLabel;
     Label80: TLabel;
     Label81: TLabel;
@@ -328,7 +312,6 @@ type
     GroupBox6: TGroupBox;
     GroupBox7: TGroupBox;
     GroupBox8: TGroupBox;
-    Label1: TLabel;
     Label13: TLabel;
     Label15: TLabel;
     Label17: TLabel;
@@ -694,6 +677,7 @@ begin
      // Triggers for periodic actions
      if firstTick Then OncePerRuntime; // Reads config and sets everything up to run state.
      OncePerTick; // Code that executes every ~100 mS.
+     firstTick := False;
      if (thisUTC.Second = 0) and (lastSecond = 59) Then newMinute := True else newMinute := False;
      if newMinute Then OncePerMinute;
      if (thisSecond <> lastSecond) Then newSecond := True else newSecond := False;
@@ -720,7 +704,6 @@ Var
    lfile   : TextFile;
 Begin
      // This runs on first timer interrupt once per run session
-     timer1.Enabled:=False;
 
      //PVERSION = '0.941'; // Label20 is program name/version as in; HFWST by W6CQZ v0.941 - Phoenix
      //PRELEASE = 'Phoenix';
@@ -1026,6 +1009,8 @@ Begin
      savedIADC := query.FieldByName('iadc').AsInteger;
      savedTDAC := query.FieldByName('tdac').AsString;
      savedIDAC := query.FieldByName('idac').AsInteger;
+     i := savedIADC;
+     i := savedIDAC;
      cbUseMono.Checked       := query.FieldByName('mono').AsBoolean;
      rbUseLeftAudio.Checked  := query.FieldByName('left').AsBoolean;
      rbUseRightAudio.Checked := query.FieldByName('right').AsBoolean;
@@ -1415,11 +1400,9 @@ Begin
      d65.glnz := cbNZLPF.Checked;
      spectrum.specWindow := cbSpecWindow.Checked;
      readQRG   := True;
-     firstTick := False;
      if haveRebel Then noTXAudio := true else noTXAudio := False;
      Image3.Picture.LoadFromLazarusResource('rebel_blank');
      rebImage := 0;
-
 end;
 
 procedure TForm1.setupPA;
@@ -1515,7 +1498,6 @@ Begin
                     break;
                end;
           end;
-
           if (length(savedTADC) > 0) and (not found) Then
           begin
                // Didn't find input device at the saved index.  Looking for
@@ -1577,6 +1559,11 @@ Begin
                     inDev := -1;
                     savedIADC := inDev;
                end;
+          end
+          else if (length(savedTADC) > 0) and found Then
+          begin
+               // Yay!
+               foo := foo;
           end
           else
           begin
@@ -1666,6 +1653,11 @@ Begin
                     savedIADC := outDev;
                end;
           end
+          else if (length(savedTDAC) > 0) and found Then
+          begin
+               // Yay!
+               foo := foo;
+          end
           else
           begin
                // Likely a new setup fallback to default
@@ -1683,6 +1675,9 @@ Begin
 
           defI := portaudio.Pa_GetHostApiInfo(paDefApi)^.defaultInputDevice;
           defO := portaudio.Pa_GetHostApiInfo(paDefApi)^.defaultOutputDevice;
+
+          i := inDev;
+          i := outDev;
 
           ListBox2.Items.Insert(0,'Default in:  ' + IntToStr(defI) + '  Default out:  ' + IntToStr(defO));
 
@@ -2251,7 +2246,7 @@ Begin
      mval.forceDecimalAmer := False;
      mval.forceDecimalEuro := False;
      if mval.evalQRG(fs,'STRICT',ff,fi,fsc) Then qrgValid := True else qrgValid := False;
-     Label121.Caption := 'Decoder Resolution:  ' + IntToStr(d65.glbinspace) + ' Hz';
+     //Label121.Caption := 'Decoder Resolution:  ' + IntToStr(d65.glbinspace) + ' Hz';
      if d65.glRunCount < 1 Then
      Begin
           // Reject first decode cycle data.
@@ -2482,6 +2477,7 @@ Begin
           Label79.Caption := 'RX DF';
      end;
      if spinRXDF.Value = 0 Then bnZeroRXDF.Visible := False else bnZeroRXDF.Visible := True;
+
      if (not threadRigQSY) and threadRigResult and (length(threadDialQRG) > 0) Then
      Begin
           // Update QRG
@@ -2662,7 +2658,6 @@ Var
 Begin
      tspan := 0.0;
      ent := Now;
-
 
      if threadFSKPending Then hangtime := hangtime + MilliSecondSpan(threadEnter,now);
      if hangtime > 1000.0 Then
@@ -3444,7 +3439,7 @@ Var
   i : Integer;
 Begin
      for i := 0 to 1023 do psAcc[i] := 0.0;
-     pstick := 1;
+     pstick := 1; // Can't remember what this is for - figure it out and comment later.
      // Items that run once per minute at new minute start
      SetExceptionMask([exInvalidOp, exDenormalized, exZeroDivide, exOverflow, exUnderflow, exPrecision]);
      // RX to index = 0
@@ -7292,7 +7287,7 @@ begin
      lrun       := 0.0;
      d65.dmarun := 0.0;
      mval        := valobject.TValidator.create();
-     Label1.Caption := 'TX Level:  100%';
+     //Label1.Caption := 'TX Level:  100%';
      firstPass   := True;
      inSync      := False;
      paActive    := False;
