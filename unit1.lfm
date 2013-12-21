@@ -505,7 +505,7 @@ object Form1: TForm1
     ItemHeight = 26
     OnDblClick = lbDecodesDblClick
     OnDrawItem = lbDecodesDrawItem
-    OnMouseDown = lbDecodesMouseDown
+    OnSelectionChange = lbDecodesSelectionChange
     ParentShowHint = False
     ParentFont = False
     Style = lbOwnerDrawFixed
@@ -1626,7 +1626,7 @@ object Form1: TForm1
     ItemHeight = 26
     OnDblClick = lbFastDecodeDblClick
     OnDrawItem = lbFastDecodeDrawItem
-    OnMouseDown = lbDecodesMouseDown
+    OnSelectionChange = lbFastDecodeSelectionChange
     ParentFont = False
     Style = lbOwnerDrawFixed
     TabOrder = 19

@@ -6,7 +6,6 @@
 { TODO : Change error messages in logging from showmessage to something non-blocking }
 { TODO : Try placing connect to Rebel into thread so it doesn't block on startup - can do, but it will be complicated }
 { TODO : Think about having RX move to keep passband centered for Rebel }
-{ TODO : Fix text being white on white in some choices of decoder output coloring }
 { TODO : Add qrg edit/define }
 { TODO : Enhance macro editor }
 { TODO : Add back save receptions to CSV option }
@@ -46,7 +45,7 @@ uses
   spot, BufDataset, sqlite3conn, sqldb, valobject, rebel, d65, LResources, Spin,
   blcksock, gettext, dateutils;
 Const
-  PVERSION = '0.95'; // Label20 is program name/version as in; HFWST by W6CQZ v0.94 - Phoenix
+  PVERSION = '0.96'; // Label20 is program name/version as in; HFWST by W6CQZ v0.94 - Phoenix
   PRELEASE = 'Phoenix';
 
   JT_DLL = 'JT65v392.dll';
@@ -393,11 +392,11 @@ type
     procedure edTXtoCallDblClick(Sender: TObject);
     procedure Label19DblClick(Sender: TObject);
     procedure Label79DblClick(Sender: TObject);
-    procedure lbDecodesMouseDown(Sender: TObject; Button: TMouseButton;
-      Shift: TShiftState; X, Y: Integer);
+    procedure lbDecodesSelectionChange(Sender: TObject; User: boolean);
     procedure lbFastDecodeDblClick(Sender: TObject);
     procedure lbFastDecodeDrawItem(Control: TWinControl; Index: Integer;
       ARect: TRect; State: TOwnerDrawState);
+    procedure lbFastDecodeSelectionChange(Sender: TObject; User: boolean);
     procedure LogQSOClick(Sender: TObject);
     procedure Memo2DblClick(Sender: TObject);
     procedure edTXMsgDblClick(Sender: TObject);
@@ -2179,10 +2178,6 @@ var
    ff,dta  : Double;
    adjtime : Boolean;
 Begin
-     // May not keep next two if it's heavy on time...
-     lbDecodes.Refresh;
-     lbFastDecode.Refresh;
-
      if threadFSKPending Then
      Begin
           if rebImage <> 1 Then
@@ -6366,46 +6361,51 @@ begin
      spinRXDF.Value := 0;
 end;
 
-procedure TForm1.lbDecodesMouseDown(Sender: TObject; Button: TMouseButton;
-  Shift: TShiftState; X, Y: Integer);
-Var
-   MousePos      : TPoint;
-   OverItemIndex : integer;
-   itemsIn       : Boolean;
+//procedure TForm1.lbDecodesMouseDown(Sender: TObject; Button: TMouseButton;
+//  Shift: TShiftState; X, Y: Integer);
+//Var
+//   MousePos      : TPoint;
+//   OverItemIndex : integer;
+//   itemsIn       : Boolean;
+//begin
+//     itemsIn := False;
+//     if (sender = lbDecodes) and (lbDecodes.Items.Count > 0) then itemsIn := True;
+//     if (sender = lbFastDecode) and (lbFastDecode.Items.Count > 0) then itemsIn := True;
+//     MousePos.x := X;
+//     MousePos.y := Y;
+//     if (Button = mbRight) And itemsIn then
+//     begin
+//          if Sender = lbDecodes Then
+//          Begin
+//               OverItemIndex := lbDecodes.ItemAtPos(MousePos,True);
+//               If OverItemIndex > -1 Then lbDecodes.ItemIndex:=OverItemIndex;
+//               If OverItemIndex > -1 Then Clipboard.AsText := lbDecodes.Items[OverItemIndex];
+//          end
+//          else if Sender = lbFastDecode Then
+//          Begin
+//               OverItemIndex := lbFastDecode.ItemAtPos(MousePos,True);
+//               If OverItemIndex > -1 Then lbFastDecode.ItemIndex:=OverItemIndex;
+//               If OverItemIndex > -1 Then Clipboard.AsText := lbFastDecode.Items[OverItemIndex];
+//          end;
+//     end
+//     else if (Button = mbLeft) And itemsIn then
+//     Begin
+//           Maybe can use this to work out the highlight issue?  Worth a shot.
+//          If Sender = lbDecodes Then
+//          Begin
+//
+//          end
+//          else if Sender = lbFastDecode
+//          Then
+//          Begin
+//
+//          end;
+//     end;
+//end;
+
+procedure TForm1.lbDecodesSelectionChange(Sender: TObject; User: boolean);
 begin
-     itemsIn := False;
-     if (sender = lbDecodes) and (lbDecodes.Items.Count > 0) then itemsIn := True;
-     if (sender = lbFastDecode) and (lbFastDecode.Items.Count > 0) then itemsIn := True;
-     MousePos.x := X;
-     MousePos.y := Y;
-     if (Button = mbRight) And itemsIn then
-     begin
-          if Sender = lbDecodes Then
-          Begin
-               OverItemIndex := lbDecodes.ItemAtPos(MousePos,True);
-               If OverItemIndex > -1 Then lbDecodes.ItemIndex:=OverItemIndex;
-               //If OverItemIndex > -1 Then Clipboard.AsText := lbDecodes.Items[OverItemIndex];
-          end
-          else if Sender = lbFastDecode Then
-          Begin
-               OverItemIndex := lbFastDecode.ItemAtPos(MousePos,True);
-               If OverItemIndex > -1 Then lbFastDecode.ItemIndex:=OverItemIndex;
-               //If OverItemIndex > -1 Then Clipboard.AsText := lbFastDecode.Items[OverItemIndex];
-          end;
-     end
-     else if (Button = mbLeft) And itemsIn then
-     Begin
-          // Maybe can use this to work out the highlight issue?  Worth a shot.
-          If Sender = lbDecodes Then
-          Begin
-
-          end
-          else if Sender = lbFastDecode
-          Then
-          Begin
-
-          end;
-     end;
+     lbDecodes.Invalidate;
 end;
 
 procedure TForm1.lbFastDecodeDblClick(Sender: TObject);
@@ -6525,7 +6525,7 @@ Var
 begin
      // Kills a compiler warn that bugs me.
      if state = [odSelected] Then foo := '' else foo := '';
-     if lbDecodes.ItemIndex = Index Then lineSel := True else lineSel := False;
+     if lbFastDecode.ItemIndex = Index Then lineSel := True else lineSel := False;
      lineCQ := False;
      lineMyCall := False;
      if Index > -1 Then
@@ -6586,6 +6586,11 @@ begin
                MyBrush.Free;
           end;
      end;
+end;
+
+procedure TForm1.lbFastDecodeSelectionChange(Sender: TObject; User: boolean);
+begin
+     lbFastDecode.Invalidate;
 end;
 
 procedure TForm1.LogQSOClick(Sender: TObject);
