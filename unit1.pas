@@ -116,25 +116,27 @@ type
     cbCATTXDF: TCheckBox;
     cbCATRXDF: TCheckBox;
     cbSmartCWID: TCheckBox;
+    cbSerialDTR: TCheckBox;
+    cbSerialRTS: TCheckBox;
     comboAudioOut: TComboBox;
+    edPort: TEdit;
     edRebRXOffset40: TEdit;
     edRebTXOffset40: TEdit;
-    gbRebel: TGroupBox;
     groupTXDF: TGroupBox;
     groupRXMode: TRadioGroup;
     Image2: TImage;
     Image3: TImage;
+    Label1: TLabel;
     Label108: TLabel;
     Label109: TLabel;
-    Label11: TLabel;
-    Label14: TLabel;
     Label16: TLabel;
-    Label18: TLabel;
+    Label37: TLabel;
     Label44: TLabel;
     Label45: TLabel;
     Label46: TLabel;
     Label47: TLabel;
     Label48: TLabel;
+    Label49: TLabel;
     lbFastDecode: TListBox;
     logExternal: TButton;
     logClearComments: TButton;
@@ -155,7 +157,6 @@ type
     Label12: TLabel;
     Label22: TLabel;
     Label25: TLabel;
-    Label37: TLabel;
     Label55: TLabel;
     Label56: TLabel;
     Label57: TLabel;
@@ -169,13 +170,14 @@ type
     Label65: TLabel;
     PaintBox1: TPaintBox;
     ProgressBar1: TProgressBar;
+    rbRebBaud115200: TRadioButton;
+    rbRebBaud9600: TRadioButton;
+    rigOther: TRadioButton;
     rbMode10: TRadioButton;
     rbMode5: TRadioButton;
     rbMode66: TRadioButton;
     rbModeP1: TRadioButton;
     rbModeR1: TRadioButton;
-    rbRebBaud9600: TRadioButton;
-    rbRebBaud115200: TRadioButton;
     rigCommander: TRadioButton;
     spinRXDF: TSpinEdit;
     spinTXDF: TSpinEdit;
@@ -273,7 +275,6 @@ type
     edRBCall: TEdit;
     edStationInfo: TEdit;
     edTXWD: TEdit;
-    edPort: TEdit;
     edPrefix: TEdit;
     edCall: TEdit;
     edSuffix: TEdit;
@@ -392,6 +393,8 @@ type
     procedure edTXtoCallDblClick(Sender: TObject);
     procedure Label19DblClick(Sender: TObject);
     procedure Label79DblClick(Sender: TObject);
+    procedure lbDecodesMouseDown(Sender: TObject; Button: TMouseButton;
+      Shift: TShiftState; X, Y: Integer);
     procedure lbFastDecodeDblClick(Sender: TObject);
     procedure lbFastDecodeDrawItem(Control: TWinControl; Index: Integer;
       ARect: TRect; State: TOwnerDrawState);
@@ -1921,9 +1924,9 @@ Begin
                     r := False;
                end;
           end;
-          Label11.Caption := 'DDS Type:  ' + clRebel.ddsVer;
-          Label14.Caption := 'DDS Ref:  ' + IntToStr(clRebel.ddsRef);
-          Label18.Caption := 'Firmware:  ' + clRebel.rebVer;
+          //Label11.Caption := 'DDS Type:  ' + clRebel.ddsVer;
+          //Label14.Caption := 'DDS Ref:  ' + IntToStr(clRebel.ddsRef);
+          //Label18.Caption := 'Firmware:  ' + clRebel.rebVer;
      end;
 
      if r Then
@@ -2176,6 +2179,10 @@ var
    ff,dta  : Double;
    adjtime : Boolean;
 Begin
+     // May not keep next two if it's heavy on time...
+     lbDecodes.Refresh;
+     lbFastDecode.Refresh;
+
      if threadFSKPending Then
      Begin
           if rebImage <> 1 Then
@@ -3425,7 +3432,7 @@ Begin
           tbSingleBin.Visible := True;
      end;
 
-     if haveRebel then gbRebel.Visible := True else gbRebel.Visible := False;
+     //if haveRebel then gbRebel.Visible := True else gbRebel.Visible := False;
 
      exi := Now;
      tspan := MilliSecondSpan(ent,exi);
@@ -5111,16 +5118,17 @@ end;
 
 procedure TForm1.lbDecodesDrawItem(Control: TWinControl; Index: Integer; ARect: TRect; State: TOwnerDrawState);
 Var
-   myColor            : TColor;
-   myBrush            : TBrush;
-   lineCQ, lineMyCall : Boolean;
-   lineWarn           : Boolean;
-   foo                : String;
+   myColor           : TColor;
+   myBrush           : TBrush;
+   lineCQ,lineMyCall : Boolean;
+   lineWarn,lineSel  : Boolean;
+   foo               : String;
 begin
-     if state = [odSelected] Then
-     Begin
-          // Do nothing - kills a compiler warn that bugs me.
-     end;
+     // Do nothing - kills a compiler warn that bugs me.
+     if state = [odSelected] Then foo := '';
+
+     if lbDecodes.ItemIndex = Index Then lineSel := True else lineSel := False;
+
      lineCQ := False;
      lineMyCall := False;
      if Index > -1 Then
@@ -5168,6 +5176,10 @@ begin
                     if lineCQ Then myColor := glCQColor;
                     if lineMyCall Then myColor := glMyColor;
                     if lineWarn then myColor := clRed;
+                    if lineSel then myColor := clHighlight;
+                    //clHighlight               = TColor(SYS_COLOR_BASE or COLOR_HIGHLIGHT);
+                    //clHighlightText           = TColor(SYS_COLOR_BASE or COLOR_HIGHLIGHTTEXT);
+
                end
                else
                begin
@@ -6354,6 +6366,48 @@ begin
      spinRXDF.Value := 0;
 end;
 
+procedure TForm1.lbDecodesMouseDown(Sender: TObject; Button: TMouseButton;
+  Shift: TShiftState; X, Y: Integer);
+Var
+   MousePos      : TPoint;
+   OverItemIndex : integer;
+   itemsIn       : Boolean;
+begin
+     itemsIn := False;
+     if (sender = lbDecodes) and (lbDecodes.Items.Count > 0) then itemsIn := True;
+     if (sender = lbFastDecode) and (lbFastDecode.Items.Count > 0) then itemsIn := True;
+     MousePos.x := X;
+     MousePos.y := Y;
+     if (Button = mbRight) And itemsIn then
+     begin
+          if Sender = lbDecodes Then
+          Begin
+               OverItemIndex := lbDecodes.ItemAtPos(MousePos,True);
+               If OverItemIndex > -1 Then lbDecodes.ItemIndex:=OverItemIndex;
+               //If OverItemIndex > -1 Then Clipboard.AsText := lbDecodes.Items[OverItemIndex];
+          end
+          else if Sender = lbFastDecode Then
+          Begin
+               OverItemIndex := lbFastDecode.ItemAtPos(MousePos,True);
+               If OverItemIndex > -1 Then lbFastDecode.ItemIndex:=OverItemIndex;
+               //If OverItemIndex > -1 Then Clipboard.AsText := lbFastDecode.Items[OverItemIndex];
+          end;
+     end
+     else if (Button = mbLeft) And itemsIn then
+     Begin
+          // Maybe can use this to work out the highlight issue?  Worth a shot.
+          If Sender = lbDecodes Then
+          Begin
+
+          end
+          else if Sender = lbFastDecode
+          Then
+          Begin
+
+          end;
+     end;
+end;
+
 procedure TForm1.lbFastDecodeDblClick(Sender: TObject);
 Var
   foo,ldate : String;
@@ -6465,14 +6519,13 @@ procedure TForm1.lbFastDecodeDrawItem(Control: TWinControl; Index: Integer;
 Var
    myColor            : TColor;
    myBrush            : TBrush;
-   lineCQ, lineMyCall : Boolean;
-   lineWarn           : Boolean;
+   lineCQ,lineMyCall  : Boolean;
+   lineWarn,lineSel   : Boolean;
    foo                : String;
 begin
-     if state = [odSelected] Then
-     Begin
-          // Do nothing - kills a compiler warn that bugs me.
-     end;
+     // Kills a compiler warn that bugs me.
+     if state = [odSelected] Then foo := '' else foo := '';
+     if lbDecodes.ItemIndex = Index Then lineSel := True else lineSel := False;
      lineCQ := False;
      lineMyCall := False;
      if Index > -1 Then
@@ -6519,6 +6572,7 @@ begin
                     if lineCQ Then myColor := glCQColor;
                     if lineMyCall Then myColor := glMyColor;
                     if lineWarn then myColor := clRed;
+                    if lineSel then myColor := clHighlight;
                end
                else
                begin
