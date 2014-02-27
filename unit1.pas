@@ -1,35 +1,30 @@
 // Copyright (c) 2008,2009,2010,2011,2012,2013,2014 J C Large - W6CQZ
-{ TODO : Begin to graft sound output code in }
+{ TODO : Fix decimal issue as illustrated by DL3LST report }
+{ TODO : Parse CQDX VALID_CALL, CQ DX VALID_CALL, CQ VALID_CALL DX
+{ TODO : Handle something like CALL QRZ (no grid) where call is not slashed leading to V1 style slashed call messages }
 { TODO : Serial PTT }
+{ TODO : Begin to graft sound output code in and implement the TX level control element }
 { TODO : "Classic" rig control }
 { TODO : Workout how I'm going to handle disallowing TX at low audio DF for AFSK }
-{ TODO : Change error messages in logging from showmessage to something non-blocking }
-{ TODO : Try placing connect to Rebel into thread so it doesn't block on startup - can do, but it will be complicated }
 { TODO : Think about having RX move to keep passband centered for Rebel }
 { TODO : Add qrg edit/define }
 { TODO : Enhance macro editor }
+{ TODO : Change error messages in logging from showmessage to something non-blocking }
 { TODO : Add back save receptions to CSV option }
-{ TODO : Add worked call tracking taking into consideration call, band and grid. }
 { TODO : Have Rebel picture show TX during CW ID }
+{ TODO : Try placing connect to Rebel into thread so it doesn't block on startup - can do, but it will be complicated }
 { TODO : Have changing Rebel T/RX offsets not reset message and working DF offsets - just be sure all things depending upon the offsets get updated proper }
+{ TODO : Add worked call tracking taking into consideration call, band and grid. }
 
 {
 (Far) Less urgent
-
 
 Slave RX320D control for my setup
 
 JT65V2 support
 
-
 JT9 support
 
-}
-
-{
-Moving RX to keep signal of interest in passband center... probably a good thing for the
-Rebel.  More complex to make happen than it seems at first glance as it impacts a lot of
-other things based on assumption RX doesn't move (often) but TX does.
 }
 
 unit Unit1;
@@ -1131,7 +1126,7 @@ Begin
           if not fileExists(cfgPath + 'wisdom3' + IntToStr(instance) + '.dat') Then
           Begin
                inIcal := 21;
-               ShowMessage('First decode cycle will be delayed and will fail to decode - computing optimal FFT values. A one time thing!');
+               ShowMessage('First decode cycle will be delayed for computing optimal FFT values. A one time thing.');
           end
           else
           begin
@@ -1519,7 +1514,7 @@ Begin
                if j = 0 Then
                Begin
                     // It's not there - warn and fall back to default device
-                    ShowMessage('The audio in device used and saved in last session' + sLineBreak + 'is no longer present.  Using default input!');
+                    ShowMessage('The audio input device used and saved in last session' + sLineBreak + 'is no longer present.  Using default input!');
                     foo := IntToStr(portaudio.Pa_GetHostApiInfo(paDefApi)^.defaultInputDevice);
                     if length(foo)=1 then foo := '0'+foo;
                     for i := 0 to comboAudioIn.Items.Count -1 do
@@ -1543,13 +1538,13 @@ Begin
                     foo := comboAudioIn.Items.Strings[i][1..2];
                     if tryStrToInt(foo,i) then inDev := i else inDev := -1;
                     savedIADC := inDev;
-                    ShowMessage('The audio in device used and saved in last session' + sLineBreak + 'has changed to a new index.  Please CONFIRM' + sLineBreak + 'the device is correct in setup!');
+                    ShowMessage('The audio input device used and saved in last session' + sLineBreak + 'has changed to a new index.  Please CONFIRM' + sLineBreak + 'the device is correct in setup!');
                end
                else
                begin
                     // No way to know which is correct since multiple devices
                     // present same name.  Warn and fall back to default.
-                    ShowMessage('The audio in device used and saved in last session' + sLineBreak + 'has changed to a new index but multiple devices' + sLineBreak + 'exist.' + sLineBreak + sLineBreak + 'Using default input!' + sLineBreak + sLineBreak + 'Please manually correct in setup!');
+                    ShowMessage('The audio input device used and saved in last session' + sLineBreak + 'has changed to a new index but multiple devices' + sLineBreak + 'exist.' + sLineBreak + sLineBreak + 'Using default input!' + sLineBreak + sLineBreak + 'Please manually correct in setup!');
                     foo := IntToStr(portaudio.Pa_GetHostApiInfo(paDefApi)^.defaultInputDevice);
                     if length(foo)=1 then foo := '0'+foo;
                     for i := 0 to comboAudioIn.Items.Count -1 do
@@ -1612,7 +1607,7 @@ Begin
                if j = 0 Then
                Begin
                     // It's not there - warn and fall back to default device
-                    ShowMessage('The audio out device used and saved in last session' + sLineBreak + 'is no longer present.  Using default input!');
+                    ShowMessage('The audio output device used and saved in last session' + sLineBreak + 'is no longer present.  Using default output!');
                     foo := IntToStr(portaudio.Pa_GetHostApiInfo(paDefApi)^.defaultOutputDevice);
                     if length(foo)=1 then foo := '0'+foo;
                     for i := 0 to comboAudioOut.Items.Count -1 do
@@ -1636,13 +1631,13 @@ Begin
                     foo := comboAudioOut.Items.Strings[i][1..2];
                     if tryStrToInt(foo,i) then outDev := i else outDev := -1;
                     savedIDAC := outDev;
-                    ShowMessage('The audio out device used and saved in last session' + sLineBreak + 'has changed to a new index.  Please CONFIRM' + sLineBreak + 'the device is correct in setup!');
+                    ShowMessage('The audio output device used and saved in last session' + sLineBreak + 'has changed to a new index.  Please CONFIRM' + sLineBreak + 'the device is correct in setup!');
                end
                else
                begin
                     // Now way to know which is correct since multiple devices
                     // present same name.  Warn and fall back to default.
-                    ShowMessage('The audio out device used and saved in last session' + sLineBreak + 'has changed to a new index but multiple devices' + sLineBreak + 'exist.' + sLineBreak + sLineBreak + 'Using default input!' + sLineBreak + sLineBreak + 'Please manually correct in setup!');
+                    ShowMessage('The audio output device used and saved in last session' + sLineBreak + 'has changed to a new index but multiple devices' + sLineBreak + 'exist.' + sLineBreak + sLineBreak + 'Using default output!' + sLineBreak + sLineBreak + 'Please manually correct in setup!');
                     foo := IntToStr(portaudio.Pa_GetHostApiInfo(paDefApi)^.defaultOutputDevice);
                     if length(foo)=1 then foo := '0'+foo;
                     for i := 0 to comboAudioOut.Items.Count -1 do
@@ -2662,9 +2657,10 @@ Begin
      ent := Now;
 
      if threadFSKPending Then hangtime := hangtime + MilliSecondSpan(threadEnter,now);
-     if hangtime > 1000.0 Then
+     if hangtime > 5000.0 Then
      Begin
-          showmessage('Error - FSK uploader is stuck > 800 ms');
+          showmessage('Error - FSK uploader is stuck' + sLineBreak + 'Please notify w6cqz@w6cqz.org with this error' + sLineBreak + sLineBreak + 'You must now restart HFWST');
+          halt;
      end
      else
      begin
@@ -2761,7 +2757,7 @@ Begin
 
      exi := Now;
      tspan := MilliSecondSpan(ent,exi);
-     if tspan > 95.0 Then Memo2.Append('Once per tick time:  ' + FormatFloat('00',tspan) + ' ms');
+     if tspan > 150.0 Then Memo2.Append('Once per tick time:  ' + FormatFloat('00',tspan) + ' ms');
 end;
 
 procedure TForm1.OncePerSecond;
@@ -3431,7 +3427,7 @@ Begin
 
      exi := Now;
      tspan := MilliSecondSpan(ent,exi);
-     if tspan > 95.0 Then Memo2.Append('Once per second time:  ' + FormatFloat('00',tspan) + ' ms');
+     if tspan > 150.0 Then Memo2.Append('Once per second time:  ' + FormatFloat('00',tspan) + ' ms');
      // Checks for TX count of same message
      if (thisSecond=55) and (lastSecond=54) Then txWatch;
 end;
@@ -5729,7 +5725,6 @@ Var
    //itone9        : Array[0..84] Of CTypes.cint;
    //itone9fsk     : Array[0..84] Of CTypes.cdouble;
    //itone9dds     : Array[0..84] Of CTypes.cuint;
-   //afsk          : CTypes.cint16;
    sm,ft,doit,cw : Boolean;
    baseTX,f,f0   : CTypes.cdouble;
    phi,dphi      : CTypes.cdouble;
@@ -6006,7 +6001,9 @@ begin
                     for j := 0 to 4095 do
                     begin
                          phi  := phi+dphi;
-                         d65txBuffer[k] := Round(512.0 * sin(phi)); // 32767 WILL be replaced by a variable to control peak level
+                         //d65txBuffer[k] := Round(512.0 * sin(phi));
+                         { TODO : Mutes AFSK TX }
+                         d65txBuffer[k] := 0;
                          inc(k);
                     end;
                end;
@@ -6084,13 +6081,13 @@ begin
 
      if not isV1Call(myscall) Then
      Begin
-          ShowMessage('Setup your Call to a valid setting.');
+          ShowMessage('Set your Callsign to a valid setting.');
           thisTXMsg := '';
           edTXMsg.Text :='';
      end
      else if not isGrid(getLocalGrid) Then
      Begin
-          ShowMessage('Setup your Grid to a valid setting.');
+          ShowMessage('Set your Grid to a valid setting.');
           thisTXMsg := '';
           edTXMsg.Text :='';
      end
@@ -6320,7 +6317,7 @@ begin
           Begin
                if (isFText(thisTXmsg) or isSText(thisTXmsg)) Then genTX(thisTXmsg, spinTXDF.Value) else thisTXmsg := '';
                edTXMsg.Text := thisTXmsg; // this double checks for valid message.
-               if thisTXMsg = '' Then ShowMessage('Error.. odd... no message from a button?  Please notifty W6CQZ w6cqz@w6cqz.org');
+               if thisTXMsg = '' Then ShowMessage('Error.  No message from a button?  Please notifty W6CQZ w6cqz@w6cqz.org');
           end;
      end;
 end;
@@ -6809,6 +6806,7 @@ begin
           else
           begin
                // A required field is invalid
+               {TODO : Handle this without a showmessage }
                ShowMessage(err);
           end;
      end;
@@ -6838,6 +6836,7 @@ Var
    iadcText  : String;
    idacText  : String;
 begin
+     { TODO : Have this apply output device settings! }
      // Handle change to and saving of audio device setting
      If Sender = comboAudioIn Then
      Begin
